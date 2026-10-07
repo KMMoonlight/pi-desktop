@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepSeek Harness desktop composition: design system specimen</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #141414;
+      --panel: #343a43;
+      --panel-strong: #40454d;
+      --ink: #f9fafb;
+      --accent: #7a9cec;
+      --dark: #f9fafb;
+      --success: #1f8a65;
+      --danger: #cf2d56;
+      --warning: #c98b2f;
+      --blue: #6f8fc9;
+      --on-accent: #14120b;
+      --muted: color-mix(in oklab, var(--ink) 56%, transparent);
+      --faint: color-mix(in oklab, var(--ink) 36%, transparent);
+      --hairline: color-mix(in oklab, var(--ink) 11%, transparent);
+      --hairline-strong: color-mix(in oklab, var(--ink) 19%, transparent);
+      --page: 1180px;
+      --gutter: 28px;
+      --radius-card: 4px;
+      --radius-action: 999px;
+      --sans: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--paper); color: var(--ink); scroll-padding-top: 58px; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 14px/1.5 var(--sans); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    button, input { font: inherit; }
+    a { color: inherit; }
+    h1, h2, h3, p, ul, pre { margin-top: 0; }
+    h1, h2, h3, strong { font-weight: 500; }
+    code { font-family: var(--mono); font-size: .83em; overflow-wrap: anywhere; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    .skip-link { position: fixed; z-index: 30; top: 8px; left: 8px; padding: 8px 12px; background: var(--dark); color: var(--paper); transform: translateY(-160%); }
+    .skip-link:focus { transform: translateY(0); }
+    .topbar { position: sticky; z-index: 20; top: 0; height: 50px; border-bottom: 1px solid var(--hairline); background: var(--paper); }
+    .topbar-inner { width: min(100%, var(--page)); height: 100%; margin: auto; padding-inline: var(--gutter); display: flex; align-items: center; gap: 32px; min-width: 0; }
+    .wordmark { flex: 0 0 auto; font: 600 12px/1 var(--mono); letter-spacing: -.02em; }
+    .wordmark span { color: var(--muted); font-weight: 400; }
+    .topnav { display: flex; gap: 24px; margin-left: auto; overflow-x: auto; scrollbar-width: none; white-space: nowrap; color: var(--muted); font-size: 11px; }
+    .topnav::-webkit-scrollbar { display: none; }
+    .topnav a { min-height: 40px; display: inline-flex; align-items: center; text-decoration: none; }
+    .topnav a:hover { color: var(--ink); }
+
+    main[data-ai-reference="true"] { min-width: 0; }
+    .wrap { width: min(100%, var(--page)); margin-inline: auto; min-width: 0; }
+    .hero { padding: 82px var(--gutter) 72px; }
+    .hero h1 { max-width: 900px; margin-bottom: 16px; font-size: clamp(40px, 5.2vw, 66px); line-height: .98; letter-spacing: -.042em; text-wrap: balance; }
+    .hero-copy { max-width: 78ch; color: var(--muted); font-size: 15px; text-wrap: pretty; }
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+    .hero-meta span { padding: 6px 10px; border: 1px solid var(--hairline); border-radius: var(--radius-action); color: var(--muted); font: 10px/1.2 var(--mono); }
+
+    .spec-section { padding: 68px var(--gutter) 80px; border-top: 1px solid var(--hairline); scroll-margin-top: 49px; }
+    .section-intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 430px); gap: 60px; align-items: end; margin-bottom: 36px; }
+    .eyebrow { margin-bottom: 14px; color: var(--faint); font: 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .section-intro h2 { margin-bottom: 0; font-size: clamp(28px, 3vw, 42px); line-height: 1.03; letter-spacing: -.032em; text-wrap: balance; }
+    .section-intro > p { margin-bottom: 0; color: var(--muted); text-wrap: pretty; }
+    .subhead { margin: 34px 0 14px; color: var(--faint); font: 10px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+
+    .token-group + .token-group { margin-top: 30px; }
+    .token-group h3 { margin-bottom: 13px; color: var(--faint); font: 10px/1 var(--mono); letter-spacing: .07em; text-transform: uppercase; }
+    .token-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .token-card { min-width: 0; border: 1px solid var(--hairline); border-radius: var(--radius-card); overflow: hidden; background: var(--paper); }
+    .token-swatch { height: 96px; background: var(--token-color); border-bottom: 1px solid var(--hairline); }
+    .token-card[data-value-state="unresolved"] .token-swatch { background: repeating-linear-gradient(135deg, var(--panel), var(--panel) 9px, var(--paper) 9px, var(--paper) 18px); }
+    .token-copy { padding: 12px; }
+    .token-copy strong, .token-copy code { display: block; }
+    .token-copy strong { font-size: 11px; }
+    .token-copy code { margin-top: 4px; color: var(--muted); }
+    .token-copy p { min-height: 34px; margin: 13px 0 0; color: var(--muted); font-size: 10px; line-height: 1.35; }
+
+    .type-list { border-top: 1px solid var(--hairline); }
+    .type-specimen { display: grid; grid-template-columns: 190px minmax(0, 1fr) 220px; gap: 30px; align-items: center; min-width: 0; padding: 20px 0; border-bottom: 1px solid var(--hairline); }
+    .type-specimen > div span, .type-specimen > div code { display: block; }
+    .type-specimen > div span { color: var(--faint); font: 9px/1 var(--mono); text-transform: uppercase; }
+    .type-specimen > div code { margin-top: 7px; color: var(--muted); }
+    .type-specimen > p { margin: 0; font-size: var(--sample-size); line-height: 1.04; letter-spacing: -.022em; overflow-wrap: anywhere; }
+    .type-specimen > small { color: var(--muted); font-size: 10px; }
+
+    .sample-panel { padding: 20px; border: 1px solid var(--hairline); border-radius: var(--radius-card); background: var(--panel); }
+    .button-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .button-sample { min-height: 122px; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; padding: 18px; border: 1px solid var(--hairline); border-radius: var(--radius-card); background: var(--paper); }
+    .button-sample > span { color: var(--faint); font: 9px/1 var(--mono); text-transform: uppercase; }
+    .btn { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 9px 18px; border: 0; border-radius: var(--radius-action); cursor: default; }
+    .btn-primary { background: var(--dark); color: var(--paper); }
+    .btn-accent { background: var(--accent); color: var(--on-accent); }
+    .btn-secondary { background: var(--panel-strong); color: var(--ink); }
+    .btn-outline { border: 1px solid var(--hairline-strong); background: transparent; color: var(--ink); }
+    .btn-small { min-height: 30px; padding: 5px 11px; background: var(--dark); color: var(--paper); font-size: 12px; }
+
+    .pill-cloud { display: flex; flex-wrap: wrap; gap: 10px; padding: 20px; border: 1px solid var(--hairline); border-radius: var(--radius-card); background: var(--paper); }
+    .pill { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; padding: 5px 11px; border-radius: var(--radius-action); font: 11px/1 var(--mono); }
+    .pill::before { width: 7px; height: 7px; border-radius: 50%; background: currentColor; content: ""; }
+    .pill-orange { color: var(--accent); background: color-mix(in oklab, var(--accent) 16%, var(--paper)); }
+    .pill-green { color: var(--success); background: color-mix(in oklab, var(--success) 15%, var(--paper)); }
+    .pill-blue { color: var(--blue); background: color-mix(in oklab, var(--blue) 18%, var(--paper)); }
+    .pill-red { color: var(--danger); background: color-mix(in oklab, var(--danger) 14%, var(--paper)); }
+    .pill-amber { color: var(--warning); background: color-mix(in oklab, var(--warning) 16%, var(--paper)); }
+
+    .depth-grid, .surface-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .depth-card, .surface-card { min-height: 128px; padding: 18px; border-radius: var(--radius-card); background: var(--paper); }
+    .depth-card strong, .surface-card strong { display: block; margin-bottom: 8px; }
+    .depth-card p, .surface-card p { margin: 0; color: var(--muted); font-size: 11px; }
+    .depth-flat { background: var(--panel); }
+    .depth-hairline { border: 1px solid var(--hairline-strong); }
+    .depth-raised { box-shadow: 0 1px 3px color-mix(in oklab, var(--ink) 18%, transparent), 0 8px 24px color-mix(in oklab, var(--ink) 7%, transparent); }
+
+    .code-shell { overflow: hidden; border: 1px solid var(--hairline); border-radius: var(--radius-card); background: var(--paper); }
+    .code-head { padding: 10px 14px; border-bottom: 1px solid var(--hairline); color: var(--faint); font: 10px/1 var(--mono); }
+    pre { margin: 0; padding: 20px; overflow-x: auto; color: var(--ink); font: 12px/1.65 var(--mono); tab-size: 2; }
+    .syntax-selector { color: var(--danger); }
+    .syntax-property { color: var(--blue); }
+    .syntax-value { color: var(--accent); }
+    .syntax-function { color: var(--success); }
+
+    .plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .plan { min-height: 270px; display: grid; grid-template-rows: auto auto 1fr auto; padding: 20px; border: 1px solid var(--hairline); border-radius: var(--radius-card); background: var(--paper); }
+    .plan.featured { background: var(--dark); color: var(--paper); }
+    .plan > span { color: currentColor; font: 10px/1 var(--mono); text-transform: uppercase; opacity: .62; }
+    .plan h3 { margin: 22px 0 16px; font-size: 42px; line-height: 1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+    .plan h3 small { font-size: 11px; letter-spacing: 0; opacity: .62; }
+    .plan ul { display: grid; align-content: start; gap: 7px; margin: 0 0 24px; padding: 0; list-style: none; color: currentColor; font-size: 11px; opacity: .72; }
+    .plan .btn { width: 100%; }
+    .plan.featured .btn { background: var(--accent); color: var(--on-accent); }
+
+    .input-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    .field { display: grid; gap: 7px; }
+    .field span { color: var(--faint); font: 9px/1 var(--mono); text-transform: uppercase; }
+    .field input { width: 100%; height: 38px; min-width: 0; padding: 8px 10px; border: 1px solid var(--hairline-strong); border-radius: 3px; background: var(--paper); color: var(--ink); }
+    .field input[disabled] { background: var(--panel); color: var(--faint); }
+
+    .inventory-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .inventory-card { min-width: 0; padding: 18px; border: 1px solid var(--hairline); border-radius: var(--radius-card); background: var(--paper); }
+    .inventory-card > span { color: var(--faint); font: 9px/1 var(--mono); text-transform: uppercase; }
+    .inventory-card > p { margin: 16px 0 0; }
+    .inventory-card ul { margin: 12px 0 0; padding-left: 16px; color: var(--muted); font-size: 10px; }
+
+    .measure-list { display: grid; gap: 13px; padding: 22px; border: 1px solid var(--hairline); border-radius: var(--radius-card); background: var(--paper); }
+    .measure { display: grid; grid-template-columns: 200px 56px; gap: 15px; align-items: center; }
+    .measure span { height: 9px; background: var(--ink); }
+    .measure code { color: var(--muted); }
+    .radius-grid { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+    .radius-sample { display: grid; gap: 11px; justify-items: center; }
+    .radius-sample div { width: 76px; height: 58px; border: 1px solid var(--hairline-strong); background: var(--panel); }
+    .radius-sample code { color: var(--muted); }
+
+    .surface-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .surface-canvas { background: var(--paper); border: 1px solid var(--hairline); }
+    .surface-panel { background: var(--panel); }
+    .surface-hover { background: var(--panel-strong); }
+    .surface-inverse { background: var(--dark); color: var(--paper); }
+
+    .responsive-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr); gap: 30px; align-items: start; }
+    .responsive-table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--hairline); }
+    .responsive-table th, .responsive-table td { padding: 14px 0; border-bottom: 1px solid var(--hairline); text-align: left; vertical-align: top; }
+    .responsive-table th { width: 32%; padding-right: 20px; font: 10px/1.35 var(--mono); color: var(--muted); }
+    .responsive-table td { font-size: 12px; }
+    .viewport-stack { display: flex; align-items: end; gap: 10px; padding: 20px; border: 1px solid var(--hairline); border-radius: var(--radius-card); background: var(--panel); }
+    .viewport { display: grid; place-items: center; border: 1px solid var(--hairline-strong); background: var(--paper); color: var(--faint); font: 9px/1 var(--mono); }
+    .viewport.phone { width: 52px; height: 92px; }
+    .viewport.tablet { width: 84px; height: 112px; }
+    .viewport.desktop { flex: 1; min-width: 110px; height: 132px; }
+
+    .guideline-list { display: grid; gap: 0; border-top: 1px solid var(--hairline); }
+    .guideline-list article { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--hairline); }
+    .guideline-list article > div { padding: 16px 18px; }
+    .guideline-list article > div + div { border-left: 1px solid var(--hairline); }
+    .guideline-list span { color: var(--faint); font: 9px/1 var(--mono); text-transform: uppercase; }
+    .guideline-list p { margin: 8px 0 0; }
+    .empty-note { padding: 18px; border: 1px dashed var(--hairline-strong); color: var(--muted); }
+
+    footer { padding: 36px var(--gutter) 48px; border-top: 1px solid var(--hairline); }
+    .footer-grid { width: min(100%, var(--page)); margin: auto; display: grid; grid-template-columns: 1.4fr repeat(3, 1fr); gap: 30px; color: var(--muted); font-size: 10px; }
+    .footer-grid strong { color: var(--ink); }
+    .footer-grid p { margin: 7px 0 0; }
+
+    @media (max-width: 1024px) {
+      .token-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .type-specimen { grid-template-columns: 170px minmax(0, 1fr); }
+      .type-specimen > small { grid-column: 2; }
+      .surface-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 760px) {
+      :root { --gutter: 18px; }
+      .topbar-inner { gap: 18px; }
+      .topnav { gap: 18px; }
+      .hero { padding-top: 60px; }
+      .section-intro, .responsive-layout { grid-template-columns: 1fr; gap: 24px; }
+      .token-grid, .button-grid, .plan-grid, .input-grid, .inventory-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .type-specimen { grid-template-columns: 1fr; gap: 10px; }
+      .type-specimen > small { grid-column: auto; }
+      .depth-grid { grid-template-columns: 1fr; }
+      .footer-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 480px) {
+      :root { --gutter: 15px; }
+      body { font-size: 13px; }
+      .wordmark { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .hero h1 { font-size: 39px; }
+      .spec-section { padding-top: 54px; padding-bottom: 62px; }
+      .token-grid, .button-grid, .plan-grid, .input-grid, .inventory-grid, .surface-grid { grid-template-columns: 1fr; }
+      .token-card { display: grid; grid-template-columns: 110px minmax(0, 1fr); }
+      .token-swatch { height: 100%; min-height: 116px; border-right: 1px solid var(--hairline); border-bottom: 0; }
+      .measure { grid-template-columns: minmax(0, 1fr) 50px; }
+      .guideline-list article { grid-template-columns: 1fr; }
+      .guideline-list article > div + div { border-top: 1px solid var(--hairline); border-left: 0; }
+      .footer-grid { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      .skip-link, .topbar { display: none; }
+      html { scroll-padding-top: 0; }
+      .spec-section { break-inside: avoid; padding-block: 38px; }
+      .token-card, .plan, .inventory-card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="wordmark">DeepSeek Harness desktop composition<span>.system</span></div>
+      <nav class="topnav" aria-label="Design system sections">
+        <a href="#colors">Colors</a><a href="#typography">Typography</a><a href="#components">Components</a><a href="#spatial">Spatial</a><a href="#responsive">Responsive</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" data-preview-role="design-system-specimen" data-ai-reference="true">
+    <section class="hero" data-preview-section="overview">
+      <div class="wrap">
+        <h1>Design System Analysis of DeepSeek Harness desktop composition</h1>
+        <p class="hero-copy">The Harness product depiction puts a compact workspace/session rail beside a quiet conversation canvas. Tonal surfaces establish hierarchy, and a rounded prompt dock collects configuration and the decisive send action. These findings describe the depicted app, not the landing page&#x27;s blue glow or marketing hero.</p>
+        <div class="hero-meta"><span>2026-10-07</span><span>Official Harness page&#x27;s depicted desktop UI; Claude Code Desktop&#x27;s documented project/session organization</span><span>Local system sans + mono</span></div>
+      </div>
+    </section>
+
+    <section class="spec-section" id="colors" data-preview-section="colors">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">01 - Color system</p><h2>Palette, surfaces, and semantic roles</h2></div><p>Resolved tokens are rendered as swatches. Roles without an explicit value remain visible as striped references instead of being guessed.</p></div>
+        <div class="token-group"><h3>Brand &amp; accent</h3><div class="token-grid"><article class="token-card" data-token="accent" data-value-state="resolved" style="--token-color:#7a9cec">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Accent</strong><code>#7a9cec</code><p>Accent</p></div>
+            </article></div></div><div class="token-group"><h3>Canvas &amp; surfaces</h3><div class="token-grid"><article class="token-card" data-token="canvas" data-value-state="resolved" style="--token-color:#141414">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Canvas</strong><code>#141414</code><p>Canvas</p></div>
+            </article><article class="token-card" data-token="sidebar-surface" data-value-state="resolved" style="--token-color:#343a43">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Sidebar surface</strong><code>#343a43</code><p>Sidebar surface</p></div>
+            </article><article class="token-card" data-token="composer-surface" data-value-state="resolved" style="--token-color:#2c2c2e">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Composer surface</strong><code>#2c2c2e</code><p>Composer surface</p></div>
+            </article><article class="token-card" data-token="surface-hover" data-value-state="resolved" style="--token-color:#40454d">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Surface.hover</strong><code>#40454d</code><p>Surface.hover</p></div>
+            </article><article class="token-card" data-token="inverse-surface" data-value-state="resolved" style="--token-color:#f9fafb">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Inverse surface</strong><code>#f9fafb</code><p>Inverse surface</p></div>
+            </article></div></div><div class="token-group"><h3>Text &amp; hairlines</h3><div class="token-grid"><article class="token-card" data-token="text-primary" data-value-state="resolved" style="--token-color:#f9fafb">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Text.primary</strong><code>#f9fafb</code><p>Text.primary</p></div>
+            </article><article class="token-card" data-token="muted-text" data-value-state="resolved" style="--token-color:#cfd3d6">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Muted text</strong><code>#cfd3d6</code><p>Muted text</p></div>
+            </article><article class="token-card" data-token="hairline" data-value-state="resolved" style="--token-color:#292929">
+              <div class="token-swatch" aria-hidden="true"></div><div class="token-copy"><strong>Hairline</strong><code>#292929</code><p>Hairline</p></div>
+            </article></div></div>
+      </div>
+    </section>
+
+    <section class="spec-section" id="typography" data-preview-section="typography">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">02 - Typography</p><h2>Type hierarchy in use</h2></div><p>Every declared role becomes a real sample row with its treatment and scope, using local fallback fonts when proprietary faces are unavailable.</p></div>
+        <div class="type-list"><article class="type-specimen" data-token="type.sidebar-label" style="--sample-size:12.32px">
+          <div><span>Sidebar label</span><code>Family: Segoe UI, system-ui, Microsoft YaHei, sans-serif · Size: 12.32px · Weight: 400</code></div><p>Built to make you extraordinarily productive</p><small>scaled product depiction computed style</small>
+        </article><article class="type-specimen" data-token="type.conversation-text" style="--sample-size:12.6px">
+          <div><span>Conversation text</span><code>Family: Segoe UI, system-ui, Microsoft YaHei, sans-serif · Size: 12.6px · Weight: 400</code></div><p>Section heading</p><small>depiction root; not a standalone desktop font-size requirement</small>
+        </article><article class="type-specimen" data-token="type.target-body" style="--sample-size:14.0px">
+          <div><span>Target body</span><code>Family: Segoe UI, system-ui, Microsoft YaHei, sans-serif · Size: 14px · Weight: 400</code></div><p>Sub-section heading</p><small>unscaled native desktop legibility</small>
+        </article></div>
+      </div>
+    </section>
+
+    <section class="spec-section" id="components" data-preview-section="components" data-specimen-section="actions">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">03 - Action language</p><h2>Buttons across hierarchy</h2></div><p>A stable comparison set makes fill, contrast, enclosure, and density easy to judge even when the source document names different components.</p></div>
+        <div class="button-grid">
+          <article class="button-sample" data-component="primary-action"><span>Primary</span><button class="btn btn-primary" type="button">Start building</button></article>
+          <article class="button-sample" data-component="accent-action"><span>Accent</span><button class="btn btn-accent" type="button">Run action</button></article>
+          <article class="button-sample" data-component="secondary-action"><span>Secondary</span><button class="btn btn-secondary" type="button">View details</button></article>
+          <article class="button-sample" data-component="outline-action"><span>Outline</span><button class="btn btn-outline" type="button">Learn more</button></article>
+          <article class="button-sample" data-component="small-action"><span>Compact</span><button class="btn btn-small" type="button">Download</button></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="status">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">04 - Status and tags</p><h2>Compact semantic signals</h2></div><p>Canonical tags use the system accent and semantic colors. They are specimens, not claims that these exact labels exist in the source product.</p></div>
+        <div class="pill-cloud">
+          <span class="pill pill-orange" data-component="tag-accent">Selected</span><span class="pill pill-green" data-component="tag-success">Ready</span><span class="pill pill-blue" data-component="tag-info">In review</span><span class="pill pill-red" data-component="tag-danger">Blocked</span><span class="pill pill-amber" data-component="tag-warning">Pending</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="depth">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">05 - Depth</p><h2>Flat, divided, and raised surfaces</h2></div><p>The same content is shown across three depth treatments, exposing whether the system relies on tonal steps, hairlines, or bounded utility shadow.</p></div>
+        <div class="depth-grid">
+          <article class="depth-card depth-flat" data-component="surface-flat"><strong>Tonal surface</strong><p>Hierarchy through a background step.</p></article>
+          <article class="depth-card depth-hairline" data-component="surface-hairline"><strong>Hairline boundary</strong><p>Structure without visible elevation.</p></article>
+          <article class="depth-card depth-raised" data-component="surface-raised"><strong>Utility elevation</strong><p>Reserved for controls that must lift.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="code" data-preview-role="implementation-reference">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">06 - Implementation reference</p><h2>Tokens as code</h2></div><p>The visible specimen is paired with machine-readable token, component, spacing, radius, and responsive data embedded at the end of this file.</p></div>
+        <div class="code-shell"><div class="code-head">design-system.css</div><pre><code><span class="syntax-selector">:root</span> {
+  <span class="syntax-property">--canvas</span>: <span class="syntax-value">#141414</span>;
+  <span class="syntax-property">--surface</span>: <span class="syntax-value">#343a43</span>;
+  <span class="syntax-property">--ink</span>: <span class="syntax-value">#f9fafb</span>;
+  <span class="syntax-property">--accent</span>: <span class="syntax-value">#7a9cec</span>;
+}
+
+<span class="syntax-selector">.action-primary</span> {
+  <span class="syntax-property">color</span>: <span class="syntax-function">var</span>(--on-accent);
+  <span class="syntax-property">background</span>: <span class="syntax-function">var</span>(--accent);
+  <span class="syntax-property">border-radius</span>: <span class="syntax-function">var</span>(--radius-action);
+}</code></pre></div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="pricing">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">07 - Complex cards</p><h2>Plans reveal hierarchy under pressure</h2></div><p>A canonical three-plan comparison tests aligned labels, prices, features, contrasting emphasis, and bottom-anchored actions.</p></div>
+        <div class="plan-grid">
+          <article class="plan" data-component="plan-base"><span>Base</span><h3>0 <small>USD / month</small></h3><ul><li>Core workspace</li><li>Personal projects</li><li>Community support</li></ul><button class="btn btn-outline" type="button">Choose Base</button></article>
+          <article class="plan featured" data-component="plan-featured"><span>Pro</span><h3>20 <small>USD / month</small></h3><ul><li>Unlimited projects</li><li>Advanced workflows</li><li>Priority support</li></ul><button class="btn" type="button">Choose Pro</button></article>
+          <article class="plan" data-component="plan-team"><span>Team</span><h3>40 <small>USD / month</small></h3><ul><li>Shared administration</li><li>Usage controls</li><li>Central billing</li></ul><button class="btn btn-outline" type="button">Choose Team</button></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="inputs">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">08 - Inputs</p><h2>Fields and quiet controls</h2></div><p>Inputs expose the system's border contrast, radius, label hierarchy, placeholder treatment, and disabled surface.</p></div>
+        <div class="input-grid">
+          <label class="field" data-component="input-email"><span>Email</span><input type="email" value="you@example.com" aria-label="Example email"></label>
+          <label class="field" data-component="input-name"><span>Workspace</span><input type="text" value="Design systems" aria-label="Example workspace"></label>
+          <label class="field" data-component="input-disabled"><span>License key</span><input type="text" value="Unavailable in preview" aria-label="Example disabled field" disabled></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="inventory">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">09 - Component inventory</p><h2>Documented anatomy and behavior</h2></div><p>This is the bridge back to the written design guidance. It preserves the source component names without forcing the visual sample page to copy the Markdown structure.</p></div>
+        <div class="inventory-grid"><article class="inventory-card" data-component="workspace-rail">
+          <span>Workspace rail</span><p>Brand, new-session action, auxiliary destinations, grouped workspace and session rows, bottom account/status utility. Selection uses a tonal well .</p>
+        </article><article class="inventory-card" data-component="conversation">
+          <span>Conversation</span><p>Compact title strip, user bubble, assistant document, muted thinking disclosure, and a prompt dock . Product tasks supply the content.</p>
+        </article><article class="inventory-card" data-component="prompt-dock">
+          <span>Prompt dock</span><p>Rounded input surface with attachment/context control, compact configuration and send control. Disabled and focus states of the live app are not observed.</p>
+        </article><article class="inventory-card" data-component="evidence-pane">
+          <span>Evidence pane</span><p>File/diff and trace information are adjacent secondary carriers in the source depictions. Target disclosure mechanics are an adaptation to Pi&#x27;s existing views.</p>
+        </article></div>
+      </div>
+    </section>
+
+    <section class="spec-section" id="spatial" data-preview-section="spatial" data-specimen-section="spacing">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">10 - Spatial system</p><h2>Spacing as visible rhythm</h2></div><p>Recorded layout measures are normalized into a compact bar scale, making density legible without reading paragraphs.</p></div>
+        <div class="measure-list"><article class="measure"><span style="width:7.2px"></span><code>4px</code></article><article class="measure"><span style="width:14.4px"></span><code>8px</code></article><article class="measure"><span style="width:21.6px"></span><code>12px</code></article><article class="measure"><span style="width:28.8px"></span><code>16px</code></article><article class="measure"><span style="width:43.2px"></span><code>24px</code></article><article class="measure"><span style="width:57.6px"></span><code>32px</code></article><article class="measure"><span style="width:86.4px"></span><code>48px</code></article><article class="measure"><span style="width:115.2px"></span><code>64px</code></article></div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="radii">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">11 - Shape language</p><h2>Radius comparison</h2></div><p>Context-bound radii remain distinct. Full rounding is shown as a role, not averaged into the panel radius.</p></div>
+        <div class="radius-grid"><article class="radius-sample"><div style="border-radius:0px"></div><code>0px</code></article><article class="radius-sample"><div style="border-radius:4px"></div><code>4px</code></article><article class="radius-sample"><div style="border-radius:8px"></div><code>8px</code></article><article class="radius-sample"><div style="border-radius:12px"></div><code>12px</code></article><article class="radius-sample"><div style="border-radius:24px"></div><code>24px</code></article><article class="radius-sample"><div style="border-radius:999px"></div><code>full</code></article></div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="surfaces">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">12 - Surface semantics</p><h2>Canvas, panel, hover, inverse</h2></div><p>A single row exposes the tonal ladder and whether neighboring layers remain distinguishable without decorative shadow.</p></div>
+        <div class="surface-grid">
+          <article class="surface-card surface-canvas" data-component="surface-canvas"><strong>Canvas</strong><p>Page-level ground.</p></article>
+          <article class="surface-card surface-panel" data-component="surface-panel"><strong>Panel</strong><p>Grouped content surface.</p></article>
+          <article class="surface-card surface-hover" data-component="surface-hover"><strong>Hover step</strong><p>Selection and feedback.</p></article>
+          <article class="surface-card surface-inverse" data-component="surface-inverse"><strong>Inverse</strong><p>High-contrast emphasis.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="spec-section" id="responsive" data-preview-section="responsive" data-specimen-section="responsive">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">13 - Responsive behavior</p><h2>Transformation, not shrinkage</h2></div><p>Measured rules stay readable beside a compact desktop, tablet, and phone diagram. The Preview itself reflows at three widths.</p></div>
+        <div class="responsive-layout">
+          <table class="responsive-table"><tbody><tr><th scope="row">1440px</th><td>full product depiction retains rail and prompt anatomy</td></tr><tr><th scope="row">1024px and 768px</th><td>marketing depiction scales within the page</td></tr><tr><th scope="row">390px</th><td>marketing depicts the app at reduced size; real app drawer behavior unknown</td></tr></tbody></table>
+          <div class="viewport-stack" aria-label="Responsive viewport comparison"><div class="viewport phone">Phone</div><div class="viewport tablet">Tablet</div><div class="viewport desktop">Desktop</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="spec-section" data-specimen-section="guidelines">
+      <div class="wrap">
+        <div class="section-intro"><div><p class="eyebrow">14 - Guardrails</p><h2>Do and avoid</h2></div><p>Short implementation constraints close the visual reference and remain visible to both human readers and agents.</p></div>
+        <div class="guideline-list"><article><div><span>Do</span><p>Compose compact navigation, readable content and an enclosed prompt together</p></div><div><span>Avoid</span><p>Copying the public page&#x27;s glow, marketing hero or download controls into the app</p></div></article><article><div><span>Do</span><p>Distinguish selection and nesting with tonal steps</p></div><div><span>Avoid</span><p>Coloring every separator with the agent&#x27;s terminal theme accent</p></div></article><article><div><span>Do</span><p>Keep working detail available through disclosure</p></div><div><span>Avoid</span><p>A permanently open tool/metric column dominating every empty conversation</p></div></article><article><div><span>Do</span><p>Use original Pi content, icons and interactions</p></div><div><span>Avoid</span><p>Copying source brand assets or adding unsupported automation features</p></div></article></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-grid">
+      <div><strong>DeepSeek Harness desktop composition design system</strong><p>Visual specimen and structured agent reference.</p></div>
+      <div><strong>Foundation</strong><p>Colors<br>Typography<br>Spatial system</p></div>
+      <div><strong>Components</strong><p>Actions<br>Status<br>Inputs<br>Complex cards</p></div>
+      <div><strong>Behavior</strong><p>Depth<br>Responsive<br>Guardrails</p></div>
+    </div>
+  </footer>
+  <script type="application/json" id="design-system-manifest">{"name":"DeepSeek Harness desktop composition","purpose":"Human-readable specimen and machine-readable design reference","theme":{"canvas":"#141414","surface":"#343a43","hover":"#40454d","ink":"#f9fafb","accent":"#7a9cec","dark":"#f9fafb","success":"#1f8a65","danger":"#cf2d56","warning":"#c98b2f","blue":"#6f8fc9"},"colors":[{"token":"Canvas","value":"#141414","role":"Canvas"},{"token":"Sidebar surface","value":"#343a43","role":"Sidebar surface"},{"token":"Composer surface","value":"#2c2c2e","role":"Composer surface"},{"token":"Text.primary","value":"#f9fafb","role":"Text.primary"},{"token":"Muted text","value":"#cfd3d6","role":"Muted text"},{"token":"Accent","value":"#7a9cec","role":"Accent"},{"token":"Hairline","value":"#292929","role":"Hairline"},{"token":"Surface.hover","value":"#40454d","role":"Surface.hover"},{"token":"Inverse surface","value":"#f9fafb","role":"Inverse surface"}],"typography":[{"role":"Sidebar label","treatment":"Family: Segoe UI, system-ui, Microsoft YaHei, sans-serif · Size: 12.32px · Weight: 400","scope":"scaled product depiction computed style"},{"role":"Conversation text","treatment":"Family: Segoe UI, system-ui, Microsoft YaHei, sans-serif · Size: 12.6px · Weight: 400","scope":"depiction root; not a standalone desktop font-size requirement"},{"role":"Target body","treatment":"Family: Segoe UI, system-ui, Microsoft YaHei, sans-serif · Size: 14px · Weight: 400","scope":"unscaled native desktop legibility"}],"components":[{"name":"Workspace rail","summary":"Brand, new-session action, auxiliary destinations, grouped workspace and session rows, bottom account/status utility. Selection uses a tonal well ."},{"name":"Conversation","summary":"Compact title strip, user bubble, assistant document, muted thinking disclosure, and a prompt dock . Product tasks supply the content."},{"name":"Prompt dock","summary":"Rounded input surface with attachment/context control, compact configuration and send control. Disabled and focus states of the live app are not observed."},{"name":"Evidence pane","summary":"File/diff and trace information are adjacent secondary carriers in the source depictions. Target disclosure mechanics are an adaptation to Pi's existing views."}],"spacing_px":[4,8,12,16,24,32,48,64],"radii_px":[0,4,8,12,24,999],"responsive":[{"boundary":"1440px","behavior":"full product depiction retains rail and prompt anatomy"},{"boundary":"1024px and 768px","behavior":"marketing depiction scales within the page"},{"boundary":"390px","behavior":"marketing depicts the app at reduced size; real app drawer behavior unknown"}]}</script>
+</body>
+</html>

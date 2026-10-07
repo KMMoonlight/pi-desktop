@@ -1,0 +1,5918 @@
+{
+  "package": "@earendil-works/pi-coding-agent",
+  "version": "1.0.0",
+  "declarationExports": 458,
+  "runtimeExports": 156,
+  "nativeExportIdentity": true,
+  "publicClassStaticMembers": 16,
+  "nativeClassStaticMembers": 15,
+  "publicClassConstructors": 38,
+  "note": "Native availability does not imply desktop rendering compatibility or behavioral test coverage. See sdk-api-audit.md.",
+  "declarations": [
+    {
+      "name": "AfterProviderResponseEvent",
+      "runtime": false
+    },
+    {
+      "name": "AgentActivityOutcome",
+      "runtime": false
+    },
+    {
+      "name": "AgentBeforeSettleEvent",
+      "runtime": false
+    },
+    {
+      "name": "AgentBeforeSettleEventResult",
+      "runtime": false
+    },
+    {
+      "name": "AgentEndEvent",
+      "runtime": false
+    },
+    {
+      "name": "AgentSession",
+      "runtime": true,
+      "constructors": [
+        "(config: AgentSessionConfig): AgentSession"
+      ],
+      "members": [
+        {
+          "name": "agent",
+          "signature": "Agent"
+        },
+        {
+          "name": "sessionManager",
+          "signature": "SessionManager"
+        },
+        {
+          "name": "settingsManager",
+          "signature": "SettingsManager"
+        },
+        {
+          "name": "modelRuntime",
+          "signature": "ModelRuntime"
+        },
+        {
+          "name": "subscribe",
+          "signature": "(listener: AgentSessionEventListener) => () => void"
+        },
+        {
+          "name": "dispose",
+          "signature": "() => void"
+        },
+        {
+          "name": "refreshContext",
+          "signature": "() => void"
+        },
+        {
+          "name": "state",
+          "signature": "AgentState"
+        },
+        {
+          "name": "cacheWarmingStatus",
+          "signature": "CacheWarmingStatus"
+        },
+        {
+          "name": "setCacheWarmingMode",
+          "signature": "(mode: \"off\" | \"streaming\" | \"idle\") => void"
+        },
+        {
+          "name": "model",
+          "signature": "Model<any>"
+        },
+        {
+          "name": "thinkingLevel",
+          "signature": "ThinkingLevel"
+        },
+        {
+          "name": "routedModel",
+          "signature": "{ model: Model<any>; thinkingLevel?: ThinkingLevel; }"
+        },
+        {
+          "name": "isStreaming",
+          "signature": "boolean"
+        },
+        {
+          "name": "isIdle",
+          "signature": "boolean"
+        },
+        {
+          "name": "systemPrompt",
+          "signature": "string"
+        },
+        {
+          "name": "retryAttempt",
+          "signature": "number"
+        },
+        {
+          "name": "getActiveToolNames",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "getCallableToolNames",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "getAllTools",
+          "signature": "() => ToolInfo[]"
+        },
+        {
+          "name": "getToolDefinition",
+          "signature": "(name: string) => ToolDefinition<TSchema, unknown, any>"
+        },
+        {
+          "name": "setActiveToolsByName",
+          "signature": "(toolNames: string[]) => void"
+        },
+        {
+          "name": "isCompacting",
+          "signature": "boolean"
+        },
+        {
+          "name": "messages",
+          "signature": "AgentMessage[]"
+        },
+        {
+          "name": "steeringMode",
+          "signature": "\"all\" | \"one-at-a-time\""
+        },
+        {
+          "name": "followUpMode",
+          "signature": "\"all\" | \"one-at-a-time\""
+        },
+        {
+          "name": "sessionFile",
+          "signature": "string"
+        },
+        {
+          "name": "sessionId",
+          "signature": "string"
+        },
+        {
+          "name": "sessionName",
+          "signature": "string"
+        },
+        {
+          "name": "scopedModels",
+          "signature": "readonly { model: Model<any>; thinkingLevel?: ThinkingLevel; }[]"
+        },
+        {
+          "name": "setScopedModels",
+          "signature": "(scopedModels: { model: Model<any>; thinkingLevel?: ThinkingLevel; }[]) => void"
+        },
+        {
+          "name": "promptTemplates",
+          "signature": "readonly PromptTemplate[]"
+        },
+        {
+          "name": "prompt",
+          "signature": "(text: string, options?: PromptOptions) => Promise<void>"
+        },
+        {
+          "name": "steer",
+          "signature": "(text: string, images?: ImageContent[], options?: { source?: InputSource; }) => Promise<QueuedInputDisposition>"
+        },
+        {
+          "name": "followUp",
+          "signature": "(text: string, images?: ImageContent[], options?: { source?: InputSource; }) => Promise<QueuedInputDisposition>"
+        },
+        {
+          "name": "sendCustomMessage",
+          "signature": "<T = unknown>(message: Pick<CustomMessage<T>, \"customType\" | \"content\" | \"display\" | \"details\">, options?: { triggerTurn?: boolean; deliverAs?: \"steer\" | \"followUp\" | \"nextTurn\"; }) => Promise<...>"
+        },
+        {
+          "name": "sendUserMessage",
+          "signature": "(content: string | (TextContent | ImageContent)[], options?: { deliverAs?: \"steer\" | \"followUp\"; expandPromptTemplates?: boolean; }) => Promise<void>"
+        },
+        {
+          "name": "clearQueue",
+          "signature": "() => { steering: string[]; followUp: string[]; }"
+        },
+        {
+          "name": "pendingMessageCount",
+          "signature": "number"
+        },
+        {
+          "name": "getSteeringMessages",
+          "signature": "() => readonly string[]"
+        },
+        {
+          "name": "getFollowUpMessages",
+          "signature": "() => readonly string[]"
+        },
+        {
+          "name": "resourceLoader",
+          "signature": "ResourceLoader"
+        },
+        {
+          "name": "abort",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "waitForIdle",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "setModel",
+          "signature": "(model: Model<any>, options?: ModelMutationOptions) => Promise<void>"
+        },
+        {
+          "name": "cycleModel",
+          "signature": "(direction?: \"forward\" | \"backward\", options?: ModelMutationOptions) => Promise<ModelCycleResult>"
+        },
+        {
+          "name": "setThinkingLevel",
+          "signature": "(level: ThinkingLevel, options?: ModelMutationOptions) => void"
+        },
+        {
+          "name": "cycleThinkingLevel",
+          "signature": "(options?: ModelMutationOptions) => ThinkingLevel"
+        },
+        {
+          "name": "getAvailableThinkingLevels",
+          "signature": "() => ThinkingLevel[]"
+        },
+        {
+          "name": "supportsThinking",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setSteeringMode",
+          "signature": "(mode: \"all\" | \"one-at-a-time\") => void"
+        },
+        {
+          "name": "setFollowUpMode",
+          "signature": "(mode: \"all\" | \"one-at-a-time\") => void"
+        },
+        {
+          "name": "compact",
+          "signature": "(customInstructions?: string) => Promise<CompactionResult<unknown>>"
+        },
+        {
+          "name": "abortCompaction",
+          "signature": "() => void"
+        },
+        {
+          "name": "abortBranchSummary",
+          "signature": "() => void"
+        },
+        {
+          "name": "setAutoCompactionEnabled",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "autoCompactionEnabled",
+          "signature": "boolean"
+        },
+        {
+          "name": "bindExtensions",
+          "signature": "(bindings: ExtensionBindings) => Promise<void>"
+        },
+        {
+          "name": "reload",
+          "signature": "(options?: { beforeSessionStart?: () => void | Promise<void>; }) => Promise<void>"
+        },
+        {
+          "name": "abortRetry",
+          "signature": "() => void"
+        },
+        {
+          "name": "isRetrying",
+          "signature": "boolean"
+        },
+        {
+          "name": "autoRetryEnabled",
+          "signature": "boolean"
+        },
+        {
+          "name": "setAutoRetryEnabled",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "executeBash",
+          "signature": "(command: string, onChunk?: (chunk: string) => void, options?: { excludeFromContext?: boolean; id?: string; operations?: BashOperations; }) => Promise<BashResult>"
+        },
+        {
+          "name": "recordBashResult",
+          "signature": "(command: string, result: BashResult, options?: { excludeFromContext?: boolean; }) => void"
+        },
+        {
+          "name": "abortBash",
+          "signature": "() => void"
+        },
+        {
+          "name": "isBashRunning",
+          "signature": "boolean"
+        },
+        {
+          "name": "hasPendingBashMessages",
+          "signature": "boolean"
+        },
+        {
+          "name": "setSessionName",
+          "signature": "(name: string) => void"
+        },
+        {
+          "name": "navigateTree",
+          "signature": "(targetId: string, options?: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string; }) => Promise<{ editorText?: string; cancelled: boolean; aborted?: boolean; summaryEntry?: BranchSummaryEntry<...>; }>"
+        },
+        {
+          "name": "getUserMessagesForForking",
+          "signature": "() => { entryId: string; text: string; }[]"
+        },
+        {
+          "name": "getSessionStats",
+          "signature": "() => SessionStats"
+        },
+        {
+          "name": "getContextUsage",
+          "signature": "() => ContextUsage"
+        },
+        {
+          "name": "exportToHtml",
+          "signature": "(outputPath?: string, options?: { themeName?: string; }) => Promise<string>"
+        },
+        {
+          "name": "exportToJsonl",
+          "signature": "(outputPath?: string) => string"
+        },
+        {
+          "name": "summarizeForBugReport",
+          "signature": "(options: { hint?: string; signal: AbortSignal; }) => Promise<string>"
+        },
+        {
+          "name": "getLastAssistantText",
+          "signature": "() => string"
+        },
+        {
+          "name": "createReplacedSessionContext",
+          "signature": "() => ReplacedSessionContext"
+        },
+        {
+          "name": "hasExtensionHandlers",
+          "signature": "(eventType: string) => boolean"
+        },
+        {
+          "name": "extensionRunner",
+          "signature": "ExtensionRunner"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "AgentSessionConfig",
+      "runtime": false
+    },
+    {
+      "name": "AgentSessionEvent",
+      "runtime": false
+    },
+    {
+      "name": "AgentSessionEventListener",
+      "runtime": false
+    },
+    {
+      "name": "AgentSessionRuntime",
+      "runtime": true,
+      "constructors": [
+        "(_session: AgentSession, _services: AgentSessionServices, createRuntime: CreateAgentSessionRuntimeFactory, _diagnostics?: AgentSessionRuntimeDiagnostic[], _modelFallbackMessage?: string): AgentSessionRuntime"
+      ],
+      "members": [
+        {
+          "name": "services",
+          "signature": "AgentSessionServices"
+        },
+        {
+          "name": "session",
+          "signature": "AgentSession"
+        },
+        {
+          "name": "cwd",
+          "signature": "string"
+        },
+        {
+          "name": "diagnostics",
+          "signature": "readonly AgentSessionRuntimeDiagnostic[]"
+        },
+        {
+          "name": "modelFallbackMessage",
+          "signature": "string"
+        },
+        {
+          "name": "setRebindSession",
+          "signature": "(rebindSession?: (session: AgentSession) => Promise<void>) => void"
+        },
+        {
+          "name": "setBeforeSessionInvalidate",
+          "signature": "(beforeSessionInvalidate?: () => void) => void"
+        },
+        {
+          "name": "switchSession",
+          "signature": "(sessionPath: string, options?: { cwdOverride?: string; withSession?: (ctx: ReplacedSessionContext) => Promise<void>; projectTrustContextFactory?: (cwd: string) => ProjectTrustContext; }) => Promise<...>"
+        },
+        {
+          "name": "newSession",
+          "signature": "(options?: { parentSession?: string; setup?: (sessionManager: SessionManager) => Promise<void>; withSession?: (ctx: ReplacedSessionContext) => Promise<...>; }) => Promise<...>"
+        },
+        {
+          "name": "fork",
+          "signature": "(entryId: string, options?: { position?: \"before\" | \"at\"; withSession?: (ctx: ReplacedSessionContext) => Promise<void>; }) => Promise<{ cancelled: boolean; selectedText?: string; }>"
+        },
+        {
+          "name": "importFromJsonl",
+          "signature": "(inputPath: string, cwdOverride?: string) => Promise<{ cancelled: boolean; }>"
+        },
+        {
+          "name": "dispose",
+          "signature": "() => Promise<void>"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "AgentSessionRuntimeDiagnostic",
+      "runtime": false
+    },
+    {
+      "name": "AgentSessionServices",
+      "runtime": false
+    },
+    {
+      "name": "AgentSettledEvent",
+      "runtime": false
+    },
+    {
+      "name": "AgentStartEvent",
+      "runtime": false
+    },
+    {
+      "name": "AgentToolResult",
+      "runtime": false
+    },
+    {
+      "name": "AgentToolUpdateCallback",
+      "runtime": false
+    },
+    {
+      "name": "AppKeybinding",
+      "runtime": false
+    },
+    {
+      "name": "Args",
+      "runtime": false
+    },
+    {
+      "name": "ArminComponent",
+      "runtime": true,
+      "constructors": [
+        "(ui: TUI): ArminComponent"
+      ],
+      "members": [
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        },
+        {
+          "name": "dispose",
+          "signature": "() => void"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "AssistantMessageComponent",
+      "runtime": true,
+      "constructors": [
+        "(message?: AssistantMessage, hideThinkingBlock?: boolean, markdownTheme?: MarkdownTheme, hiddenThinkingLabel?: string, outputPad?: number, markdownTransformers?: readonly MarkdownTransformer[]): AssistantMessageComponent"
+      ],
+      "members": [
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "setHideThinkingBlock",
+          "signature": "(hide: boolean) => void"
+        },
+        {
+          "name": "setHiddenThinkingLabel",
+          "signature": "(label: string) => void"
+        },
+        {
+          "name": "setOutputPad",
+          "signature": "(padding: number) => void"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        },
+        {
+          "name": "updateContent",
+          "signature": "(message: AssistantMessage, isStreaming?: boolean) => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "AutocompleteProviderFactory",
+      "runtime": false
+    },
+    {
+      "name": "BashExecutionComponent",
+      "runtime": true,
+      "constructors": [
+        "(command: string, ui: TUI, excludeFromContext?: boolean): BashExecutionComponent"
+      ],
+      "members": [
+        {
+          "name": "setExpanded",
+          "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "appendOutput",
+          "signature": "(chunk: string) => void"
+        },
+        {
+          "name": "setComplete",
+          "signature": "(exitCode: number, cancelled: boolean, truncationResult?: TruncationResult, fullOutputPath?: string) => void"
+        },
+        {
+          "name": "getOutput",
+          "signature": "() => string"
+        },
+        {
+          "name": "getCommand",
+          "signature": "() => string"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "BashOperations",
+      "runtime": false
+    },
+    {
+      "name": "BashSpawnContext",
+      "runtime": false
+    },
+    {
+      "name": "BashSpawnHook",
+      "runtime": false
+    },
+    {
+      "name": "BashToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "BashToolDetails",
+      "runtime": false
+    },
+    {
+      "name": "BashToolInput",
+      "runtime": false
+    },
+    {
+      "name": "BashToolOptions",
+      "runtime": false
+    },
+    {
+      "name": "BeforeAgentStartEvent",
+      "runtime": false
+    },
+    {
+      "name": "BeforeAgentStartEventResult",
+      "runtime": false
+    },
+    {
+      "name": "BeforeProviderHeadersEvent",
+      "runtime": false
+    },
+    {
+      "name": "BeforeProviderRequestEvent",
+      "runtime": false
+    },
+    {
+      "name": "BeforeProviderRequestEventResult",
+      "runtime": false
+    },
+    {
+      "name": "BorderedLoader",
+      "runtime": true,
+      "constructors": [
+        "(tui: TUI, theme: Theme, message: string, options?: { cancellable?: boolean; }): BorderedLoader"
+      ],
+      "members": [
+        {
+          "name": "signal",
+          "signature": "AbortSignal"
+        },
+        {
+          "name": "onAbort",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(data: string) => void"
+        },
+        {
+          "name": "dispose",
+          "signature": "() => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "BoundaryContextPreview",
+      "runtime": false
+    },
+    {
+      "name": "BoundaryResult",
+      "runtime": false
+    },
+    {
+      "name": "BoundaryState",
+      "runtime": false
+    },
+    {
+      "name": "BranchPreparation",
+      "runtime": false
+    },
+    {
+      "name": "BranchSummaryEntry",
+      "runtime": false
+    },
+    {
+      "name": "BranchSummaryMessageComponent",
+      "runtime": true,
+      "constructors": [
+        "(message: BranchSummaryMessage, markdownTheme?: MarkdownTheme): BranchSummaryMessageComponent"
+      ],
+      "members": [
+        {
+          "name": "setExpanded",
+          "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "setBgFn",
+          "signature": "(bgFn?: (text: string) => string) => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "BranchSummaryResult",
+      "runtime": false
+    },
+    {
+      "name": "buildContextEntries",
+      "runtime": true
+    },
+    {
+      "name": "buildSessionContext",
+      "runtime": true
+    },
+    {
+      "name": "buildSessionProjection",
+      "runtime": true
+    },
+    {
+      "name": "BuildSystemPromptOptions",
+      "runtime": false
+    },
+    {
+      "name": "CacheWarmingDecision",
+      "runtime": false
+    },
+    {
+      "name": "CacheWarmingDecisionEvent",
+      "runtime": false
+    },
+    {
+      "name": "CacheWarmingDecisionEventResult",
+      "runtime": false
+    },
+    {
+      "name": "CacheWarmingMode",
+      "runtime": false
+    },
+    {
+      "name": "CacheWarmingStatus",
+      "runtime": false
+    },
+    {
+      "name": "calculateContextTokens",
+      "runtime": true
+    },
+    {
+      "name": "CodemodeExtensionOptions",
+      "runtime": false
+    },
+    {
+      "name": "CodemodeStoreEntryData",
+      "runtime": false
+    },
+    {
+      "name": "CodemodeToolDetails",
+      "runtime": false
+    },
+    {
+      "name": "collectEntriesForBranchSummary",
+      "runtime": true
+    },
+    {
+      "name": "CollectEntriesResult",
+      "runtime": false
+    },
+    {
+      "name": "compact",
+      "runtime": true
+    },
+    {
+      "name": "CompactionEntry",
+      "runtime": false
+    },
+    {
+      "name": "CompactionEntryDraft",
+      "runtime": false
+    },
+    {
+      "name": "CompactionModelOverride",
+      "runtime": false
+    },
+    {
+      "name": "CompactionResult",
+      "runtime": false
+    },
+    {
+      "name": "CompactionSettings",
+      "runtime": false
+    },
+    {
+      "name": "CompactionSummaryMessageComponent",
+      "runtime": true,
+      "constructors": [
+        "(message: CompactionSummaryMessage, markdownTheme?: MarkdownTheme): CompactionSummaryMessageComponent"
+      ],
+      "members": [
+        {
+          "name": "setExpanded",
+          "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "setBgFn",
+          "signature": "(bgFn?: (text: string) => string) => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "CompactOptions",
+      "runtime": false
+    },
+    {
+      "name": "CONFIG_DIR_NAME",
+      "runtime": true
+    },
+    {
+      "name": "ContextEditableContent",
+      "runtime": false
+    },
+    {
+      "name": "ContextEditEntry",
+      "runtime": false
+    },
+    {
+      "name": "ContextEditEntryDraft",
+      "runtime": false
+    },
+    {
+      "name": "ContextEvent",
+      "runtime": false
+    },
+    {
+      "name": "ContextEventResult",
+      "runtime": false
+    },
+    {
+      "name": "ContextUsage",
+      "runtime": false
+    },
+    {
+      "name": "ContextWithSystemEvent",
+      "runtime": false
+    },
+    {
+      "name": "convertToLlm",
+      "runtime": true
+    },
+    {
+      "name": "convertToPng",
+      "runtime": true
+    },
+    {
+      "name": "copyToClipboard",
+      "runtime": true
+    },
+    {
+      "name": "createAgentSession",
+      "runtime": true
+    },
+    {
+      "name": "createAgentSessionFromServices",
+      "runtime": true
+    },
+    {
+      "name": "CreateAgentSessionFromServicesOptions",
+      "runtime": false,
+      "members": [
+        {
+          "name": "services",
+          "signature": "AgentSessionServices"
+        },
+        {
+          "name": "sessionManager",
+          "signature": "SessionManager"
+        },
+        {
+          "name": "sessionStartEvent",
+          "signature": "SessionStartEvent"
+        },
+        {
+          "name": "model",
+          "signature": "Model<any>"
+        },
+        {
+          "name": "thinkingLevel",
+          "signature": "ThinkingLevel"
+        },
+        {
+          "name": "scopedModels",
+          "signature": "{ model: Model<any>; thinkingLevel?: ThinkingLevel; }[]"
+        },
+        {
+          "name": "tools",
+          "signature": "string[]"
+        },
+        {
+          "name": "excludeTools",
+          "signature": "string[]"
+        },
+        {
+          "name": "noTools",
+          "signature": "\"all\" | \"builtin\""
+        },
+        {
+          "name": "customTools",
+          "signature": "ToolDefinition<TSchema, unknown, any>[]"
+        }
+      ]
+    },
+    {
+      "name": "CreateAgentSessionOptions",
+      "runtime": false,
+      "members": [
+        {
+          "name": "cwd",
+          "signature": "string"
+        },
+        {
+          "name": "agentDir",
+          "signature": "string"
+        },
+        {
+          "name": "modelRuntime",
+          "signature": "ModelRuntime"
+        },
+        {
+          "name": "model",
+          "signature": "Model<any>"
+        },
+        {
+          "name": "thinkingLevel",
+          "signature": "ThinkingLevel"
+        },
+        {
+          "name": "scopedModels",
+          "signature": "{ model: Model<any>; thinkingLevel?: ThinkingLevel; }[]"
+        },
+        {
+          "name": "noTools",
+          "signature": "\"all\" | \"builtin\""
+        },
+        {
+          "name": "tools",
+          "signature": "string[]"
+        },
+        {
+          "name": "excludeTools",
+          "signature": "string[]"
+        },
+        {
+          "name": "customTools",
+          "signature": "ToolDefinition<TSchema, unknown, any>[]"
+        },
+        {
+          "name": "resourceLoader",
+          "signature": "ResourceLoader"
+        },
+        {
+          "name": "sessionManager",
+          "signature": "SessionManager"
+        },
+        {
+          "name": "settingsManager",
+          "signature": "SettingsManager"
+        },
+        {
+          "name": "sessionStartEvent",
+          "signature": "SessionStartEvent"
+        }
+      ]
+    },
+    {
+      "name": "CreateAgentSessionResult",
+      "runtime": false
+    },
+    {
+      "name": "createAgentSessionRuntime",
+      "runtime": true
+    },
+    {
+      "name": "CreateAgentSessionRuntimeFactory",
+      "runtime": false
+    },
+    {
+      "name": "CreateAgentSessionRuntimeResult",
+      "runtime": false
+    },
+    {
+      "name": "createAgentSessionServices",
+      "runtime": true
+    },
+    {
+      "name": "CreateAgentSessionServicesOptions",
+      "runtime": false,
+      "members": [
+        {
+          "name": "cwd",
+          "signature": "string"
+        },
+        {
+          "name": "agentDir",
+          "signature": "string"
+        },
+        {
+          "name": "settingsManager",
+          "signature": "SettingsManager"
+        },
+        {
+          "name": "modelRuntime",
+          "signature": "ModelRuntime"
+        },
+        {
+          "name": "modelRuntimeSignal",
+          "signature": "AbortSignal"
+        },
+        {
+          "name": "extensionFlagValues",
+          "signature": "Map<string, string | boolean>"
+        },
+        {
+          "name": "resourceLoaderOptions",
+          "signature": "Omit<DefaultResourceLoaderOptions, \"cwd\" | \"agentDir\" | \"settingsManager\">"
+        },
+        {
+          "name": "resourceLoaderReloadOptions",
+          "signature": "ResourceLoaderReloadOptions"
+        }
+      ]
+    },
+    {
+      "name": "createBashTool",
+      "runtime": true
+    },
+    {
+      "name": "createBashToolDefinition",
+      "runtime": true
+    },
+    {
+      "name": "createCodemodeExtension",
+      "runtime": true
+    },
+    {
+      "name": "createCodingTools",
+      "runtime": true
+    },
+    {
+      "name": "createEditTool",
+      "runtime": true
+    },
+    {
+      "name": "createEditToolDefinition",
+      "runtime": true
+    },
+    {
+      "name": "createEventBus",
+      "runtime": true
+    },
+    {
+      "name": "createExtensionRuntime",
+      "runtime": true
+    },
+    {
+      "name": "createFindTool",
+      "runtime": true
+    },
+    {
+      "name": "createFindToolDefinition",
+      "runtime": true
+    },
+    {
+      "name": "createGrepTool",
+      "runtime": true
+    },
+    {
+      "name": "createGrepToolDefinition",
+      "runtime": true
+    },
+    {
+      "name": "createLocalBashOperations",
+      "runtime": true
+    },
+    {
+      "name": "createLocalPowerShellOperations",
+      "runtime": true
+    },
+    {
+      "name": "createLsTool",
+      "runtime": true
+    },
+    {
+      "name": "createLsToolDefinition",
+      "runtime": true
+    },
+    {
+      "name": "createMcpExtension",
+      "runtime": true
+    },
+    {
+      "name": "CreateModelRuntimeOptions",
+      "runtime": false
+    },
+    {
+      "name": "createPowerShellTool",
+      "runtime": true
+    },
+    {
+      "name": "createPowerShellToolDefinition",
+      "runtime": true
+    },
+    {
+      "name": "createReadOnlyTools",
+      "runtime": true
+    },
+    {
+      "name": "createReadTool",
+      "runtime": true
+    },
+    {
+      "name": "createReadToolDefinition",
+      "runtime": true
+    },
+    {
+      "name": "createSyntheticSourceInfo",
+      "runtime": true
+    },
+    {
+      "name": "createToolSearchExtension",
+      "runtime": true
+    },
+    {
+      "name": "createWriteTool",
+      "runtime": true
+    },
+    {
+      "name": "createWriteToolDefinition",
+      "runtime": true
+    },
+    {
+      "name": "CredentialSynchronizationError",
+      "runtime": true,
+      "constructors": [
+        "(providerId: string, operation: CredentialSynchronizationOperation, credential: Credential, options: ErrorOptions): CredentialSynchronizationError"
+      ],
+      "members": [
+        {
+          "name": "providerId",
+          "signature": "string"
+        },
+        {
+          "name": "operation",
+          "signature": "CredentialSynchronizationOperation"
+        },
+        {
+          "name": "credential",
+          "signature": "Credential"
+        },
+        {
+          "name": "name",
+          "signature": "string"
+        },
+        {
+          "name": "message",
+          "signature": "string"
+        },
+        {
+          "name": "stack",
+          "signature": "string"
+        },
+        {
+          "name": "cause",
+          "signature": "unknown"
+        }
+      ],
+      "staticMembers": [
+        {
+          "name": "captureStackTrace",
+          "signature": "(targetObject: object, constructorOpt?: Function) => void"
+        },
+        {
+          "name": "prepareStackTrace",
+          "signature": "(err: Error, stackTraces: CallSite[]) => any"
+        },
+        {
+          "name": "stackTraceLimit",
+          "signature": "number"
+        }
+      ]
+    },
+    {
+      "name": "CredentialSynchronizationOperation",
+      "runtime": false
+    },
+    {
+      "name": "CURRENT_SESSION_VERSION",
+      "runtime": true
+    },
+    {
+      "name": "CustomEditor",
+      "runtime": true,
+      "constructors": [
+        "(tui: TUI, theme: EditorTheme, keybindings: KeybindingsManager, options?: CustomEditorOptions): CustomEditor"
+      ],
+      "members": [
+        {
+          "name": "embedWorkingStatus",
+          "signature": "boolean"
+        },
+        {
+          "name": "actionHandlers",
+          "signature": "Map<keyof AppKeybindings, () => void>"
+        },
+        {
+          "name": "onEscape",
+          "signature": "() => void"
+        },
+        {
+          "name": "onCtrlD",
+          "signature": "() => void"
+        },
+        {
+          "name": "onPasteImage",
+          "signature": "() => void"
+        },
+        {
+          "name": "onExtensionShortcut",
+          "signature": "(data: string) => boolean"
+        },
+        {
+          "name": "setWorkingStatusIndicator",
+          "signature": "(indicator: StatusIndicator) => void"
+        },
+        {
+          "name": "onAction",
+          "signature": "(action: keyof AppKeybindings, handler: () => void) => void"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(data: string) => void"
+        },
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "borderColor",
+          "signature": "(str: string) => string"
+        },
+        {
+          "name": "onSubmit",
+          "signature": "(text: string) => void"
+        },
+        {
+          "name": "onChange",
+          "signature": "(text: string) => void"
+        },
+        {
+          "name": "disableSubmit",
+          "signature": "boolean"
+        },
+        {
+          "name": "getPaddingX",
+          "signature": "() => number"
+        },
+        {
+          "name": "setPaddingX",
+          "signature": "(padding: number) => void"
+        },
+        {
+          "name": "getAutocompleteMaxVisible",
+          "signature": "() => number"
+        },
+        {
+          "name": "setAutocompleteMaxVisible",
+          "signature": "(maxVisible: number) => void"
+        },
+        {
+          "name": "setAutocompleteProvider",
+          "signature": "(provider: AutocompleteProvider) => void"
+        },
+        {
+          "name": "addToHistory",
+          "signature": "(text: string) => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseEventResult"
+        },
+        {
+          "name": "getText",
+          "signature": "() => string"
+        },
+        {
+          "name": "getExpandedText",
+          "signature": "() => string"
+        },
+        {
+          "name": "getLines",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "getCursor",
+          "signature": "() => { line: number; col: number; }"
+        },
+        {
+          "name": "setText",
+          "signature": "(text: string) => void"
+        },
+        {
+          "name": "insertTextAtCursor",
+          "signature": "(text: string) => void"
+        },
+        {
+          "name": "isShowingAutocomplete",
+          "signature": "() => boolean"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "CustomEditorOptions",
+      "runtime": false
+    },
+    {
+      "name": "CustomEntry",
+      "runtime": false
+    },
+    {
+      "name": "CustomEntryDraft",
+      "runtime": false
+    },
+    {
+      "name": "CustomMessageComponent",
+      "runtime": true,
+      "constructors": [
+        "(message: CustomMessage<unknown>, customRenderer?: MessageRenderer, markdownTheme?: MarkdownTheme, outputPad?: number): CustomMessageComponent"
+      ],
+      "members": [
+        {
+          "name": "setExpanded",
+          "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "setOutputPad",
+          "signature": "(outputPad: number) => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "CustomMessageEntry",
+      "runtime": false
+    },
+    {
+      "name": "CustomMessageEntryDraft",
+      "runtime": false
+    },
+    {
+      "name": "CustomToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "CutPointResult",
+      "runtime": false
+    },
+    {
+      "name": "DEFAULT_COMPACTION_SETTINGS",
+      "runtime": true
+    },
+    {
+      "name": "DEFAULT_MAX_BYTES",
+      "runtime": true
+    },
+    {
+      "name": "DEFAULT_MAX_LINES",
+      "runtime": true
+    },
+    {
+      "name": "DefaultPackageManager",
+      "runtime": true,
+      "constructors": [
+        "(options: PackageManagerOptions): DefaultPackageManager"
+      ],
+      "members": [
+        {
+          "name": "setProgressCallback",
+          "signature": "(callback: ProgressCallback) => void"
+        },
+        {
+          "name": "addSourceToSettings",
+          "signature": "(source: string, options?: { local?: boolean; }) => boolean"
+        },
+        {
+          "name": "removeSourceFromSettings",
+          "signature": "(source: string, options?: { local?: boolean; }) => boolean"
+        },
+        {
+          "name": "getInstalledPath",
+          "signature": "(source: string, scope: \"user\" | \"project\") => string"
+        },
+        {
+          "name": "resolve",
+          "signature": "(onMissing?: (source: string) => Promise<MissingSourceAction>) => Promise<ResolvedPaths>"
+        },
+        {
+          "name": "resolveExtensionSources",
+          "signature": "(sources: string[], options?: { local?: boolean; temporary?: boolean; }) => Promise<ResolvedPaths>"
+        },
+        {
+          "name": "listConfiguredPackages",
+          "signature": "() => ConfiguredPackage[]"
+        },
+        {
+          "name": "install",
+          "signature": "(source: string, options?: { local?: boolean; }) => Promise<void>"
+        },
+        {
+          "name": "installAndPersist",
+          "signature": "(source: string, options?: { local?: boolean; }) => Promise<void>"
+        },
+        {
+          "name": "remove",
+          "signature": "(source: string, options?: { local?: boolean; }) => Promise<void>"
+        },
+        {
+          "name": "removeAndPersist",
+          "signature": "(source: string, options?: { local?: boolean; }) => Promise<boolean>"
+        },
+        {
+          "name": "update",
+          "signature": "(source?: string) => Promise<void>"
+        },
+        {
+          "name": "checkForAvailableUpdates",
+          "signature": "() => Promise<PackageUpdate[]>"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "DefaultProjectTrust",
+      "runtime": false
+    },
+    {
+      "name": "DefaultResourceLoader",
+      "runtime": true,
+      "constructors": [
+        "(options: DefaultResourceLoaderOptions): DefaultResourceLoader"
+      ],
+      "members": [
+        {
+          "name": "getExtensions",
+          "signature": "() => LoadExtensionsResult"
+        },
+        {
+          "name": "getSkills",
+          "signature": "() => { skills: Skill[]; diagnostics: ResourceDiagnostic[]; }"
+        },
+        {
+          "name": "getPrompts",
+          "signature": "() => { prompts: PromptTemplate[]; diagnostics: ResourceDiagnostic[]; }"
+        },
+        {
+          "name": "getThemes",
+          "signature": "() => { themes: Theme[]; diagnostics: ResourceDiagnostic[]; }"
+        },
+        {
+          "name": "getAgentsFiles",
+          "signature": "() => { agentsFiles: { path: string; content: string; }[]; }"
+        },
+        {
+          "name": "getSystemPrompt",
+          "signature": "() => string"
+        },
+        {
+          "name": "getSystemPromptSource",
+          "signature": "() => { path: string; }"
+        },
+        {
+          "name": "getAppendSystemPrompt",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "getAppendSystemPromptSources",
+          "signature": "() => { path: string; }[]"
+        },
+        {
+          "name": "extendResources",
+          "signature": "(paths: ResourceExtensionPaths) => void"
+        },
+        {
+          "name": "loadProjectTrustExtensions",
+          "signature": "() => Promise<LoadExtensionsResult>"
+        },
+        {
+          "name": "reload",
+          "signature": "(options?: ResourceLoaderReloadOptions) => Promise<void>"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "defineTool",
+      "runtime": true
+    },
+    {
+      "name": "detectSupportedImageMimeTypeFromFile",
+      "runtime": true
+    },
+    {
+      "name": "discoverAndLoadExtensions",
+      "runtime": true
+    },
+    {
+      "name": "DynamicBorder",
+      "runtime": true,
+      "constructors": [
+        "(color?: (str: string) => string): DynamicBorder"
+      ],
+      "members": [
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "EditDiffResult",
+      "runtime": false
+    },
+    {
+      "name": "EditOperations",
+      "runtime": false
+    },
+    {
+      "name": "EditToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "EditToolDetails",
+      "runtime": false
+    },
+    {
+      "name": "EditToolInput",
+      "runtime": false
+    },
+    {
+      "name": "EditToolOptions",
+      "runtime": false
+    },
+    {
+      "name": "EntryRenderer",
+      "runtime": false
+    },
+    {
+      "name": "EntryRenderOptions",
+      "runtime": false
+    },
+    {
+      "name": "estimateTokens",
+      "runtime": true
+    },
+    {
+      "name": "EventBus",
+      "runtime": false
+    },
+    {
+      "name": "EventBusController",
+      "runtime": false
+    },
+    {
+      "name": "ExecOptions",
+      "runtime": false
+    },
+    {
+      "name": "ExecResult",
+      "runtime": false
+    },
+    {
+      "name": "ExecuteToolOptions",
+      "runtime": false
+    },
+    {
+      "name": "Extension",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionActions",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionAPI",
+      "runtime": false,
+      "members": [
+        {
+          "name": "on",
+          "signature": "{ (event: \"project_trust\", handler: ProjectTrustHandler): () => void; (event: \"resources_discover\", handler: ExtensionHandler<ResourcesDiscoverEvent, ResourcesDiscoverResult>): () => void; (event: \"session_start\", handler: ExtensionHandler<...>): () => void; (event: \"session_info_changed\", handler: ExtensionHandler<..."
+        },
+        {
+          "name": "registerTool",
+          "signature": "<TParams extends TSchema = TSchema, TDetails = unknown, TState = any>(tool: ToolDefinition<TParams, TDetails, TState>) => void"
+        },
+        {
+          "name": "registerCommand",
+          "signature": "(name: string, options: Omit<RegisteredCommand, \"name\" | \"sourceInfo\">) => void"
+        },
+        {
+          "name": "registerShortcut",
+          "signature": "(shortcut: KeyId, options: { description?: string; handler: (ctx: ExtensionContext) => void | Promise<void>; }) => void"
+        },
+        {
+          "name": "registerFlag",
+          "signature": "(name: string, options: { description?: string; type: \"boolean\"; default?: boolean; } | { description?: string; type: \"string\"; default?: string; }) => void"
+        },
+        {
+          "name": "getFlag",
+          "signature": "(name: string) => string | boolean"
+        },
+        {
+          "name": "registerMessageRenderer",
+          "signature": "<T = unknown>(customType: string, renderer: MessageRenderer<T>) => void"
+        },
+        {
+          "name": "registerMarkdownTransformer",
+          "signature": "(transformer: MarkdownTransformer) => void"
+        },
+        {
+          "name": "registerEntryRenderer",
+          "signature": "<T = unknown>(customType: string, renderer: EntryRenderer<T>) => void"
+        },
+        {
+          "name": "sendMessage",
+          "signature": "<T = unknown>(message: Pick<CustomMessage<T>, \"customType\" | \"content\" | \"display\" | \"details\">, options?: { triggerTurn?: boolean; deliverAs?: \"steer\" | \"followUp\" | \"nextTurn\"; }) => void"
+        },
+        {
+          "name": "sendUserMessage",
+          "signature": "(content: string | (TextContent | ImageContent)[], options?: { deliverAs?: \"steer\" | \"followUp\"; expandPromptTemplates?: boolean; }) => void"
+        },
+        {
+          "name": "appendEntry",
+          "signature": "<T = unknown>(customType: string, data?: T) => void"
+        },
+        {
+          "name": "setSessionName",
+          "signature": "(name: string) => void"
+        },
+        {
+          "name": "getSessionName",
+          "signature": "() => string"
+        },
+        {
+          "name": "setLabel",
+          "signature": "(entryId: string, label: string) => void"
+        },
+        {
+          "name": "exec",
+          "signature": "(command: string, args: string[], options?: ExecOptions) => Promise<ExecResult>"
+        },
+        {
+          "name": "getActiveTools",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "getAllTools",
+          "signature": "() => ToolInfo[]"
+        },
+        {
+          "name": "getSettings",
+          "signature": "() => Settings"
+        },
+        {
+          "name": "setActiveTools",
+          "signature": "(toolNames: string[]) => void"
+        },
+        {
+          "name": "getCommands",
+          "signature": "() => SlashCommandInfo[]"
+        },
+        {
+          "name": "setModel",
+          "signature": "(model: Model<any>) => Promise<boolean>"
+        },
+        {
+          "name": "getThinkingLevel",
+          "signature": "() => ThinkingLevel"
+        },
+        {
+          "name": "setThinkingLevel",
+          "signature": "(level: ThinkingLevel) => void"
+        },
+        {
+          "name": "registerProvider",
+          "signature": "{ (provider: Provider<Api>): void; (name: string, config: ProviderConfig): void; }"
+        },
+        {
+          "name": "unregisterProvider",
+          "signature": "(name: string) => void"
+        },
+        {
+          "name": "registerMcpServer",
+          "signature": "(name: string, config: McpServerConfig) => void"
+        },
+        {
+          "name": "unregisterMcpServer",
+          "signature": "(name: string) => void"
+        },
+        {
+          "name": "getMcpServers",
+          "signature": "() => RegisteredMcpServer[]"
+        },
+        {
+          "name": "registerVirtualModel",
+          "signature": "<TState = unknown>(model: ExtensionVirtualModel<TState>) => void"
+        },
+        {
+          "name": "unregisterVirtualModel",
+          "signature": "(provider: string, id: string) => void"
+        },
+        {
+          "name": "events",
+          "signature": "EventBus"
+        }
+      ]
+    },
+    {
+      "name": "ExtensionCommandContext",
+      "runtime": false,
+      "members": [
+        {
+          "name": "getSystemPromptOptions",
+          "signature": "() => BuildSystemPromptOptions"
+        },
+        {
+          "name": "waitForIdle",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "newSession",
+          "signature": "(options?: { parentSession?: string; setup?: (sessionManager: SessionManager) => Promise<void>; withSession?: (ctx: ReplacedSessionContext) => Promise<...>; }) => Promise<...>"
+        },
+        {
+          "name": "fork",
+          "signature": "(entryId: string, options?: { position?: \"before\" | \"at\"; withSession?: (ctx: ReplacedSessionContext) => Promise<void>; }) => Promise<{ cancelled: boolean; }>"
+        },
+        {
+          "name": "navigateTree",
+          "signature": "(targetId: string, options?: { summarize?: boolean; customInstructions?: string; replaceInstructions?: boolean; label?: string; }) => Promise<{ cancelled: boolean; }>"
+        },
+        {
+          "name": "switchSession",
+          "signature": "(sessionPath: string, options?: { withSession?: (ctx: ReplacedSessionContext) => Promise<void>; }) => Promise<{ cancelled: boolean; }>"
+        },
+        {
+          "name": "reload",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "ui",
+          "signature": "ExtensionUIContext"
+        },
+        {
+          "name": "mode",
+          "signature": "ExtensionMode"
+        },
+        {
+          "name": "hasUI",
+          "signature": "boolean"
+        },
+        {
+          "name": "cwd",
+          "signature": "string"
+        },
+        {
+          "name": "sessionManager",
+          "signature": "ReadonlySessionManager"
+        },
+        {
+          "name": "modelRegistry",
+          "signature": "ModelRegistry"
+        },
+        {
+          "name": "model",
+          "signature": "Model<any>"
+        },
+        {
+          "name": "scopedModels",
+          "signature": "readonly ScopedModel[]"
+        },
+        {
+          "name": "thinkingLevel",
+          "signature": "ThinkingLevel"
+        },
+        {
+          "name": "isIdle",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "isProjectTrusted",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "signal",
+          "signature": "AbortSignal"
+        },
+        {
+          "name": "abort",
+          "signature": "() => void"
+        },
+        {
+          "name": "hasPendingMessages",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "shutdown",
+          "signature": "() => void"
+        },
+        {
+          "name": "getContextUsage",
+          "signature": "() => ContextUsage"
+        },
+        {
+          "name": "compact",
+          "signature": "(options?: CompactOptions) => void"
+        },
+        {
+          "name": "getSystemPrompt",
+          "signature": "() => string"
+        }
+      ]
+    },
+    {
+      "name": "ExtensionCommandContextActions",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionContext",
+      "runtime": false,
+      "members": [
+        {
+          "name": "ui",
+          "signature": "ExtensionUIContext"
+        },
+        {
+          "name": "mode",
+          "signature": "ExtensionMode"
+        },
+        {
+          "name": "hasUI",
+          "signature": "boolean"
+        },
+        {
+          "name": "cwd",
+          "signature": "string"
+        },
+        {
+          "name": "sessionManager",
+          "signature": "ReadonlySessionManager"
+        },
+        {
+          "name": "modelRegistry",
+          "signature": "ModelRegistry"
+        },
+        {
+          "name": "model",
+          "signature": "Model<any>"
+        },
+        {
+          "name": "scopedModels",
+          "signature": "readonly ScopedModel[]"
+        },
+        {
+          "name": "thinkingLevel",
+          "signature": "ThinkingLevel"
+        },
+        {
+          "name": "isIdle",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "isProjectTrusted",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "signal",
+          "signature": "AbortSignal"
+        },
+        {
+          "name": "abort",
+          "signature": "() => void"
+        },
+        {
+          "name": "hasPendingMessages",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "shutdown",
+          "signature": "() => void"
+        },
+        {
+          "name": "getContextUsage",
+          "signature": "() => ContextUsage"
+        },
+        {
+          "name": "compact",
+          "signature": "(options?: CompactOptions) => void"
+        },
+        {
+          "name": "getSystemPrompt",
+          "signature": "() => string"
+        }
+      ]
+    },
+    {
+      "name": "ExtensionContextActions",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionEditorComponent",
+      "runtime": true,
+      "constructors": [
+        "(tui: TUI, keybindings: KeybindingsManager, title: string, prefill: string, onSubmit: (value: string) => void, onCancel: () => void, options?: ExtensionEditorOptions, externalEditorCommand?: string): ExtensionEditorComponent"
+      ],
+      "members": [
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(keyData: string) => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ExtensionError",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionEvent",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionFactory",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionFlag",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionHandler",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionInputComponent",
+      "runtime": true,
+      "constructors": [
+        "(title: string, _placeholder: string, onSubmit: (value: string) => void, onCancel: () => void, opts?: ExtensionInputOptions): ExtensionInputComponent"
+      ],
+      "members": [
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(keyData: string) => void"
+        },
+        {
+          "name": "dispose",
+          "signature": "() => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ExtensionRunner",
+      "runtime": true,
+      "constructors": [
+        "(extensions: Extension[], runtime: ExtensionRuntime, cwd: string, sessionManager: SessionManager, modelRegistry: ModelRegistry): ExtensionRunner"
+      ],
+      "members": [
+        {
+          "name": "bindCore",
+          "signature": "(actions: ExtensionActions, contextActions: ExtensionContextActions, providerActions?: { registerProvider?: (name: string, config: ProviderConfig) => void; registerNativeProvider?: (provider: Provider<...>) => void; unregisterProvider?: (name: string) => void; registerVirtualModel?: (definition: VirtualModelDefiniti..."
+        },
+        {
+          "name": "bindCommandContext",
+          "signature": "(actions?: ExtensionCommandContextActions) => void"
+        },
+        {
+          "name": "setUIContext",
+          "signature": "(uiContext?: ExtensionUIContext, mode?: ExtensionMode) => void"
+        },
+        {
+          "name": "getUIContext",
+          "signature": "() => ExtensionUIContext"
+        },
+        {
+          "name": "hasUI",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "getExtensionPaths",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "getAllRegisteredTools",
+          "signature": "() => RegisteredTool[]"
+        },
+        {
+          "name": "getToolDefinition",
+          "signature": "(toolName: string) => ToolDefinition<TSchema, unknown, any>"
+        },
+        {
+          "name": "getFlags",
+          "signature": "() => Map<string, ExtensionFlag>"
+        },
+        {
+          "name": "setFlagValue",
+          "signature": "(name: string, value: string | boolean) => void"
+        },
+        {
+          "name": "getFlagValues",
+          "signature": "() => Map<string, string | boolean>"
+        },
+        {
+          "name": "getShortcuts",
+          "signature": "(resolvedKeybindings: KeybindingsConfig) => Map<KeyId, ExtensionShortcut>"
+        },
+        {
+          "name": "getShortcutDiagnostics",
+          "signature": "() => ResourceDiagnostic[]"
+        },
+        {
+          "name": "invalidate",
+          "signature": "(message?: string) => void"
+        },
+        {
+          "name": "onError",
+          "signature": "(listener: ExtensionErrorListener) => () => void"
+        },
+        {
+          "name": "emitError",
+          "signature": "(error: ExtensionError) => void"
+        },
+        {
+          "name": "reportUnhandledMcpServers",
+          "signature": "() => void"
+        },
+        {
+          "name": "hasHandlers",
+          "signature": "(eventType: string) => boolean"
+        },
+        {
+          "name": "getMessageRenderer",
+          "signature": "(customType: string) => MessageRenderer"
+        },
+        {
+          "name": "getMarkdownTransformers",
+          "signature": "() => MarkdownTransformer[]"
+        },
+        {
+          "name": "getEntryRenderer",
+          "signature": "(customType: string) => EntryRenderer"
+        },
+        {
+          "name": "getModelRegistry",
+          "signature": "() => ModelRegistry"
+        },
+        {
+          "name": "getRegisteredCommands",
+          "signature": "() => ResolvedCommand[]"
+        },
+        {
+          "name": "getCommandDiagnostics",
+          "signature": "() => ResourceDiagnostic[]"
+        },
+        {
+          "name": "getCommand",
+          "signature": "(name: string) => ResolvedCommand"
+        },
+        {
+          "name": "shutdown",
+          "signature": "() => void"
+        },
+        {
+          "name": "getActiveTools",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "createContext",
+          "signature": "() => ExtensionContext"
+        },
+        {
+          "name": "createToolContext",
+          "signature": "(toolCallId: string, signal: AbortSignal) => ExtensionToolContext"
+        },
+        {
+          "name": "createCommandContext",
+          "signature": "() => ExtensionCommandContext"
+        },
+        {
+          "name": "emitBoundary",
+          "signature": "(baseEvent: BoundaryBaseEvent, buildContext: (entries: SessionBoundaryDraft[]) => BoundaryContextPreview | Promise<BoundaryContextPreview>) => Promise<...>"
+        },
+        {
+          "name": "emit",
+          "signature": "<TEvent extends RunnerEmitEvent>(event: TEvent) => Promise<RunnerEmitResult<TEvent>>"
+        },
+        {
+          "name": "emitCacheWarmingDecision",
+          "signature": "(event: CacheWarmingDecisionEvent) => Promise<CacheWarmingAction>"
+        },
+        {
+          "name": "emitMessageEnd",
+          "signature": "(event: MessageEndEvent) => Promise<AgentMessage>"
+        },
+        {
+          "name": "emitToolResult",
+          "signature": "(event: ToolResultEvent) => Promise<ToolResultEventResult>"
+        },
+        {
+          "name": "emitToolCall",
+          "signature": "(event: ToolCallEvent) => Promise<ToolCallEventResult>"
+        },
+        {
+          "name": "emitUserBash",
+          "signature": "(event: UserBashEvent) => Promise<UserBashEventResult>"
+        },
+        {
+          "name": "emitContext",
+          "signature": "(messages: AgentMessage[]) => Promise<AgentMessage[]>"
+        },
+        {
+          "name": "emitBeforeProviderRequest",
+          "signature": "(payload: unknown) => Promise<unknown>"
+        },
+        {
+          "name": "emitBeforeProviderHeaders",
+          "signature": "(headers: ProviderHeaders) => Promise<ProviderHeaders>"
+        },
+        {
+          "name": "emitBeforeAgentStart",
+          "signature": "(prompt: string, images: ImageContent[], systemPromptOptions: BuildSystemPromptOptions) => Promise<BeforeAgentStartCombinedResult>"
+        },
+        {
+          "name": "emitResourcesDiscover",
+          "signature": "(cwd: string, reason: \"startup\" | \"reload\") => Promise<{ skillPaths: { path: string; extensionPath: string; }[]; promptPaths: { path: string; extensionPath: string; }[]; themePaths: { path: string; extensionPath: string; }[]; }>"
+        },
+        {
+          "name": "emitInput",
+          "signature": "(text: string, images: ImageContent[], source: InputSource, streamingBehavior?: \"steer\" | \"followUp\") => Promise<InputEventResult>"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ExtensionRuntime",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(title: string, options: string[], onSelect: (option: string) => void, onCancel: () => void, opts?: ExtensionSelectorOptions): ExtensionSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "handleInput",
+          "signature": "(keyData: string) => void"
+        },
+        {
+          "name": "dispose",
+          "signature": "() => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ExtensionShortcut",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionToolContext",
+      "runtime": false,
+      "members": [
+        {
+          "name": "tools",
+          "signature": "readonly AgentTool<TSchema, any>[]"
+        },
+        {
+          "name": "executeTool",
+          "signature": "(name: string, args: unknown, options?: ExecuteToolOptions) => Promise<AgentToolCallOutcome>"
+        },
+        {
+          "name": "ui",
+          "signature": "ExtensionUIContext"
+        },
+        {
+          "name": "mode",
+          "signature": "ExtensionMode"
+        },
+        {
+          "name": "hasUI",
+          "signature": "boolean"
+        },
+        {
+          "name": "cwd",
+          "signature": "string"
+        },
+        {
+          "name": "sessionManager",
+          "signature": "ReadonlySessionManager"
+        },
+        {
+          "name": "modelRegistry",
+          "signature": "ModelRegistry"
+        },
+        {
+          "name": "model",
+          "signature": "Model<any>"
+        },
+        {
+          "name": "scopedModels",
+          "signature": "readonly ScopedModel[]"
+        },
+        {
+          "name": "thinkingLevel",
+          "signature": "ThinkingLevel"
+        },
+        {
+          "name": "isIdle",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "isProjectTrusted",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "signal",
+          "signature": "AbortSignal"
+        },
+        {
+          "name": "abort",
+          "signature": "() => void"
+        },
+        {
+          "name": "hasPendingMessages",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "shutdown",
+          "signature": "() => void"
+        },
+        {
+          "name": "getContextUsage",
+          "signature": "() => ContextUsage"
+        },
+        {
+          "name": "compact",
+          "signature": "(options?: CompactOptions) => void"
+        },
+        {
+          "name": "getSystemPrompt",
+          "signature": "() => string"
+        }
+      ]
+    },
+    {
+      "name": "ExtensionUIContext",
+      "runtime": false,
+      "members": [
+        {
+          "name": "select",
+          "signature": "(title: string, options: string[], opts?: ExtensionUIDialogOptions) => Promise<string>"
+        },
+        {
+          "name": "confirm",
+          "signature": "(title: string, message: string, opts?: ExtensionUIDialogOptions) => Promise<boolean>"
+        },
+        {
+          "name": "input",
+          "signature": "(title: string, placeholder?: string, opts?: ExtensionUIDialogOptions) => Promise<string>"
+        },
+        {
+          "name": "notify",
+          "signature": "(message: string, type?: \"error\" | \"info\" | \"warning\") => void"
+        },
+        {
+          "name": "onTerminalInput",
+          "signature": "(handler: TerminalInputHandler) => () => void"
+        },
+        {
+          "name": "setStatus",
+          "signature": "(key: string, text: string) => void"
+        },
+        {
+          "name": "setWorkingMessage",
+          "signature": "(message?: string) => void"
+        },
+        {
+          "name": "setWorkingVisible",
+          "signature": "(visible: boolean) => void"
+        },
+        {
+          "name": "setWorkingIndicator",
+          "signature": "(options?: WorkingIndicatorOptions) => void"
+        },
+        {
+          "name": "setHiddenThinkingLabel",
+          "signature": "(label?: string) => void"
+        },
+        {
+          "name": "setWidget",
+          "signature": "{ (key: string, content: string[], options?: ExtensionWidgetOptions): void; (key: string, content: (tui: TUI, theme: Theme) => Component & { ...; }, options?: ExtensionWidgetOptions): void; }"
+        },
+        {
+          "name": "setFooter",
+          "signature": "(factory: (tui: TUI, theme: Theme, footerData: ReadonlyFooterDataProvider) => Component & { dispose?(): void; }) => void"
+        },
+        {
+          "name": "setHeader",
+          "signature": "(factory: (tui: TUI, theme: Theme) => Component & { dispose?(): void; }) => void"
+        },
+        {
+          "name": "setTitle",
+          "signature": "(title: string) => void"
+        },
+        {
+          "name": "custom",
+          "signature": "<T>(factory: (tui: TUI, theme: Theme, keybindings: KeybindingsManager, done: (result: T) => void) => (Component & { dispose?(): void; }) | Promise<...>, options?: { ...; }) => Promise<...>"
+        },
+        {
+          "name": "pasteToEditor",
+          "signature": "(text: string) => void"
+        },
+        {
+          "name": "setEditorText",
+          "signature": "(text: string) => void"
+        },
+        {
+          "name": "getEditorText",
+          "signature": "() => string"
+        },
+        {
+          "name": "editor",
+          "signature": "(title: string, prefill?: string) => Promise<string>"
+        },
+        {
+          "name": "addAutocompleteProvider",
+          "signature": "(factory: AutocompleteProviderFactory) => void"
+        },
+        {
+          "name": "setEditorComponent",
+          "signature": "(factory: EditorFactory) => void"
+        },
+        {
+          "name": "getEditorComponent",
+          "signature": "() => EditorFactory"
+        },
+        {
+          "name": "theme",
+          "signature": "Theme"
+        },
+        {
+          "name": "getAllThemes",
+          "signature": "() => { name: string; path: string; }[]"
+        },
+        {
+          "name": "getTheme",
+          "signature": "(name: string) => Theme"
+        },
+        {
+          "name": "setTheme",
+          "signature": "(theme: string | Theme) => { success: boolean; error?: string; }"
+        },
+        {
+          "name": "getToolsExpanded",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setToolsExpanded",
+          "signature": "(expanded: boolean) => void"
+        }
+      ]
+    },
+    {
+      "name": "ExtensionUIDialogOptions",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionVirtualModel",
+      "runtime": false
+    },
+    {
+      "name": "ExtensionWidgetOptions",
+      "runtime": false
+    },
+    {
+      "name": "FileEntry",
+      "runtime": false
+    },
+    {
+      "name": "FileOperations",
+      "runtime": false
+    },
+    {
+      "name": "findCutPoint",
+      "runtime": true
+    },
+    {
+      "name": "FindOperations",
+      "runtime": false
+    },
+    {
+      "name": "FindToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "FindToolDetails",
+      "runtime": false
+    },
+    {
+      "name": "FindToolInput",
+      "runtime": false
+    },
+    {
+      "name": "FindToolOptions",
+      "runtime": false
+    },
+    {
+      "name": "findTurnStartIndex",
+      "runtime": true
+    },
+    {
+      "name": "FooterComponent",
+      "runtime": true,
+      "constructors": [
+        "(session: AgentSession, footerData: ReadonlyFooterDataProvider): FooterComponent"
+      ],
+      "members": [
+        {
+          "name": "setSession",
+          "signature": "(session: AgentSession) => void"
+        },
+        {
+          "name": "setAutoCompactEnabled",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "dispose",
+          "signature": "() => void"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "formatDimensionNote",
+      "runtime": true
+    },
+    {
+      "name": "formatSize",
+      "runtime": true
+    },
+    {
+      "name": "formatSkillsForPrompt",
+      "runtime": true
+    },
+    {
+      "name": "FullscreenExitOutput",
+      "runtime": false
+    },
+    {
+      "name": "generateBranchSummary",
+      "runtime": true
+    },
+    {
+      "name": "GenerateBranchSummaryOptions",
+      "runtime": false
+    },
+    {
+      "name": "generateDiffString",
+      "runtime": true
+    },
+    {
+      "name": "generateSummary",
+      "runtime": true
+    },
+    {
+      "name": "generateSummaryWithUsage",
+      "runtime": true
+    },
+    {
+      "name": "generateUnifiedPatch",
+      "runtime": true
+    },
+    {
+      "name": "getAgentDir",
+      "runtime": true
+    },
+    {
+      "name": "getDocsPath",
+      "runtime": true
+    },
+    {
+      "name": "getExamplesPath",
+      "runtime": true
+    },
+    {
+      "name": "getLanguageFromPath",
+      "runtime": true
+    },
+    {
+      "name": "getLastAssistantUsage",
+      "runtime": true
+    },
+    {
+      "name": "getLatestCompactionEntry",
+      "runtime": true
+    },
+    {
+      "name": "getMarkdownTheme",
+      "runtime": true
+    },
+    {
+      "name": "getPackageDir",
+      "runtime": true
+    },
+    {
+      "name": "getPowerShellConfig",
+      "runtime": true
+    },
+    {
+      "name": "getReadmePath",
+      "runtime": true
+    },
+    {
+      "name": "getSelectListTheme",
+      "runtime": true
+    },
+    {
+      "name": "getSettingsListTheme",
+      "runtime": true
+    },
+    {
+      "name": "getShellConfig",
+      "runtime": true
+    },
+    {
+      "name": "GrepOperations",
+      "runtime": false
+    },
+    {
+      "name": "GrepToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "GrepToolDetails",
+      "runtime": false
+    },
+    {
+      "name": "GrepToolInput",
+      "runtime": false
+    },
+    {
+      "name": "GrepToolOptions",
+      "runtime": false
+    },
+    {
+      "name": "hasTrustRequiringProjectResources",
+      "runtime": true
+    },
+    {
+      "name": "highlightCode",
+      "runtime": true
+    },
+    {
+      "name": "ImageSettings",
+      "runtime": false
+    },
+    {
+      "name": "initTheme",
+      "runtime": true
+    },
+    {
+      "name": "InlineExtension",
+      "runtime": false
+    },
+    {
+      "name": "InputEvent",
+      "runtime": false
+    },
+    {
+      "name": "InputEventResult",
+      "runtime": false
+    },
+    {
+      "name": "InputSource",
+      "runtime": false
+    },
+    {
+      "name": "InteractiveMode",
+      "runtime": true,
+      "constructors": [
+        "(runtimeHost: AgentSessionRuntime, options?: InteractiveModeOptions): InteractiveMode"
+      ],
+      "members": [
+        {
+          "name": "init",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "run",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "renderInitialMessages",
+          "signature": "() => void"
+        },
+        {
+          "name": "getUserInput",
+          "signature": "() => Promise<string>"
+        },
+        {
+          "name": "clearEditor",
+          "signature": "() => void"
+        },
+        {
+          "name": "showError",
+          "signature": "(errorMessage: string) => void"
+        },
+        {
+          "name": "showWarning",
+          "signature": "(warningMessage: string) => void"
+        },
+        {
+          "name": "showNewVersionNotification",
+          "signature": "(release: LatestPiRelease) => void"
+        },
+        {
+          "name": "showPackageUpdateNotification",
+          "signature": "(packages: string[]) => void"
+        },
+        {
+          "name": "stop",
+          "signature": "(fullscreenExitOutput?: FullscreenExitOutput) => void"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "InteractiveModeOptions",
+      "runtime": false
+    },
+    {
+      "name": "isBashToolResult",
+      "runtime": true
+    },
+    {
+      "name": "isEditToolResult",
+      "runtime": true
+    },
+    {
+      "name": "isFindToolResult",
+      "runtime": true
+    },
+    {
+      "name": "isGrepToolResult",
+      "runtime": true
+    },
+    {
+      "name": "isLsToolResult",
+      "runtime": true
+    },
+    {
+      "name": "isPowerShellToolResult",
+      "runtime": true
+    },
+    {
+      "name": "isReadToolResult",
+      "runtime": true
+    },
+    {
+      "name": "isToolCallEventType",
+      "runtime": true
+    },
+    {
+      "name": "isWriteToolResult",
+      "runtime": true
+    },
+    {
+      "name": "JsonAgentSessionEvent",
+      "runtime": false
+    },
+    {
+      "name": "KeybindingsManager",
+      "runtime": false,
+      "constructors": [
+        "(userBindings?: KeybindingsConfig, configPath?: string): KeybindingsManager"
+      ],
+      "members": [
+        {
+          "name": "reload",
+          "signature": "() => void"
+        },
+        {
+          "name": "getEffectiveConfig",
+          "signature": "() => KeybindingsConfig"
+        },
+        {
+          "name": "matches",
+          "signature": "(data: string, keybinding: keyof Keybindings) => boolean"
+        },
+        {
+          "name": "getKeys",
+          "signature": "(keybinding: keyof Keybindings) => KeyId[]"
+        },
+        {
+          "name": "getDefinition",
+          "signature": "(keybinding: keyof Keybindings) => KeybindingDefinition"
+        },
+        {
+          "name": "getConflicts",
+          "signature": "() => KeybindingConflict[]"
+        },
+        {
+          "name": "setUserBindings",
+          "signature": "(userBindings: KeybindingsConfig) => void"
+        },
+        {
+          "name": "getUserBindings",
+          "signature": "() => KeybindingsConfig"
+        },
+        {
+          "name": "getResolvedBindings",
+          "signature": "() => KeybindingsConfig"
+        }
+      ],
+      "staticMembers": [
+        {
+          "name": "create",
+          "signature": "(agentDir?: string) => KeybindingsManager"
+        }
+      ]
+    },
+    {
+      "name": "keyHint",
+      "runtime": true
+    },
+    {
+      "name": "keyText",
+      "runtime": true
+    },
+    {
+      "name": "LoadedMcpConfig",
+      "runtime": false
+    },
+    {
+      "name": "LoadExtensionsResult",
+      "runtime": false
+    },
+    {
+      "name": "loadProjectContextFiles",
+      "runtime": true
+    },
+    {
+      "name": "loadSkills",
+      "runtime": true
+    },
+    {
+      "name": "loadSkillsFromDir",
+      "runtime": true
+    },
+    {
+      "name": "LoadSkillsFromDirOptions",
+      "runtime": false
+    },
+    {
+      "name": "LoadSkillsResult",
+      "runtime": false
+    },
+    {
+      "name": "LoginDialogComponent",
+      "runtime": true,
+      "constructors": [
+        "(tui: TUI, providerId: string, onComplete: (success: boolean, message?: string) => void, providerNameOverride?: string, titleOverride?: string): LoginDialogComponent"
+      ],
+      "members": [
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "signal",
+          "signature": "AbortSignal"
+        },
+        {
+          "name": "showAuth",
+          "signature": "(url: string, instructions?: string) => void"
+        },
+        {
+          "name": "showDeviceCode",
+          "signature": "(info: OAuthDeviceCodeInfo) => void"
+        },
+        {
+          "name": "showManualInput",
+          "signature": "(prompt: string) => Promise<string>"
+        },
+        {
+          "name": "showPrompt",
+          "signature": "(message: string, placeholder?: string) => Promise<string>"
+        },
+        {
+          "name": "showDetails",
+          "signature": "(lines: string[]) => void"
+        },
+        {
+          "name": "showInfo",
+          "signature": "(message: string, links?: readonly AuthInfoLink[], showCloseHint?: boolean) => void"
+        },
+        {
+          "name": "showWaiting",
+          "signature": "(message: string) => void"
+        },
+        {
+          "name": "showProgress",
+          "signature": "(message: string) => void"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(data: string) => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "LsOperations",
+      "runtime": false
+    },
+    {
+      "name": "LsToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "LsToolDetails",
+      "runtime": false
+    },
+    {
+      "name": "LsToolInput",
+      "runtime": false
+    },
+    {
+      "name": "LsToolOptions",
+      "runtime": false
+    },
+    {
+      "name": "main",
+      "runtime": true
+    },
+    {
+      "name": "MainOptions",
+      "runtime": false
+    },
+    {
+      "name": "MarkdownTransformContext",
+      "runtime": false
+    },
+    {
+      "name": "MarkdownTransformer",
+      "runtime": false
+    },
+    {
+      "name": "McpExposure",
+      "runtime": false
+    },
+    {
+      "name": "McpExtensionOptions",
+      "runtime": false
+    },
+    {
+      "name": "McpServerConfig",
+      "runtime": false
+    },
+    {
+      "name": "McpServerEntry",
+      "runtime": false
+    },
+    {
+      "name": "McpServersChangeEvent",
+      "runtime": false
+    },
+    {
+      "name": "McpTransportFactory",
+      "runtime": false
+    },
+    {
+      "name": "MessageEndEvent",
+      "runtime": false
+    },
+    {
+      "name": "MessageEndEventResult",
+      "runtime": false
+    },
+    {
+      "name": "MessageRenderer",
+      "runtime": false
+    },
+    {
+      "name": "MessageRenderOptions",
+      "runtime": false
+    },
+    {
+      "name": "MessageStartEvent",
+      "runtime": false
+    },
+    {
+      "name": "MessageUpdateEvent",
+      "runtime": false
+    },
+    {
+      "name": "migrateSessionEntries",
+      "runtime": true
+    },
+    {
+      "name": "ModelChangeEntry",
+      "runtime": false
+    },
+    {
+      "name": "ModelCycleResult",
+      "runtime": false
+    },
+    {
+      "name": "ModelInfo",
+      "runtime": false
+    },
+    {
+      "name": "ModelRegistry",
+      "runtime": true,
+      "constructors": [
+        "(runtime: ModelRuntime): ModelRegistry"
+      ],
+      "members": [
+        {
+          "name": "refresh",
+          "signature": "(options?: ModelsRefreshOptions) => Promise<ModelsRefreshResult>"
+        },
+        {
+          "name": "getError",
+          "signature": "() => string"
+        },
+        {
+          "name": "getAll",
+          "signature": "() => Model<Api>[]"
+        },
+        {
+          "name": "getAvailable",
+          "signature": "() => Model<Api>[]"
+        },
+        {
+          "name": "find",
+          "signature": "(provider: string, modelId: string) => Model<Api>"
+        },
+        {
+          "name": "findOfType",
+          "signature": "<TType extends ModelType>(type: TType, provider: string, modelId: string) => ModelTypeMap[TType]"
+        },
+        {
+          "name": "hasConfiguredAuth",
+          "signature": "(model: Model<Api>) => boolean"
+        },
+        {
+          "name": "getApiKeyAndHeaders",
+          "signature": "(model: Model<Api>) => Promise<ResolvedRequestAuth>"
+        },
+        {
+          "name": "getProviderAuthStatus",
+          "signature": "(provider: string) => AuthStatus"
+        },
+        {
+          "name": "getProvider",
+          "signature": "(provider: string) => Provider<Api>"
+        },
+        {
+          "name": "stream",
+          "signature": "<TApi extends Api>(model: Model<TApi>, context: Context, options?: ModelsApiStreamOptions<TApi>) => AssistantMessageEventStream"
+        },
+        {
+          "name": "streamSimple",
+          "signature": "(model: Model<Api>, context: Context, options?: ModelsSimpleStreamOptions) => AssistantMessageEventStream"
+        },
+        {
+          "name": "complete",
+          "signature": "<TApi extends Api>(model: Model<TApi>, context: Context, options?: ModelsApiStreamOptions<TApi>) => Promise<AssistantMessage>"
+        },
+        {
+          "name": "getModelsOfType",
+          "signature": "<TType extends ModelType>(type: TType, provider?: string) => readonly ModelTypeMap[TType][]"
+        },
+        {
+          "name": "getAvailableOfType",
+          "signature": "<TType extends ModelType>(type: TType, provider?: string, options?: AuthOperationOptions) => Promise<readonly ModelTypeMap[TType][]>"
+        },
+        {
+          "name": "getModelOfType",
+          "signature": "<TType extends ModelType>(type: TType, provider: string, modelId: string) => ModelTypeMap[TType]"
+        },
+        {
+          "name": "classify",
+          "signature": "(model: ClassifierModel<ClassifierApi>, context: ClassifierContext, options?: ModelsClassifierOptions) => Promise<...>"
+        },
+        {
+          "name": "generateImages",
+          "signature": "(model: ImageModel<ImageApi>, context: ImagesContext, options?: ModelsImagesOptions) => Promise<AssistantImages>"
+        },
+        {
+          "name": "getProviderDisplayName",
+          "signature": "(provider: string) => string"
+        },
+        {
+          "name": "getProviderAuth",
+          "signature": "(provider: string) => Promise<AuthResult>"
+        },
+        {
+          "name": "getApiKeyForProvider",
+          "signature": "(provider: string) => Promise<string>"
+        },
+        {
+          "name": "isUsingOAuth",
+          "signature": "(model: Model<Api>) => boolean"
+        },
+        {
+          "name": "registerProvider",
+          "signature": "{ (provider: Provider<Api>): void; (providerName: string, config: ProviderConfigInput): void; }"
+        },
+        {
+          "name": "unregisterProvider",
+          "signature": "(providerName: string) => void"
+        },
+        {
+          "name": "registerVirtualModel",
+          "signature": "(definition: VirtualModelDefinition<unknown>) => void"
+        },
+        {
+          "name": "unregisterVirtualModel",
+          "signature": "(providerName: string, id: string) => void"
+        },
+        {
+          "name": "getRegisteredProviderConfig",
+          "signature": "(providerName: string) => ProviderConfigInput"
+        },
+        {
+          "name": "getRegisteredNativeProvider",
+          "signature": "(providerName: string) => Provider<Api>"
+        },
+        {
+          "name": "getRegisteredProviderIds",
+          "signature": "() => readonly string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ModelRoute",
+      "runtime": false
+    },
+    {
+      "name": "ModelRouteReason",
+      "runtime": false
+    },
+    {
+      "name": "ModelRouteRequest",
+      "runtime": false
+    },
+    {
+      "name": "ModelRuntime",
+      "runtime": true,
+      "constructors": [],
+      "members": [
+        {
+          "name": "getProviders",
+          "signature": "() => readonly Provider<Api>[]"
+        },
+        {
+          "name": "getProvider",
+          "signature": "(providerId: string) => Provider<Api>"
+        },
+        {
+          "name": "getModels",
+          "signature": "(providerId?: string) => readonly Model<Api>[]"
+        },
+        {
+          "name": "getModel",
+          "signature": "(providerId: string, modelId: string) => Model<Api>"
+        },
+        {
+          "name": "getModelsOfType",
+          "signature": "<TType extends ModelType>(type: TType, providerId?: string) => readonly ModelTypeMap[TType][]"
+        },
+        {
+          "name": "getModelOfType",
+          "signature": "<TType extends ModelType>(type: TType, providerId: string, modelId: string) => ModelTypeMap[TType]"
+        },
+        {
+          "name": "getAllModels",
+          "signature": "(providerId?: string) => readonly AnyModel[]"
+        },
+        {
+          "name": "getAvailableOfType",
+          "signature": "<TType extends ModelType>(type: TType, providerId?: string, options?: AuthOperationOptions) => Promise<readonly ModelTypeMap[TType][]>"
+        },
+        {
+          "name": "getAllAvailable",
+          "signature": "(providerId?: string, options?: AuthOperationOptions) => Promise<readonly AnyModel[]>"
+        },
+        {
+          "name": "checkAuth",
+          "signature": "(providerId: string, options?: AuthOperationOptions) => Promise<AuthCheck>"
+        },
+        {
+          "name": "getAvailable",
+          "signature": "(providerId?: string, options?: AuthOperationOptions) => Promise<readonly Model<Api>[]>"
+        },
+        {
+          "name": "getAvailableSnapshot",
+          "signature": "() => readonly Model<Api>[]"
+        },
+        {
+          "name": "getError",
+          "signature": "() => string"
+        },
+        {
+          "name": "getRegisteredProviderConfig",
+          "signature": "(providerId: string) => ProviderConfigInput"
+        },
+        {
+          "name": "getRegisteredProviderIds",
+          "signature": "() => readonly string[]"
+        },
+        {
+          "name": "getRegisteredNativeProvider",
+          "signature": "(providerId: string) => Provider<Api>"
+        },
+        {
+          "name": "getCompatibilityRequestConfig",
+          "signature": "(model: Model<Api>) => CompatibilityRequestConfig"
+        },
+        {
+          "name": "isUsingOAuth",
+          "signature": "(providerId: string) => boolean"
+        },
+        {
+          "name": "isUsingSubscription",
+          "signature": "(providerId: string) => boolean"
+        },
+        {
+          "name": "hasConfiguredAuth",
+          "signature": "(providerId: string) => boolean"
+        },
+        {
+          "name": "getAuth",
+          "signature": "{ (providerId: string, overrides?: ModelRuntimeAuthOverrides): Promise<AuthResult>; (model: AnyModel, overrides?: ModelRuntimeAuthOverrides): Promise<...>; }"
+        },
+        {
+          "name": "setRuntimeApiKey",
+          "signature": "(providerId: string, apiKey: string, options?: AuthOperationOptions) => Promise<void>"
+        },
+        {
+          "name": "removeRuntimeApiKey",
+          "signature": "(providerId: string, options?: AuthOperationOptions) => Promise<void>"
+        },
+        {
+          "name": "listCredentials",
+          "signature": "(options?: AuthOperationOptions) => Promise<readonly CredentialInfo[]>"
+        },
+        {
+          "name": "getProviderAuthStatus",
+          "signature": "(providerId: string) => AuthStatus"
+        },
+        {
+          "name": "stream",
+          "signature": "<TApi extends Api>(model: Model<TApi>, context: Context, options?: ModelsApiStreamOptions<TApi>) => AssistantMessageEventStream"
+        },
+        {
+          "name": "complete",
+          "signature": "<TApi extends Api>(model: Model<TApi>, context: Context, options?: ModelsApiStreamOptions<TApi>) => Promise<AssistantMessage>"
+        },
+        {
+          "name": "streamSimple",
+          "signature": "(model: Model<Api>, context: Context, options?: ModelsSimpleStreamOptions) => AssistantMessageEventStream"
+        },
+        {
+          "name": "completeSimple",
+          "signature": "(model: Model<Api>, context: Context, options?: ModelsSimpleStreamOptions) => Promise<AssistantMessage>"
+        },
+        {
+          "name": "streamDeferred",
+          "signature": "(model: Model<Api>, handle: DeferredHandle, options?: ModelsDeferredFetchOptions) => AssistantMessageEventStream"
+        },
+        {
+          "name": "fetchDeferred",
+          "signature": "(model: Model<Api>, handle: DeferredHandle, options?: ModelsDeferredFetchOptions) => Promise<AssistantMessage>"
+        },
+        {
+          "name": "cancelDeferred",
+          "signature": "(model: Model<Api>, handle: DeferredHandle, options?: ModelsDeferredCancelOptions) => Promise<void>"
+        },
+        {
+          "name": "generateImages",
+          "signature": "(model: ImageModel<ImageApi>, context: ImagesContext, options?: ModelsImagesOptions) => Promise<AssistantImages>"
+        },
+        {
+          "name": "classify",
+          "signature": "(model: ClassifierModel<ClassifierApi>, context: ClassifierContext, options?: ModelsClassifierOptions) => Promise<...>"
+        },
+        {
+          "name": "login",
+          "signature": "(providerId: string, type: AuthType, interaction: AuthInteraction, options?: LoginOptions) => Promise<Credential>"
+        },
+        {
+          "name": "logout",
+          "signature": "(providerId: string, options?: AuthOperationOptions) => Promise<void>"
+        },
+        {
+          "name": "refresh",
+          "signature": "(options?: ModelsRefreshOptions) => Promise<ModelsRefreshResult>"
+        },
+        {
+          "name": "registerNativeProvider",
+          "signature": "(provider: Provider<Api>) => void"
+        },
+        {
+          "name": "registerProvider",
+          "signature": "(providerId: string, config: ProviderConfigInput) => void"
+        },
+        {
+          "name": "unregisterProvider",
+          "signature": "(providerId: string) => void"
+        },
+        {
+          "name": "registerVirtualModel",
+          "signature": "(definition: VirtualModelDefinition<unknown>) => void"
+        },
+        {
+          "name": "unregisterVirtualModel",
+          "signature": "(providerId: string, id: string) => void"
+        },
+        {
+          "name": "resolveModel",
+          "signature": "(model: Model<Api>, messages: readonly Message[], options: { reason: ModelRouteReason; thinkingLevel: ModelThinkingLevel; signal?: AbortSignal; failed?: AssistantMessage; state?: unknown; }) => Promise<...>"
+        },
+        {
+          "name": "getPhysicalModel",
+          "signature": "(providerId: string, modelId: string) => Model<Api>"
+        }
+      ],
+      "staticMembers": [
+        {
+          "name": "create",
+          "signature": "(options?: CreateModelRuntimeOptions) => Promise<ModelRuntime>"
+        }
+      ]
+    },
+    {
+      "name": "ModelRuntimeAuthOverrides",
+      "runtime": false
+    },
+    {
+      "name": "ModelScopeDiagnostic",
+      "runtime": false
+    },
+    {
+      "name": "ModelSelectEvent",
+      "runtime": false
+    },
+    {
+      "name": "ModelSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(tui: TUI, currentModel: Model<any>, modelRuntime: ModelRuntime, scopedModels: readonly ScopedModelItem[], onSelect: (model: Model<any>) => void, onCancel: () => void, initialSearchInput?: string, onSelectAsDefault?: (model: Model<...>) => void, defaultModel?: DefaultModelReference): ModelSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "dispose",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(keyData: string) => void"
+        },
+        {
+          "name": "getSearchInput",
+          "signature": "() => Input"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ModelSelectSource",
+      "runtime": false
+    },
+    {
+      "name": "NewSessionOptions",
+      "runtime": false
+    },
+    {
+      "name": "NormalizedBuildSystemPromptOptions",
+      "runtime": false
+    },
+    {
+      "name": "OAuthSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(mode: \"login\" | \"logout\", providers: AuthSelectorProvider[], onSelect: (providerId: string, authType: \"api_key\" | \"oauth\") => void, onCancel: () => void, initialSearchInput?: string): OAuthSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(keyData: string) => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "PackageManager",
+      "runtime": false
+    },
+    {
+      "name": "PackageSource",
+      "runtime": false
+    },
+    {
+      "name": "parseArgs",
+      "runtime": true
+    },
+    {
+      "name": "ParsedSkillBlock",
+      "runtime": false
+    },
+    {
+      "name": "parseFrontmatter",
+      "runtime": true
+    },
+    {
+      "name": "parseSessionEntries",
+      "runtime": true
+    },
+    {
+      "name": "parseSkillBlock",
+      "runtime": true
+    },
+    {
+      "name": "PathMetadata",
+      "runtime": false
+    },
+    {
+      "name": "PowerShellOperations",
+      "runtime": false
+    },
+    {
+      "name": "PowerShellSpawnContext",
+      "runtime": false
+    },
+    {
+      "name": "PowerShellSpawnHook",
+      "runtime": false
+    },
+    {
+      "name": "PowerShellToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "PowerShellToolDetails",
+      "runtime": false
+    },
+    {
+      "name": "PowerShellToolInput",
+      "runtime": false
+    },
+    {
+      "name": "PowerShellToolOptions",
+      "runtime": false
+    },
+    {
+      "name": "prepareBranchEntries",
+      "runtime": true
+    },
+    {
+      "name": "PrintModeOptions",
+      "runtime": false
+    },
+    {
+      "name": "ProgressCallback",
+      "runtime": false
+    },
+    {
+      "name": "ProgressEvent",
+      "runtime": false
+    },
+    {
+      "name": "ProjectedSessionEntry",
+      "runtime": false
+    },
+    {
+      "name": "ProjectTrustContext",
+      "runtime": false
+    },
+    {
+      "name": "ProjectTrustDecision",
+      "runtime": false
+    },
+    {
+      "name": "ProjectTrustEvent",
+      "runtime": false
+    },
+    {
+      "name": "ProjectTrustEventDecision",
+      "runtime": false
+    },
+    {
+      "name": "ProjectTrustEventResult",
+      "runtime": false
+    },
+    {
+      "name": "ProjectTrustHandler",
+      "runtime": false
+    },
+    {
+      "name": "ProjectTrustStore",
+      "runtime": true,
+      "constructors": [
+        "(agentDir: string): ProjectTrustStore"
+      ],
+      "members": [
+        {
+          "name": "get",
+          "signature": "(cwd: string) => ProjectTrustDecision"
+        },
+        {
+          "name": "getEntry",
+          "signature": "(cwd: string) => ProjectTrustStoreEntry"
+        },
+        {
+          "name": "set",
+          "signature": "(cwd: string, decision: ProjectTrustDecision) => void"
+        },
+        {
+          "name": "setMany",
+          "signature": "(decisions: ProjectTrustUpdate[]) => void"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ProjectTrustStoreEntry",
+      "runtime": false
+    },
+    {
+      "name": "ProjectTrustUpdate",
+      "runtime": false
+    },
+    {
+      "name": "PromptOptions",
+      "runtime": false
+    },
+    {
+      "name": "PromptTemplate",
+      "runtime": false
+    },
+    {
+      "name": "ProviderConfig",
+      "runtime": false
+    },
+    {
+      "name": "ProviderModelConfig",
+      "runtime": false
+    },
+    {
+      "name": "ProviderStreamEvent",
+      "runtime": false
+    },
+    {
+      "name": "QuietStartup",
+      "runtime": false
+    },
+    {
+      "name": "rawKeyHint",
+      "runtime": true
+    },
+    {
+      "name": "ReadonlyFooterDataProvider",
+      "runtime": false
+    },
+    {
+      "name": "ReadOperations",
+      "runtime": false
+    },
+    {
+      "name": "readStoredCredential",
+      "runtime": true
+    },
+    {
+      "name": "ReadToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "ReadToolDetails",
+      "runtime": false
+    },
+    {
+      "name": "ReadToolInput",
+      "runtime": false
+    },
+    {
+      "name": "ReadToolOptions",
+      "runtime": false
+    },
+    {
+      "name": "RegisteredCommand",
+      "runtime": false
+    },
+    {
+      "name": "RegisteredMcpServer",
+      "runtime": false
+    },
+    {
+      "name": "RegisteredTool",
+      "runtime": false
+    },
+    {
+      "name": "renderDiff",
+      "runtime": true
+    },
+    {
+      "name": "RenderDiffOptions",
+      "runtime": false
+    },
+    {
+      "name": "ResizedImage",
+      "runtime": false
+    },
+    {
+      "name": "resizeImage",
+      "runtime": true
+    },
+    {
+      "name": "resolveCliModel",
+      "runtime": true
+    },
+    {
+      "name": "ResolveCliModelResult",
+      "runtime": false
+    },
+    {
+      "name": "ResolvedCommand",
+      "runtime": false
+    },
+    {
+      "name": "ResolvedPaths",
+      "runtime": false
+    },
+    {
+      "name": "ResolvedResource",
+      "runtime": false
+    },
+    {
+      "name": "ResolveModelScopeResult",
+      "runtime": false
+    },
+    {
+      "name": "resolveModelScopeWithDiagnostics",
+      "runtime": true
+    },
+    {
+      "name": "ResourceCollision",
+      "runtime": false
+    },
+    {
+      "name": "ResourceDiagnostic",
+      "runtime": false
+    },
+    {
+      "name": "ResourceLoader",
+      "runtime": false,
+      "members": [
+        {
+          "name": "getExtensions",
+          "signature": "() => LoadExtensionsResult"
+        },
+        {
+          "name": "getSkills",
+          "signature": "() => { skills: Skill[]; diagnostics: ResourceDiagnostic[]; }"
+        },
+        {
+          "name": "getPrompts",
+          "signature": "() => { prompts: PromptTemplate[]; diagnostics: ResourceDiagnostic[]; }"
+        },
+        {
+          "name": "getThemes",
+          "signature": "() => { themes: Theme[]; diagnostics: ResourceDiagnostic[]; }"
+        },
+        {
+          "name": "getAgentsFiles",
+          "signature": "() => { agentsFiles: { path: string; content: string; }[]; }"
+        },
+        {
+          "name": "getSystemPrompt",
+          "signature": "() => string"
+        },
+        {
+          "name": "getSystemPromptSource",
+          "signature": "() => { path: string; }"
+        },
+        {
+          "name": "getAppendSystemPrompt",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "getAppendSystemPromptSources",
+          "signature": "() => { path: string; }[]"
+        },
+        {
+          "name": "extendResources",
+          "signature": "(paths: ResourceExtensionPaths) => void"
+        },
+        {
+          "name": "reload",
+          "signature": "(options?: ResourceLoaderReloadOptions) => Promise<void>"
+        }
+      ]
+    },
+    {
+      "name": "ResourcesDiscoverEvent",
+      "runtime": false
+    },
+    {
+      "name": "ResourcesDiscoverResult",
+      "runtime": false
+    },
+    {
+      "name": "RetrySettings",
+      "runtime": false
+    },
+    {
+      "name": "RpcClient",
+      "runtime": true,
+      "constructors": [
+        "(options?: RpcClientOptions): RpcClient"
+      ],
+      "members": [
+        {
+          "name": "start",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "stop",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "onEvent",
+          "signature": "(listener: RpcEventListener) => () => void"
+        },
+        {
+          "name": "getStderr",
+          "signature": "() => string"
+        },
+        {
+          "name": "prompt",
+          "signature": "(message: string, images?: ImageContent[], streamingBehavior?: \"steer\" | \"followUp\") => Promise<PromptDisposition>"
+        },
+        {
+          "name": "steer",
+          "signature": "(message: string, images?: ImageContent[]) => Promise<QueuedInputDisposition>"
+        },
+        {
+          "name": "followUp",
+          "signature": "(message: string, images?: ImageContent[]) => Promise<QueuedInputDisposition>"
+        },
+        {
+          "name": "abort",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "clearQueue",
+          "signature": "() => Promise<{ steering: string[]; followUp: string[]; }>"
+        },
+        {
+          "name": "newSession",
+          "signature": "(parentSession?: string) => Promise<{ cancelled: boolean; }>"
+        },
+        {
+          "name": "getState",
+          "signature": "() => Promise<RpcSessionState>"
+        },
+        {
+          "name": "setModel",
+          "signature": "(provider: string, modelId: string) => Promise<{ provider: string; id: string; }>"
+        },
+        {
+          "name": "cycleModel",
+          "signature": "() => Promise<{ model: { provider: string; id: string; }; thinkingLevel: ThinkingLevel; isScoped: boolean; }>"
+        },
+        {
+          "name": "getAvailableModels",
+          "signature": "() => Promise<ModelInfo[]>"
+        },
+        {
+          "name": "setThinkingLevel",
+          "signature": "(level: ThinkingLevel) => Promise<void>"
+        },
+        {
+          "name": "cycleThinkingLevel",
+          "signature": "() => Promise<{ level: ThinkingLevel; }>"
+        },
+        {
+          "name": "getAvailableThinkingLevels",
+          "signature": "() => Promise<ThinkingLevel[]>"
+        },
+        {
+          "name": "setSteeringMode",
+          "signature": "(mode: \"all\" | \"one-at-a-time\") => Promise<void>"
+        },
+        {
+          "name": "setFollowUpMode",
+          "signature": "(mode: \"all\" | \"one-at-a-time\") => Promise<void>"
+        },
+        {
+          "name": "compact",
+          "signature": "(customInstructions?: string) => Promise<CompactionResult<unknown>>"
+        },
+        {
+          "name": "setAutoCompaction",
+          "signature": "(enabled: boolean) => Promise<void>"
+        },
+        {
+          "name": "setAutoRetry",
+          "signature": "(enabled: boolean) => Promise<void>"
+        },
+        {
+          "name": "abortRetry",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "bash",
+          "signature": "(command: string) => Promise<BashResult>"
+        },
+        {
+          "name": "abortBash",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "getSessionStats",
+          "signature": "() => Promise<SessionStats>"
+        },
+        {
+          "name": "exportHtml",
+          "signature": "(outputPath?: string) => Promise<{ path: string; }>"
+        },
+        {
+          "name": "switchSession",
+          "signature": "(sessionPath: string) => Promise<{ cancelled: boolean; }>"
+        },
+        {
+          "name": "fork",
+          "signature": "(entryId: string) => Promise<{ text: string; cancelled: boolean; }>"
+        },
+        {
+          "name": "clone",
+          "signature": "() => Promise<{ cancelled: boolean; }>"
+        },
+        {
+          "name": "getForkMessages",
+          "signature": "() => Promise<{ entryId: string; text: string; }[]>"
+        },
+        {
+          "name": "getEntries",
+          "signature": "(since?: string) => Promise<{ entries: SessionEntry[]; leafId: string; }>"
+        },
+        {
+          "name": "getTree",
+          "signature": "() => Promise<{ tree: SessionTreeNode[]; leafId: string; }>"
+        },
+        {
+          "name": "getLastAssistantText",
+          "signature": "() => Promise<string>"
+        },
+        {
+          "name": "setSessionName",
+          "signature": "(name: string) => Promise<void>"
+        },
+        {
+          "name": "getMessages",
+          "signature": "() => Promise<AgentMessage[]>"
+        },
+        {
+          "name": "getCommands",
+          "signature": "() => Promise<RpcSlashCommand[]>"
+        },
+        {
+          "name": "waitForIdle",
+          "signature": "(timeout?: number) => Promise<void>"
+        },
+        {
+          "name": "collectEvents",
+          "signature": "(timeout?: number) => Promise<JsonAgentSessionEvent[]>"
+        },
+        {
+          "name": "promptAndWait",
+          "signature": "(message: string, images?: ImageContent[], timeout?: number) => Promise<JsonAgentSessionEvent[]>"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "RpcClientOptions",
+      "runtime": false
+    },
+    {
+      "name": "RpcCommand",
+      "runtime": false
+    },
+    {
+      "name": "RpcEventListener",
+      "runtime": false
+    },
+    {
+      "name": "RpcExtensionUIRequest",
+      "runtime": false
+    },
+    {
+      "name": "RpcExtensionUIResponse",
+      "runtime": false
+    },
+    {
+      "name": "RpcResponse",
+      "runtime": false
+    },
+    {
+      "name": "RpcSessionState",
+      "runtime": false
+    },
+    {
+      "name": "runPrintMode",
+      "runtime": true
+    },
+    {
+      "name": "runRpcMode",
+      "runtime": true
+    },
+    {
+      "name": "ScopedModel",
+      "runtime": false
+    },
+    {
+      "name": "serializeConversation",
+      "runtime": true
+    },
+    {
+      "name": "SessionBeforeCompactEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionBeforeCompactResult",
+      "runtime": false
+    },
+    {
+      "name": "SessionBeforeForkEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionBeforeForkResult",
+      "runtime": false
+    },
+    {
+      "name": "SessionBeforeSwitchEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionBeforeSwitchResult",
+      "runtime": false
+    },
+    {
+      "name": "SessionBeforeTreeEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionBeforeTreeResult",
+      "runtime": false
+    },
+    {
+      "name": "SessionBoundaryDraft",
+      "runtime": false
+    },
+    {
+      "name": "SessionCompactEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionCompactFailedEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionContext",
+      "runtime": false
+    },
+    {
+      "name": "SessionEntry",
+      "runtime": false
+    },
+    {
+      "name": "SessionEntryBase",
+      "runtime": false
+    },
+    {
+      "name": "sessionEntryToContextMessages",
+      "runtime": true
+    },
+    {
+      "name": "SessionHeader",
+      "runtime": false
+    },
+    {
+      "name": "SessionInfo",
+      "runtime": false
+    },
+    {
+      "name": "SessionInfoChangedEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionInfoEntry",
+      "runtime": false
+    },
+    {
+      "name": "SessionManager",
+      "runtime": true,
+      "constructors": [],
+      "members": [
+        {
+          "name": "setSessionFile",
+          "signature": "(sessionFile: string) => void"
+        },
+        {
+          "name": "newSession",
+          "signature": "(options?: NewSessionOptions) => string"
+        },
+        {
+          "name": "isPersisted",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "getCwd",
+          "signature": "() => string"
+        },
+        {
+          "name": "getSessionDir",
+          "signature": "() => string"
+        },
+        {
+          "name": "usesDefaultSessionDir",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "getSessionId",
+          "signature": "() => string"
+        },
+        {
+          "name": "getSessionFile",
+          "signature": "() => string"
+        },
+        {
+          "name": "_persist",
+          "signature": "(entry: SessionEntry) => void"
+        },
+        {
+          "name": "appendMessage",
+          "signature": "(message: Message | BashExecutionMessage | CustomMessage<unknown>) => string"
+        },
+        {
+          "name": "appendThinkingLevelChange",
+          "signature": "(thinkingLevel: string) => string"
+        },
+        {
+          "name": "appendModelChange",
+          "signature": "(provider: string, modelId: string) => string"
+        },
+        {
+          "name": "appendUsage",
+          "signature": "(kind: string, provider: string, model: string, usage: Usage, note?: string) => UsageEntry"
+        },
+        {
+          "name": "appendCompaction",
+          "signature": "<T = unknown>(summary: string, firstKeptEntryId: string, tokensBefore: number, details?: T, fromHook?: boolean, usage?: Usage) => string"
+        },
+        {
+          "name": "appendCustomEntry",
+          "signature": "(customType: string, data?: unknown) => string"
+        },
+        {
+          "name": "appendSessionInfo",
+          "signature": "(name: string) => string"
+        },
+        {
+          "name": "getSessionName",
+          "signature": "() => string"
+        },
+        {
+          "name": "appendCustomMessageEntry",
+          "signature": "<T = unknown>(customType: string, content: string | (TextContent | ImageContent)[], display: boolean, details?: T) => string"
+        },
+        {
+          "name": "appendContextEdit",
+          "signature": "(targetId: string, replacement: { content: ContextEditableContent; }) => string"
+        },
+        {
+          "name": "getLeafId",
+          "signature": "() => string"
+        },
+        {
+          "name": "getLeafEntry",
+          "signature": "() => SessionEntry"
+        },
+        {
+          "name": "getEntry",
+          "signature": "(id: string) => SessionEntry"
+        },
+        {
+          "name": "getChildren",
+          "signature": "(parentId: string) => SessionEntry[]"
+        },
+        {
+          "name": "getLabel",
+          "signature": "(id: string) => string"
+        },
+        {
+          "name": "appendLabelChange",
+          "signature": "(targetId: string, label: string) => string"
+        },
+        {
+          "name": "getBranch",
+          "signature": "(fromId?: string) => SessionEntry[]"
+        },
+        {
+          "name": "buildContextEntries",
+          "signature": "() => SessionEntry[]"
+        },
+        {
+          "name": "buildSessionProjection",
+          "signature": "() => SessionProjection"
+        },
+        {
+          "name": "buildSessionContext",
+          "signature": "() => SessionContext"
+        },
+        {
+          "name": "getHeader",
+          "signature": "() => SessionHeader"
+        },
+        {
+          "name": "getEntryCount",
+          "signature": "() => number"
+        },
+        {
+          "name": "getEntries",
+          "signature": "() => SessionEntry[]"
+        },
+        {
+          "name": "getTree",
+          "signature": "() => SessionTreeNode[]"
+        },
+        {
+          "name": "branch",
+          "signature": "(branchFromId: string) => void"
+        },
+        {
+          "name": "resetLeaf",
+          "signature": "() => void"
+        },
+        {
+          "name": "branchWithSummary",
+          "signature": "(branchFromId: string, summary: string, details?: unknown, fromHook?: boolean, usage?: Usage) => string"
+        },
+        {
+          "name": "createBranchedSession",
+          "signature": "(leafId: string) => string"
+        }
+      ],
+      "staticMembers": [
+        {
+          "name": "create",
+          "signature": "(cwd: string, sessionDir?: string, options?: NewSessionOptions) => SessionManager"
+        },
+        {
+          "name": "open",
+          "signature": "(path: string, sessionDir?: string, cwdOverride?: string) => SessionManager"
+        },
+        {
+          "name": "continueRecent",
+          "signature": "(cwd: string, sessionDir?: string) => SessionManager"
+        },
+        {
+          "name": "inMemory",
+          "signature": "(cwd?: string, options?: NewSessionOptions, entries?: FileEntry[]) => SessionManager"
+        },
+        {
+          "name": "forkFrom",
+          "signature": "(sourcePath: string, targetCwd: string, sessionDir?: string, options?: NewSessionOptions) => SessionManager"
+        },
+        {
+          "name": "findById",
+          "signature": "(cwd: string, id: string, sessionDir?: string) => string"
+        },
+        {
+          "name": "list",
+          "signature": "(cwd: string, sessionDir?: string, onProgress?: SessionListProgress, signal?: AbortSignal) => Promise<SessionInfo[]>"
+        },
+        {
+          "name": "listAll",
+          "signature": "{ (onProgress?: SessionListProgress, signal?: AbortSignal): Promise<SessionInfo[]>; (sessionDir?: string, onProgress?: SessionListProgress, signal?: AbortSignal): Promise<...>; }"
+        }
+      ]
+    },
+    {
+      "name": "SessionMessageEntry",
+      "runtime": false
+    },
+    {
+      "name": "SessionProjection",
+      "runtime": false
+    },
+    {
+      "name": "SessionSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(currentSessionsLoader: SessionsLoader, allSessionsLoader: SessionsLoader, onSelect: (sessionPath: string) => void, onCancel: () => void, onExit: () => void, requestRender: () => void, options?: { ...; }, currentSessionFilePath?: string): SessionSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "handleInput",
+          "signature": "(data: string) => void"
+        },
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "getSessionList",
+          "signature": "() => SessionList"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "SessionShutdownEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionStartEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionStats",
+      "runtime": false
+    },
+    {
+      "name": "SessionTreeEvent",
+      "runtime": false
+    },
+    {
+      "name": "SessionTreeNode",
+      "runtime": false
+    },
+    {
+      "name": "SettingsCallbacks",
+      "runtime": false
+    },
+    {
+      "name": "SettingsConfig",
+      "runtime": false
+    },
+    {
+      "name": "SettingsManager",
+      "runtime": true,
+      "constructors": [],
+      "members": [
+        {
+          "name": "getSettings",
+          "signature": "() => Settings"
+        },
+        {
+          "name": "getGlobalSettings",
+          "signature": "() => Settings"
+        },
+        {
+          "name": "getProjectSettings",
+          "signature": "() => Settings"
+        },
+        {
+          "name": "isProjectTrusted",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setProjectTrusted",
+          "signature": "(trusted: boolean) => void"
+        },
+        {
+          "name": "reload",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "applyOverrides",
+          "signature": "(overrides: Partial<Settings>) => void"
+        },
+        {
+          "name": "flush",
+          "signature": "() => Promise<void>"
+        },
+        {
+          "name": "drainErrors",
+          "signature": "() => SettingsError[]"
+        },
+        {
+          "name": "getLastChangelogVersion",
+          "signature": "() => string"
+        },
+        {
+          "name": "setLastChangelogVersion",
+          "signature": "(version: string) => void"
+        },
+        {
+          "name": "getSessionDir",
+          "signature": "() => string"
+        },
+        {
+          "name": "getDefaultProvider",
+          "signature": "() => string"
+        },
+        {
+          "name": "getDefaultModel",
+          "signature": "() => string"
+        },
+        {
+          "name": "setDefaultProvider",
+          "signature": "(provider: string) => void"
+        },
+        {
+          "name": "setDefaultModel",
+          "signature": "(modelId: string) => void"
+        },
+        {
+          "name": "setDefaultModelAndProvider",
+          "signature": "(provider: string, modelId: string) => void"
+        },
+        {
+          "name": "getSteeringMode",
+          "signature": "() => \"all\" | \"one-at-a-time\""
+        },
+        {
+          "name": "setSteeringMode",
+          "signature": "(mode: \"all\" | \"one-at-a-time\") => void"
+        },
+        {
+          "name": "getFollowUpMode",
+          "signature": "() => \"all\" | \"one-at-a-time\""
+        },
+        {
+          "name": "setFollowUpMode",
+          "signature": "(mode: \"all\" | \"one-at-a-time\") => void"
+        },
+        {
+          "name": "getThemeSetting",
+          "signature": "() => string"
+        },
+        {
+          "name": "getTheme",
+          "signature": "() => string"
+        },
+        {
+          "name": "setTheme",
+          "signature": "(theme: string) => void"
+        },
+        {
+          "name": "getDefaultThinkingLevel",
+          "signature": "() => ThinkingLevel"
+        },
+        {
+          "name": "setDefaultThinkingLevel",
+          "signature": "(level: ThinkingLevel) => void"
+        },
+        {
+          "name": "getModelThinkingLevel",
+          "signature": "(provider: string, modelId: string) => ThinkingLevel"
+        },
+        {
+          "name": "getAllModelThinkingLevels",
+          "signature": "() => Record<string, ThinkingLevel>"
+        },
+        {
+          "name": "setModelThinkingLevel",
+          "signature": "(provider: string, modelId: string, level: ThinkingLevel) => void"
+        },
+        {
+          "name": "removeModelThinkingLevel",
+          "signature": "(provider: string, modelId: string) => void"
+        },
+        {
+          "name": "getTransport",
+          "signature": "() => Transport"
+        },
+        {
+          "name": "setTransport",
+          "signature": "(transport: Transport) => void"
+        },
+        {
+          "name": "getCompactionEnabled",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setCompactionEnabled",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getCompactionReserveTokens",
+          "signature": "(model?: Pick<Model<string>, \"provider\" | \"id\">) => number"
+        },
+        {
+          "name": "getCompactionKeepRecentTokens",
+          "signature": "(model?: Pick<Model<string>, \"provider\" | \"id\">) => number"
+        },
+        {
+          "name": "getCompactionSettings",
+          "signature": "(model?: Pick<Model<string>, \"provider\" | \"id\">) => { enabled: boolean; reserveTokens: number; keepRecentTokens: number; }"
+        },
+        {
+          "name": "getBranchSummarySettings",
+          "signature": "() => { reserveTokens: number; skipPrompt: boolean; }"
+        },
+        {
+          "name": "getBranchSummarySkipPrompt",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "getRetryEnabled",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setRetryEnabled",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getRetrySettings",
+          "signature": "() => { enabled: boolean; maxRetries: number; baseDelayMs: number; maxAgentDelayMs: number; }"
+        },
+        {
+          "name": "getHttpIdleTimeoutMs",
+          "signature": "() => number"
+        },
+        {
+          "name": "setHttpIdleTimeoutMs",
+          "signature": "(timeoutMs: number) => void"
+        },
+        {
+          "name": "getCacheWarmingMode",
+          "signature": "() => \"off\" | \"streaming\" | \"idle\""
+        },
+        {
+          "name": "setCacheWarmingMode",
+          "signature": "(mode: \"off\" | \"streaming\" | \"idle\") => void"
+        },
+        {
+          "name": "getProviderRetrySettings",
+          "signature": "() => { timeoutMs?: number; maxRetries?: number; maxRetryDelayMs: number; }"
+        },
+        {
+          "name": "getWebSocketConnectTimeoutMs",
+          "signature": "() => number"
+        },
+        {
+          "name": "getHideThinkingBlock",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "getShowCacheMissNotices",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "getExternalEditorCommand",
+          "signature": "() => string"
+        },
+        {
+          "name": "setHideThinkingBlock",
+          "signature": "(hide: boolean) => void"
+        },
+        {
+          "name": "setShowCacheMissNotices",
+          "signature": "(show: boolean) => void"
+        },
+        {
+          "name": "getShellPath",
+          "signature": "() => string"
+        },
+        {
+          "name": "setShellPath",
+          "signature": "(path: string) => void"
+        },
+        {
+          "name": "getQuietStartup",
+          "signature": "() => QuietStartup"
+        },
+        {
+          "name": "setQuietStartup",
+          "signature": "(quiet: QuietStartup) => void"
+        },
+        {
+          "name": "getDefaultProjectTrust",
+          "signature": "() => DefaultProjectTrust"
+        },
+        {
+          "name": "setDefaultProjectTrust",
+          "signature": "(defaultProjectTrust: DefaultProjectTrust) => void"
+        },
+        {
+          "name": "getShellCommandPrefix",
+          "signature": "() => string"
+        },
+        {
+          "name": "setShellCommandPrefix",
+          "signature": "(prefix: string) => void"
+        },
+        {
+          "name": "getNpmCommand",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "setNpmCommand",
+          "signature": "(command: string[]) => void"
+        },
+        {
+          "name": "getCollapseChangelog",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setCollapseChangelog",
+          "signature": "(collapse: boolean) => void"
+        },
+        {
+          "name": "getEnableInstallTelemetry",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setEnableInstallTelemetry",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getEnableAnalytics",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "getTrackingId",
+          "signature": "() => string"
+        },
+        {
+          "name": "setEnableAnalytics",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getOrCreateDeviceId",
+          "signature": "() => string"
+        },
+        {
+          "name": "getPackages",
+          "signature": "() => PackageSource[]"
+        },
+        {
+          "name": "setPackages",
+          "signature": "(packages: PackageSource[]) => void"
+        },
+        {
+          "name": "setProjectPackages",
+          "signature": "(packages: PackageSource[]) => void"
+        },
+        {
+          "name": "getExtensionPaths",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "setExtensionPaths",
+          "signature": "(paths: string[]) => void"
+        },
+        {
+          "name": "setProjectExtensionPaths",
+          "signature": "(paths: string[]) => void"
+        },
+        {
+          "name": "getSkillPaths",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "setSkillPaths",
+          "signature": "(paths: string[]) => void"
+        },
+        {
+          "name": "setProjectSkillPaths",
+          "signature": "(paths: string[]) => void"
+        },
+        {
+          "name": "getPromptTemplatePaths",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "setPromptTemplatePaths",
+          "signature": "(paths: string[]) => void"
+        },
+        {
+          "name": "setProjectPromptTemplatePaths",
+          "signature": "(paths: string[]) => void"
+        },
+        {
+          "name": "getThemePaths",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "setThemePaths",
+          "signature": "(paths: string[]) => void"
+        },
+        {
+          "name": "setProjectThemePaths",
+          "signature": "(paths: string[]) => void"
+        },
+        {
+          "name": "getEnableSkillCommands",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setEnableSkillCommands",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getThinkingBudgets",
+          "signature": "() => ThinkingBudgetsSettings"
+        },
+        {
+          "name": "getTerminalCapabilityOverrides",
+          "signature": "() => Partial<TerminalCapabilities>"
+        },
+        {
+          "name": "getShowImages",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setShowImages",
+          "signature": "(show: boolean) => void"
+        },
+        {
+          "name": "getImageWidthCells",
+          "signature": "() => number"
+        },
+        {
+          "name": "setImageWidthCells",
+          "signature": "(width: number) => void"
+        },
+        {
+          "name": "getClearOnShrink",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setClearOnShrink",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getShowTerminalProgress",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setShowTerminalProgress",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getTuiMode",
+          "signature": "() => TuiMode"
+        },
+        {
+          "name": "setTuiMode",
+          "signature": "(mode: TuiMode) => void"
+        },
+        {
+          "name": "getFullscreenExitOutput",
+          "signature": "() => FullscreenExitOutput"
+        },
+        {
+          "name": "setFullscreenExitOutput",
+          "signature": "(output: FullscreenExitOutput) => void"
+        },
+        {
+          "name": "getFullscreenScrollbar",
+          "signature": "() => ScrollViewScrollbar"
+        },
+        {
+          "name": "setFullscreenScrollbar",
+          "signature": "(mode: ScrollViewScrollbar) => void"
+        },
+        {
+          "name": "getFullscreenCopyOnSelect",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setFullscreenCopyOnSelect",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getFullscreenWheelScrollLines",
+          "signature": "() => WheelScrollLines"
+        },
+        {
+          "name": "setFullscreenWheelScrollLines",
+          "signature": "(lines: WheelScrollLines) => void"
+        },
+        {
+          "name": "getImageAutoResize",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setImageAutoResize",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getBlockImages",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setBlockImages",
+          "signature": "(blocked: boolean) => void"
+        },
+        {
+          "name": "getEnabledModels",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "getDefaultTools",
+          "signature": "() => string[]"
+        },
+        {
+          "name": "setEnabledModels",
+          "signature": "(patterns: string[]) => void"
+        },
+        {
+          "name": "getDoubleEscapeAction",
+          "signature": "() => \"none\" | \"fork\" | \"tree\""
+        },
+        {
+          "name": "setDoubleEscapeAction",
+          "signature": "(action: \"none\" | \"fork\" | \"tree\") => void"
+        },
+        {
+          "name": "getTreeFilterMode",
+          "signature": "() => \"all\" | \"default\" | \"no-tools\" | \"user-only\" | \"labeled-only\""
+        },
+        {
+          "name": "setTreeFilterMode",
+          "signature": "(mode: \"all\" | \"default\" | \"no-tools\" | \"user-only\" | \"labeled-only\") => void"
+        },
+        {
+          "name": "getShowHardwareCursor",
+          "signature": "() => boolean"
+        },
+        {
+          "name": "setShowHardwareCursor",
+          "signature": "(enabled: boolean) => void"
+        },
+        {
+          "name": "getEditorPaddingX",
+          "signature": "() => number"
+        },
+        {
+          "name": "setEditorPaddingX",
+          "signature": "(padding: number) => void"
+        },
+        {
+          "name": "getOutputPad",
+          "signature": "() => 0 | 1"
+        },
+        {
+          "name": "setOutputPad",
+          "signature": "(padding: 0 | 1) => void"
+        },
+        {
+          "name": "getAutocompleteMaxVisible",
+          "signature": "() => number"
+        },
+        {
+          "name": "setAutocompleteMaxVisible",
+          "signature": "(maxVisible: number) => void"
+        },
+        {
+          "name": "getCodeBlockIndent",
+          "signature": "() => string"
+        },
+        {
+          "name": "getMermaidRenderingMode",
+          "signature": "() => MermaidRenderingMode"
+        },
+        {
+          "name": "setMermaidRenderingMode",
+          "signature": "(mode: MermaidRenderingMode) => void"
+        },
+        {
+          "name": "getWarnings",
+          "signature": "() => WarningSettings"
+        },
+        {
+          "name": "setWarnings",
+          "signature": "(warnings: WarningSettings) => void"
+        }
+      ],
+      "staticMembers": [
+        {
+          "name": "create",
+          "signature": "(cwd: string, agentDir?: string, options?: SettingsManagerCreateOptions) => SettingsManager"
+        },
+        {
+          "name": "fromStorage",
+          "signature": "(storage: SettingsStorage, options?: SettingsManagerCreateOptions) => SettingsManager"
+        },
+        {
+          "name": "inMemory",
+          "signature": "(settings?: Partial<Settings>, options?: SettingsManagerCreateOptions) => SettingsManager"
+        }
+      ]
+    },
+    {
+      "name": "SettingsManagerCreateOptions",
+      "runtime": false
+    },
+    {
+      "name": "SettingsSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(config: SettingsConfig, callbacks: SettingsCallbacks): SettingsSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "getSettingsList",
+          "signature": "() => SettingsList"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "shouldCompact",
+      "runtime": true
+    },
+    {
+      "name": "ShowImagesSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(currentValue: boolean, onSelect: (show: boolean) => void, onCancel: () => void): ShowImagesSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "getSelectList",
+          "signature": "() => SelectList"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "Skill",
+      "runtime": false
+    },
+    {
+      "name": "SkillFrontmatter",
+      "runtime": false
+    },
+    {
+      "name": "SkillInvocationMessageComponent",
+      "runtime": true,
+      "constructors": [
+        "(skillBlock: ParsedSkillBlock, markdownTheme?: MarkdownTheme): SkillInvocationMessageComponent"
+      ],
+      "members": [
+        {
+          "name": "setExpanded",
+          "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "setBgFn",
+          "signature": "(bgFn?: (text: string) => string) => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "SlashCommandInfo",
+      "runtime": false
+    },
+    {
+      "name": "SlashCommandSource",
+      "runtime": false
+    },
+    {
+      "name": "SourceInfo",
+      "runtime": false
+    },
+    {
+      "name": "stripFrontmatter",
+      "runtime": true
+    },
+    {
+      "name": "TerminalInputHandler",
+      "runtime": false
+    },
+    {
+      "name": "Theme",
+      "runtime": true,
+      "constructors": [
+        "(fgColors: Record<\"error\" | \"warning\" | \"accent\" | \"border\" | \"borderAccent\" | \"borderMuted\" | \"success\" | \"muted\" | \"dim\" | \"text\" | \"thinkingText\" | \"userMessageText\" | \"customMessageText\" | ... 31 more ... | \"bashMode\", string | number> & Partial<...>, bgColors: Record<...> & Partial<...>, mode: TerminalColorMode, options?: { ...; }): Theme"
+      ],
+      "members": [
+        {
+          "name": "name",
+          "signature": "string"
+        },
+        {
+          "name": "sourcePath",
+          "signature": "string"
+        },
+        {
+          "name": "sourceInfo",
+          "signature": "SourceInfo"
+        },
+        {
+          "name": "appearance",
+          "signature": "TerminalTheme"
+        },
+        {
+          "name": "colors",
+          "signature": "Readonly<Record<ThemeToken, Color>>"
+        },
+        {
+          "name": "style",
+          "signature": "(text: string, options: ThemeStyle) => string"
+        },
+        {
+          "name": "fg",
+          "signature": "(color: ThemeColor, text: string) => string"
+        },
+        {
+          "name": "bg",
+          "signature": "(color: ThemeBg, text: string) => string"
+        },
+        {
+          "name": "bold",
+          "signature": "(text: string) => string"
+        },
+        {
+          "name": "italic",
+          "signature": "(text: string) => string"
+        },
+        {
+          "name": "underline",
+          "signature": "(text: string) => string"
+        },
+        {
+          "name": "inverse",
+          "signature": "(text: string) => string"
+        },
+        {
+          "name": "strikethrough",
+          "signature": "(text: string) => string"
+        },
+        {
+          "name": "getFgAnsi",
+          "signature": "(color: ThemeColor) => string"
+        },
+        {
+          "name": "getBgAnsi",
+          "signature": "(color: ThemeBg) => string"
+        },
+        {
+          "name": "getColorMode",
+          "signature": "() => TerminalColorMode"
+        },
+        {
+          "name": "getThinkingBorderColor",
+          "signature": "(level: ThinkingLevel) => (str: string) => string"
+        },
+        {
+          "name": "getBashModeBorderColor",
+          "signature": "() => (str: string) => string"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ThemeAppearance",
+      "runtime": false
+    },
+    {
+      "name": "ThemeBg",
+      "runtime": false
+    },
+    {
+      "name": "ThemeColor",
+      "runtime": false
+    },
+    {
+      "name": "ThemeSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(currentTheme: string, onSelect: (themeName: string) => void, onCancel: () => void, onPreview: (themeName: string) => void): ThemeSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "getSelectList",
+          "signature": "() => SelectList"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ThemeStyle",
+      "runtime": false
+    },
+    {
+      "name": "ThemeToken",
+      "runtime": false
+    },
+    {
+      "name": "ThinkingLevelChangeEntry",
+      "runtime": false
+    },
+    {
+      "name": "ThinkingLevelSelectEvent",
+      "runtime": false
+    },
+    {
+      "name": "ThinkingSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(currentLevel: ThinkingLevel, availableLevels: ThinkingLevel[], onSelect: (level: ThinkingLevel) => void, onCancel: () => void, onSelectAsDefault?: (level: ThinkingLevel) => void, defaultThinkingLevel?: ThinkingLevel): ThinkingSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(keyData: string) => void"
+        },
+        {
+          "name": "getSelectList",
+          "signature": "() => SelectList"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ToolAnnotations",
+      "runtime": false
+    },
+    {
+      "name": "ToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "ToolCallEventResult",
+      "runtime": false
+    },
+    {
+      "name": "ToolDefinition",
+      "runtime": false,
+      "members": [
+        {
+          "name": "name",
+          "signature": "string"
+        },
+        {
+          "name": "label",
+          "signature": "string"
+        },
+        {
+          "name": "description",
+          "signature": "string"
+        },
+        {
+          "name": "promptSnippet",
+          "signature": "string"
+        },
+        {
+          "name": "promptGuidelines",
+          "signature": "string[]"
+        },
+        {
+          "name": "parameters",
+          "signature": "TParams"
+        },
+        {
+          "name": "constrainedSampling",
+          "signature": "false | ConstrainedSamplingConfig"
+        },
+        {
+          "name": "renderShell",
+          "signature": "\"default\" | \"self\""
+        },
+        {
+          "name": "prepareArguments",
+          "signature": "(args: unknown) => StaticType<[], \"Encode\", {}, {}, TParams>"
+        },
+        {
+          "name": "outputSchema",
+          "signature": "TSchema"
+        },
+        {
+          "name": "exposure",
+          "signature": "ToolExposure"
+        },
+        {
+          "name": "namespace",
+          "signature": "ToolNamespace"
+        },
+        {
+          "name": "annotations",
+          "signature": "ToolAnnotations"
+        },
+        {
+          "name": "defaultActive",
+          "signature": "boolean"
+        },
+        {
+          "name": "prepareLoadout",
+          "signature": "(loadout: ToolLoadout) => ToolLoadoutChanges"
+        },
+        {
+          "name": "executionMode",
+          "signature": "ToolExecutionMode"
+        },
+        {
+          "name": "execute",
+          "signature": "(toolCallId: string, params: StaticType<[], \"Encode\", {}, {}, TParams>, signal: AbortSignal, onUpdate: AgentToolUpdateCallback<TDetails>, ctx: ExtensionToolContext) => Promise<...>"
+        },
+        {
+          "name": "renderCall",
+          "signature": "(args: StaticType<[], \"Encode\", {}, {}, TParams>, theme: Theme, context: ToolRenderContext<TState, StaticType<[], \"Encode\", {}, {}, TParams>>) => Component"
+        },
+        {
+          "name": "renderResult",
+          "signature": "(result: AgentToolResult<TDetails>, options: ToolRenderResultOptions, theme: Theme, context: ToolRenderContext<TState, StaticType<[], \"Encode\", {}, {}, TParams>>) => Component"
+        }
+      ]
+    },
+    {
+      "name": "ToolExecutionComponent",
+      "runtime": true,
+      "constructors": [
+        "(toolName: string, toolCallId: string, args: any, options: ToolExecutionOptions, toolDefinition: ToolRenderers | ToolDefinition<any, any, any>, ui: TUI, cwd: string): ToolExecutionComponent"
+      ],
+      "members": [
+        {
+          "name": "updateArgs",
+          "signature": "(args: any) => void"
+        },
+        {
+          "name": "markExecutionStarted",
+          "signature": "() => void"
+        },
+        {
+          "name": "setArgsComplete",
+          "signature": "() => void"
+        },
+        {
+          "name": "updateResult",
+          "signature": "(result: { content: { type: string; text?: string; data?: string; mimeType?: string; }[]; details?: any; isError: boolean; }, isPartial?: boolean) => void"
+        },
+        {
+          "name": "setExpanded",
+          "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "setShowImages",
+          "signature": "(show: boolean) => void"
+        },
+        {
+          "name": "setImageWidthCells",
+          "signature": "(width: number) => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "ToolExecutionEndEvent",
+      "runtime": false
+    },
+    {
+      "name": "ToolExecutionMode",
+      "runtime": false
+    },
+    {
+      "name": "ToolExecutionOptions",
+      "runtime": false
+    },
+    {
+      "name": "ToolExecutionStartEvent",
+      "runtime": false
+    },
+    {
+      "name": "ToolExecutionUpdateEvent",
+      "runtime": false
+    },
+    {
+      "name": "ToolExposure",
+      "runtime": false
+    },
+    {
+      "name": "ToolInfo",
+      "runtime": false
+    },
+    {
+      "name": "ToolLoadout",
+      "runtime": false
+    },
+    {
+      "name": "ToolLoadoutChanges",
+      "runtime": false
+    },
+    {
+      "name": "ToolNamespace",
+      "runtime": false
+    },
+    {
+      "name": "ToolRenderResultOptions",
+      "runtime": false
+    },
+    {
+      "name": "ToolResultEvent",
+      "runtime": false
+    },
+    {
+      "name": "ToolResultEventResult",
+      "runtime": false
+    },
+    {
+      "name": "ToolsOptions",
+      "runtime": false
+    },
+    {
+      "name": "TreeSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(tree: SessionTreeNode[], currentLeafId: string, terminalHeight: number, onSelect: (entryId: string) => void, onCancel: () => void, onLabelChange?: (entryId: string, label: string) => void, initialSelectedId?: string, initialFilterMode?: FilterMode): TreeSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "onCopy",
+          "signature": "(text: string) => void"
+        },
+        {
+          "name": "focused",
+          "signature": "boolean"
+        },
+        {
+          "name": "handleInput",
+          "signature": "(keyData: string) => void"
+        },
+        {
+          "name": "getTreeList",
+          "signature": "() => TreeList"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "truncateHead",
+      "runtime": true
+    },
+    {
+      "name": "truncateLine",
+      "runtime": true
+    },
+    {
+      "name": "truncateTail",
+      "runtime": true
+    },
+    {
+      "name": "truncateToVisualLines",
+      "runtime": true
+    },
+    {
+      "name": "TruncationOptions",
+      "runtime": false
+    },
+    {
+      "name": "TruncationResult",
+      "runtime": false
+    },
+    {
+      "name": "TuiMode",
+      "runtime": false
+    },
+    {
+      "name": "TurnEndEvent",
+      "runtime": false
+    },
+    {
+      "name": "TurnEndEventResult",
+      "runtime": false
+    },
+    {
+      "name": "TurnStartEvent",
+      "runtime": false
+    },
+    {
+      "name": "UIPromptEndEvent",
+      "runtime": false
+    },
+    {
+      "name": "UIPromptKind",
+      "runtime": false
+    },
+    {
+      "name": "UIPromptStartEvent",
+      "runtime": false
+    },
+    {
+      "name": "UserBashEvent",
+      "runtime": false
+    },
+    {
+      "name": "UserBashEventResult",
+      "runtime": false
+    },
+    {
+      "name": "UserMessageComponent",
+      "runtime": true,
+      "constructors": [
+        "(text: string, markdownTheme?: MarkdownTheme, outputPad?: number, markdownTransformers?: readonly MarkdownTransformer[]): UserMessageComponent"
+      ],
+      "members": [
+        {
+          "name": "setOutputPad",
+          "signature": "(padding: number) => void"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "UserMessageSelectorComponent",
+      "runtime": true,
+      "constructors": [
+        "(messages: UserMessageItem[], onSelect: (entryId: string) => void, onCancel: () => void, initialSelectedId?: string): UserMessageSelectorComponent"
+      ],
+      "members": [
+        {
+          "name": "getMessageList",
+          "signature": "() => UserMessageList"
+        },
+        {
+          "name": "children",
+          "signature": "Component[]"
+        },
+        {
+          "name": "addChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "removeChild",
+          "signature": "(component: Component) => void"
+        },
+        {
+          "name": "clear",
+          "signature": "() => void"
+        },
+        {
+          "name": "invalidate",
+          "signature": "() => void"
+        },
+        {
+          "name": "handleMouse",
+          "signature": "(event: TuiMouseEvent) => TuiMouseDispatchResult"
+        },
+        {
+          "name": "render",
+          "signature": "(width: number) => string[]"
+        }
+      ],
+      "staticMembers": []
+    },
+    {
+      "name": "VERSION",
+      "runtime": true
+    },
+    {
+      "name": "VIRTUAL_MODEL_STATE_ENTRY",
+      "runtime": true
+    },
+    {
+      "name": "VirtualModelDefinition",
+      "runtime": false
+    },
+    {
+      "name": "VirtualModelStateData",
+      "runtime": false
+    },
+    {
+      "name": "VisualTruncateResult",
+      "runtime": false
+    },
+    {
+      "name": "WidgetPlacement",
+      "runtime": false
+    },
+    {
+      "name": "withFileMutationQueue",
+      "runtime": true
+    },
+    {
+      "name": "WorkingIndicatorOptions",
+      "runtime": false
+    },
+    {
+      "name": "wrapRegisteredTool",
+      "runtime": true
+    },
+    {
+      "name": "wrapRegisteredTools",
+      "runtime": true
+    },
+    {
+      "name": "WriteOperations",
+      "runtime": false
+    },
+    {
+      "name": "WriteToolCallEvent",
+      "runtime": false
+    },
+    {
+      "name": "WriteToolInput",
+      "runtime": false
+    },
+    {
+      "name": "WriteToolOptions",
+      "runtime": false
+    }
+  ]
+}

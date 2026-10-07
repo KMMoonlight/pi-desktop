@@ -1,0 +1,232 @@
+.file-list .file-row {
+  width: 100%;
+  min-height: 30px;
+  border: 0;
+  border-radius: 5px;
+  text-align: left;
+}
+.file-row > svg,
+.file-indent {
+  flex: 0 0 auto;
+}
+.file-row .file-expanded {
+  transform: rotate(90deg);
+}
+.file-indent {
+  width: 12px;
+}
+.file-visibility {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 6px;
+  font-size: 11px;
+  color: var(--ui-muted);
+}
+.file-visibility input {
+  flex-shrink: 0;
+}
+.file-tree-feedback {
+  padding: 9px;
+  font-size: 11px;
+  color: var(--ui-muted);
+  overflow-wrap: anywhere;
+}
+.file-tree-feedback button {
+  border: 0;
+  background: none;
+  color: var(--ui-action);
+  padding: 4px;
+}
+.file-path {
+  min-height: 32px;
+}
+.evidence-pane .file-layout {
+  grid-template-columns: minmax(150px, 36%) minmax(0, 1fr);
+}
+.files-view .section-toolbar {
+  gap: 6px;
+}
+.files-view .section-toolbar .mode-switch {
+  margin-right: auto;
+}
+.files-view .diff-file-actions {
+  display: flex;
+  gap: 2px;
+  position: static;
+  justify-content: flex-end;
+  margin-top: -34px;
+  height: 34px;
+  pointer-events: none;
+}
+.files-view .diff-file-actions > button {
+  pointer-events: auto;
+}
+.files-view .diff-file > summary {
+  padding-right: 68px;
+}
+.files-view .diff-file .diff-counts {
+  margin-right: 0;
+}
+.files-view .source-code.wrap-code > div {
+  display: grid;
+  min-width: 0;
+  white-space: pre-wrap;
+  grid-template-columns: 3.5em minmax(0, 1fr);
+}
+.files-view .source-code.wrap-code .line-number {
+  width: auto;
+  margin-right: 10px;
+}
+.files-view .diff-file .diff-code.wrap-code > div {
+  min-width: 0;
+  white-space: pre-wrap;
+  grid-template-columns: 3.5em 3.5em 1.2em minmax(0, 1fr);
+}
+.files-view .wrap-code > div > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.diff-binary {
+  padding: 10px;
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.tree-list {
+  overflow: auto;
+}
+.tree-list .tree-row {
+  min-width: max-content;
+}
+.tree-list .tree-content {
+  min-width: 160px;
+  max-width: 660px;
+}
+.tree-toggle {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  color: var(--ui-muted);
+  border: 0;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.tree-toggle:hover {
+  background: var(--ui-hover);
+}
+.tree-row[aria-expanded="true"] > .tree-toggle svg {
+  transform: rotate(90deg);
+}
+.tree-toggle-spacer {
+  width: 20px;
+  flex-shrink: 0;
+}
+.tree-list .tree-role {
+  flex-shrink: 0;
+}
+.tree-list .tree-content > span:nth-child(2) {
+  width: min(440px, 45vw);
+}
+.provider-model-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.custom-provider-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 12px 0;
+}
+.custom-provider-row > span {
+  flex: 1;
+  min-width: 0;
+}
+.custom-provider-row strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.custom-provider-row small {
+  display: block;
+  color: var(--ui-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.custom-provider-form {
+  margin: 12px 0 0;
+  border: 0;
+  min-width: 0;
+  scroll-margin-block: 12px;
+}
+.custom-provider-form > .row-actions {
+  justify-content: flex-end;
+}
+.provider-model-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.provider-model-grid > :not(.field) {
+  align-self: end;
+  min-height: 36px;
+}
+.provider-model-editor {
+  min-width: 0;
+}
+.provider-model-heading h3 {
+  font-size: 13px;
+  font-weight: 500;
+}
+.provider-model-fields {
+  margin-top: 12px;
+  border: 0.5px solid var(--ui-line);
+  border-radius: 6px;
+  padding: 10px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.provider-model-fields > button {
+  align-self: flex-end;
+}
+.provider-model-fields legend {
+  color: var(--ui-muted);
+  font-size: 12px;
+}
+.custom-provider-confirm {
+  padding: 12px 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.custom-provider-confirm p {
+  flex: 1;
+  min-width: 120px;
+  font-size: 13px;
+}
+.custom-providers .error-inline {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.custom-provider-form input[readonly] {
+  opacity: 0.7;
+}
+@media (max-width: 480px) {
+  .provider-model-grid { grid-template-columns: minmax(0, 1fr); }
+  .evidence-pane .file-layout {
+    grid-template-columns: 145px minmax(0, 1fr);
+  }
+  .file-visibility {
+    gap: 3px;
+    font-size: 10px;
+  }
+  .tree-list .tree-content > span:nth-child(2) {
+    width: 180px;
+  }
+}

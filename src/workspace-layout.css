@@ -1,0 +1,320 @@
+.workspace-content {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.workspace-content > .view-content {
+  min-width: 0;
+}
+.workspace-terminal-dock {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: 60vh;
+}
+.workspace-terminal-dock > div {
+  min-height: 0;
+}
+.evidence-pane {
+  width: min(480px, 45%);
+  min-width: 340px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--ui-line);
+  background: var(--ui-canvas);
+}
+.evidence-pane > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 46px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--ui-line);
+  font-size: 13px;
+}
+.evidence-pane .files-view {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+}
+.evidence-pane .section-toolbar {
+  padding: 9px 12px;
+}
+.evidence-pane .file-layout {
+  grid-template-columns: 120px minmax(0, 1fr);
+}
+.evidence-pane .file-path {
+  font-size: 11px;
+}
+.evidence-pane .file-row {
+  padding: 8px;
+  font-size: 12px;
+}
+.evidence-pane .file-preview {
+  min-width: 0;
+}
+.evidence-pane .preview-header {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.evidence-pane .source-code {
+  padding: 12px 6px;
+  font-size: 12px;
+}
+.evidence-pane .diff-view {
+  padding: 10px;
+}
+.evidence-pane .diff-code {
+  font-size: 11px;
+}
+.evidence-backdrop {
+  display: none;
+}
+.selected-file-line {
+  background: color-mix(in srgb, var(--ui-action) 14%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--ui-action) 30%, transparent);
+}
+.session-group-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 10px 5px;
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+.session-project > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+}
+.session-project > summary::-webkit-details-marker {
+  display: none;
+}
+.session-project > summary:hover {
+  background: var(--ui-hover);
+}
+.session-project > summary > span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-project > summary > small {
+  color: var(--ui-muted);
+  font-size: 10px;
+}
+.session-project[open] > summary > svg:first-child {
+  transform: rotate(90deg);
+}
+.session-project .session-row {
+  margin-left: 10px;
+}
+.context-add {
+  position: relative;
+  flex-shrink: 0;
+}
+.context-add-trigger {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--ui-muted);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.context-add-trigger:hover,
+.context-add-trigger[aria-expanded="true"] {
+  background: var(--ui-hover);
+  color: var(--ui-ink);
+}
+.context-add-menu {
+  position: fixed;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 50;
+  width: min(310px, calc(100vw - 60px));
+  max-height: min(410px, 50vh);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ui-line);
+  background: var(--ui-input);
+  border-radius: 12px;
+  padding: 7px;
+  box-shadow: 0 10px 32px #0002;
+}
+.context-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px;
+  color: var(--ui-muted);
+  border-bottom: 1px solid var(--ui-line);
+}
+.context-search input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ui-ink);
+  font-size: 12px;
+  box-shadow: none;
+  outline: 0;
+}
+.context-actions {
+  padding-block: 5px;
+  border-bottom: 1px solid var(--ui-line);
+}
+.context-entry-list {
+  min-height: 0;
+  overflow-y: auto;
+  padding-top: 5px;
+}
+.context-add-menu button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ui-ink);
+  text-align: left;
+  font-size: 12px;
+  cursor: pointer;
+}
+.context-add-menu button:hover,
+.context-add-menu button:focus-visible {
+  background: var(--ui-hover);
+}
+.context-add-menu button > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.context-add-menu small {
+  color: var(--ui-muted);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.tool-desktop-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--ui-line);
+}
+.tool-desktop-controls > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  padding: 3px 0;
+  background: transparent;
+  color: var(--ui-ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+.tool-desktop-controls > button:disabled {
+  cursor: default;
+}
+.tool-desktop-controls .is-expanded {
+  transform: rotate(180deg);
+}
+.tool-state-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--ui-muted);
+}
+.tool-state-label.error {
+  color: #c95151;
+}
+.provider-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.provider-section-header h2 {
+  margin: 12px 0;
+}
+.composer-options {
+  min-width: 0;
+  flex: 1;
+}
+.composer-options .field:first-of-type {
+  min-width: 80px;
+  flex: 1 1 160px;
+}
+.composer-options .field:last-of-type {
+  width: 112px;
+  flex: 0 0 112px;
+}
+@media (max-width: 1099px) {
+  .evidence-pane {
+    position: absolute;
+    inset: 0 0 0 auto;
+    width: min(620px, 92%);
+    min-width: 0;
+    z-index: 35;
+    box-shadow: -10px 0 28px #0002;
+  }
+  .evidence-backdrop {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 34;
+    background: #0002;
+    border: 0;
+    border-radius: 0;
+  }
+}
+@media (max-width: 600px) {
+  .composer-options .field:last-of-type {
+    width: 100px;
+    flex-basis: 100px;
+  }
+  .evidence-pane {
+    width: 100%;
+  }
+  .evidence-pane .file-layout {
+    grid-template-columns: 106px minmax(0, 1fr);
+  }
+  .context-add-menu {
+    left: -3px;
+  }
+  .header-tools {
+    gap: 0;
+  }
+  .header-title {
+    min-width: 0;
+  }
+  .header-title h1 {
+    max-width: 100px;
+  }
+  .provider-section-header {
+    align-items: flex-start;
+  }
+}
