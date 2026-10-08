@@ -1856,8 +1856,9 @@ try {
   } else if (cleanupProfile) {
     await page.getByText("Pi Desktop", { exact: true }).first().waitFor();
     await page.evaluate(() => {
-      if (localStorage.getItem("pi.workspace")?.includes("pi-desktop-test-"))
-        localStorage.removeItem("pi.workspace");
+      for (const key of ["pi.workspace", "pi.workspace.userSelection"])
+        if (localStorage.getItem(key)?.includes("pi-desktop-test-"))
+          localStorage.removeItem(key);
     });
     await verifyComponentMapping(
       page,

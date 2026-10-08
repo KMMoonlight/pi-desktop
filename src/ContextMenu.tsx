@@ -45,7 +45,7 @@ export function ContextMenu({
       });
     };
     place();
-    filter.current?.focus();
+    filter.current?.focus({ preventScroll: true });
     const outside = (event: PointerEvent) => {
       if (
         !root.current?.contains(event.target as Node) &&
@@ -63,7 +63,7 @@ export function ContextMenu({
   const choose = (fn: () => void) => {
     setOpen(false);
     setSearch("");
-    trigger.current?.focus();
+    trigger.current?.focus({ preventScroll: true });
     fn();
   };
   const resources = snapshot.resources
@@ -97,7 +97,7 @@ export function ContextMenu({
           event.preventDefault();
           event.stopPropagation();
           setOpen(false);
-          trigger.current?.focus();
+          trigger.current?.focus({ preventScroll: true });
         }
       }}
     >
@@ -124,7 +124,7 @@ export function ContextMenu({
             onKeyDown={event => {
               if (event.key === "Tab") { setOpen(false); return; }
               if (event.target instanceof HTMLInputElement && ["Home", "End"].includes(event.key)) return;
-              menuKeyboard(event, () => { setOpen(false); trigger.current?.focus(); });
+              menuKeyboard(event, () => { setOpen(false); trigger.current?.focus({ preventScroll: true }); });
             }}
           >
             <label className="context-search">

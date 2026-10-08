@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="ivory" x1="240" y1="96" x2="736" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fffdf8"/>
+      <stop offset="1" stop-color="#eee5d8"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="24" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34322f"/>
+      <stop offset="1" stop-color="#141413"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="512" y1="96" x2="512" y2="928" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#b8a892" stop-opacity=".28"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#32291f" flood-opacity=".18"/>
+    </filter>
+  </defs>
+  <rect x="96" y="96" width="832" height="832" rx="190" fill="url(#ivory)" filter="url(#shadow)"/>
+  <rect x="98" y="98" width="828" height="828" rx="188" fill="none" stroke="url(#rim)" stroke-width="4"/>
+  <path transform="translate(256 240) scale(21.3333333333)" fill="url(#ink)" fill-rule="evenodd" d="M0 0h18v12h-6v6H6v6H0V0Zm6 6v6h6V6H6Zm12 6h6v12h-6V12Z"/>
+</svg>

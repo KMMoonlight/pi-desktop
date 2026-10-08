@@ -1,30 +1,4 @@
 /* Product chrome has neutral roles; Pi's original component theme stays separate. */
-:root {
-  --ui-canvas: #fafaf9;
-  --ui-sidebar: #f1f2f4;
-  --ui-input: #fff;
-  --ui-hover: #e9eaed;
-  --ui-selected: #e2e4e9;
-  --ui-line: #e2e3e6;
-  --ui-ink: #25272c;
-  --ui-muted: #7c8089;
-  --ui-action: #536fe0;
-  --ui-shadow: 0 4px 18px #20242c08;
-  --chat-measure: 820px;
-  font-family: "Segoe UI", system-ui, "Microsoft YaHei", sans-serif;
-}
-[data-theme="dark"] {
-  --ui-canvas: #18191b;
-  --ui-sidebar: #22252a;
-  --ui-input: #292c31;
-  --ui-hover: #2d3036;
-  --ui-selected: #343840;
-  --ui-line: #34373d;
-  --ui-ink: #edeef0;
-  --ui-muted: #9a9fa8;
-  --ui-action: #88a0f4;
-  --ui-shadow: 0 4px 18px #00000018;
-}
 body {
   font-size: 14px;
   line-height: 1.5;
@@ -51,10 +25,6 @@ body {
   height: 60px;
   padding: 0 16px;
   gap: 9px;
-}
-.brand > strong {
-  font-size: 14px;
-  font-weight: 600;
 }
 .brand-mark {
   color: var(--ui-ink);
@@ -393,27 +363,6 @@ body {
   color: var(--ui-muted);
   font-size: 10px;
 }
-.empty-task-actions {
-  justify-content: flex-start;
-  align-items: center;
-  gap: 8px;
-  margin: 14px 4px 0;
-}
-.empty-task-actions > button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 11px;
-  border: 1px solid var(--ui-line);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ui-muted);
-  font-size: 12px;
-}
-.empty-task-actions > button:hover {
-  background: var(--ui-hover);
-  color: var(--ui-ink);
-}
 .prompt-shortcut {
   margin-left: auto;
   color: var(--ui-muted);
@@ -490,8 +439,7 @@ body {
   border-radius: 10px;
 }
 .thinking-block {
-  border-color: var(--ui-line);
-  border-radius: 9px;
+  border-radius: 0;
 }
 .run-indicator {
   font-size: 12px;
@@ -502,9 +450,6 @@ body {
   border-color: var(--ui-line);
   background: var(--ui-input);
   border-radius: 20px;
-}
-.notice-list {
-  background: var(--ui-canvas);
 }
 .notice {
   border-color: var(--ui-line);
@@ -781,9 +726,6 @@ textarea:focus-visible {
   color: var(--ui-ink);
   background: var(--ui-hover);
 }
-.empty-task-actions {
-  justify-content: center;
-}
 .message-meta {
   justify-content: flex-end;
   height: 22px;
@@ -998,10 +940,26 @@ textarea:focus-visible {
 .inspector .extension-status > p {
   margin: 0;
 }
-.inspector footer {
+.inspector > .inspector-footer {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
   gap: 8px;
+  min-height: 52px;
+  padding: 10px 20px;
+  font-size: 12px;
+}
+.inspector-save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  line-height: 20px;
+}
+.inspector-save-status > svg {
+  flex-shrink: 0;
 }
 @media (max-width: 1180px) {
   .app-shell,
@@ -1153,34 +1111,88 @@ textarea:focus-visible {
     padding: 0 20px;
   }
 }
-.desktop-completion {
-  display: grid;
-  gap: 2px;
-  padding: 4px;
+/* Completion uses the SDK's choices and handlers with desktop presentation. */
+.composer:has(.desktop-completion-panel, .command-suggestions) {
+  overflow: visible;
+}
+.composer .desktop-extension-editor {
+  position: relative;
+}
+.composer .desktop-completion-panel {
+  position: absolute;
+  inset-inline: 8px;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+}
+.desktop-completion-popover {
+  overflow: hidden;
   border: 1px solid var(--ui-line);
-  border-radius: 9px;
+  border-radius: 14px;
   background: var(--ui-input);
+  color: var(--ui-ink);
+  box-shadow: 0 8px 32px #0000001a, 0 2px 6px #00000008;
+}
+.completion-heading,
+.completion-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  color: var(--ui-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+.completion-heading { justify-content: space-between; }
+.completion-footer { border-top: 1px solid var(--ui-line); }
+.completion-footer > span { display: flex; align-items: center; gap: 4px; }
+.completion-footer kbd { font: inherit; }
+.desktop-completion {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 6px 6px;
   overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-line) transparent;
 }
 .desktop-completion > button {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 32px;
-  padding: 6px 10px;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 8px;
   background: transparent;
   color: var(--ui-ink);
   text-align: left;
+  font-size: 13px;
+  line-height: 20px;
 }
 .desktop-completion > button[aria-selected="true"],
 .desktop-completion > button:hover {
-  background: var(--ui-selected);
+  background: var(--ui-hover);
 }
-.desktop-completion > button > span {
-  min-width: 0;
+.completion-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  border: 1px solid var(--ui-line);
+  border-radius: 7px;
+  color: var(--ui-secondary);
+}
+.completion-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.completion-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.completion-name strong { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.completion-name small { flex-shrink: 0; color: var(--ui-muted); font-size: 10px; line-height: 16px; }
+.completion-description {
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 18px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1190,10 +1202,7 @@ textarea:focus-visible {
   color: var(--ui-muted);
   opacity: 0;
 }
-.desktop-completion > button[aria-selected="true"] > svg,
-.desktop-completion > button:hover > svg {
-  opacity: 1;
-}
+.desktop-completion > button[aria-selected="true"] > svg { opacity: 1; }
 .message .markdown :is(th, td) {
   border-color: var(--ui-line);
   padding: 8px 12px;

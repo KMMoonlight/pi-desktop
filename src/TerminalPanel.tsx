@@ -7,28 +7,45 @@ import { action, subscribeTerminal } from "./client";
 import { TerminalIO } from "./terminal-io";
 import { TerminalAppearance } from "./terminal-appearance";
 import { TerminalEffects } from "./terminal-effects";
-import { Eraser, Square, X, Terminal as TerminalIcon } from "lucide-react";
+import { ShellTerminal, type ShellTerminalHandle } from "./ShellTerminal";
+import {
+  Eraser,
+  Square,
+  RotateCcw,
+  X,
+  Terminal as TerminalIcon,
+} from "lucide-react";
 import { IconButton } from "./ui";
 import type {
   TerminalEffect,
   TerminalEffectDelivery,
 } from "../shared/terminal-effect";
 import type { TerminalQuery } from "../shared/types";
-import "@xterm/xterm/css/xterm.css";
-import "./terminal.css";
 
 type Chunk = { sequence: number; data: string };
 export function TerminalPanel({
   open,
   onOpenChange,
+  cwd,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  cwd?: string;
 }) {
   useLocale();
   const container = useRef<HTMLDivElement>(null);
   const terminal = useRef<Terminal | undefined>(undefined);
   const fit = useRef<FitAddon | undefined>(undefined);
+  const shell = useRef<ShellTerminalHandle>(null);
+  const [source, setSource] = useState<"shell" | "pi">("shell");
+  const [shellCwd, setShellCwd] = useState<string>();
+  const [shellState, setShellState] = useState<{
+    error: string;
+    exitCode?: number;
+  }>({ error: "" });
+  useEffect(() => {
+    if (open && source === "shell" && cwd) setShellCwd(cwd);
+  }, [open, source, cwd]);
   const [height, setHeight] = useState(() => {
     const saved = Number(localStorage.getItem("pi.terminalHeight"));
     return Number.isFinite(saved) && saved >= 160
@@ -44,6 +61,16 @@ export function TerminalPanel({
   const [error, setError] = useState("");
   const [exitCode, setExitCode] = useState<number>();
   const [mount] = useState(() => document.createElement("div"));
+  const requestedHeight = useRef(height);
+  requestedHeight.current = height;
+  useEffect(() => {
+    const dock = mount.parentElement;
+    if (!dock?.matches("[data-workspace-terminal-dock]")) return;
+    // Give the flex item its requested size before its contents fill 100%.
+    // Otherwise the percentage-sized child can keep the dock at its old height.
+    dock.style.height = open ? `${height}px` : "";
+    return () => { dock.style.height = ""; };
+  }, [mount, open, height]);
   useEffect(() => {
     // Keep one xterm instance while moving it into an extension modal's focus
     // scope. A terminal behind the backdrop cannot receive real pointer input.
@@ -53,7 +80,13 @@ export function TerminalPanel({
         dock ??
         document.querySelector("[data-workspace-terminal-dock]") ??
         document.body;
-      if (mount.parentElement !== destination) destination.appendChild(mount);
+      if (mount.parentElement !== destination) {
+        if (mount.parentElement?.matches("[data-workspace-terminal-dock]"))
+          mount.parentElement.style.height = "";
+        destination.appendChild(mount);
+      }
+      if (destination.matches("[data-workspace-terminal-dock]"))
+        (destination as HTMLElement).style.height = open ? `${requestedHeight.current}px` : "";
     };
     place();
     const observer = new MutationObserver(place);
@@ -67,7 +100,9 @@ export function TerminalPanel({
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 13,
-      fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--ui-code-font").trim(),
+      fontFamily: getComputedStyle(document.documentElement)
+        .getPropertyValue("--ui-terminal-font")
+        .trim(),
       minimumContrastRatio: 4.5,
       scrollback: 5000,
       theme: { background: "#13161c", foreground: "#e4e7ed" },
@@ -80,11 +115,22 @@ export function TerminalPanel({
     const appearance = new TerminalAppearance(term);
     const theme = () => {
       const styles = getComputedStyle(document.documentElement);
-      appearance.update(styles.getPropertyValue("--ui-canvas").trim(), styles.getPropertyValue("--ui-ink").trim());
+      appearance.update(
+        styles.getPropertyValue("--ui-terminal-background").trim(),
+        styles.getPropertyValue("--ui-terminal-foreground").trim(),
+      );
+      const fontFamily = styles.getPropertyValue("--ui-terminal-font").trim();
+      if (term.options.fontFamily !== fontFamily) {
+        term.options.fontFamily = fontFamily;
+        if (container.current?.clientWidth && container.current.clientHeight) addon.fit();
+      }
     };
     theme();
     const themeObserver = new MutationObserver(theme);
-    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme", "style"],
+    });
     let disposed = false;
     let sequence = 0;
     let terminalId: string | undefined;
@@ -127,10 +173,11 @@ export function TerminalPanel({
     const resized = term.onResize(({ cols, rows }) =>
       send("terminal.resize", { cols, rows }),
     );
-    const receive = (chunk: Chunk) => {
+    const receive = (chunk: Chunk, replay = false) => {
       if (chunk.sequence <= sequence) return;
       sequence = chunk.sequence;
-      io.write(
+      const write = replay ? io.replay.bind(io) : io.write.bind(io);
+      write(
         chunk.data,
         terminalId ? { terminalId, sequence: chunk.sequence } : undefined,
       );
@@ -159,8 +206,8 @@ export function TerminalPanel({
       }>("terminal.snapshot");
       if (disposed || id !== synchronization) return;
       terminalId = state.terminalId;
-      state.chunks.forEach(receive);
-      queue.forEach(receive);
+      state.chunks.forEach((chunk) => receive(chunk, true));
+      queue.forEach((chunk) => receive(chunk));
       queue = [];
       initialized = true;
       queries.forEach((request) => io.query(request));
@@ -175,8 +222,10 @@ export function TerminalPanel({
             if (initialized) receive(event);
             else queue.push(event);
           }
-          if (event.type === "activity" && event.name === "terminal_active")
+          if (event.type === "activity" && event.name === "terminal_active") {
+            setSource("pi");
             onOpenChange(true);
+          }
           if (event.type === "terminal_exit") setExitCode(event.exitCode);
           if (event.type === "terminal_query") query(event);
         },
@@ -221,15 +270,19 @@ export function TerminalPanel({
     };
   }, []);
   useEffect(() => {
-    if (open) {
+    if (open && source === "pi") {
       fit.current?.fit();
       terminal.current?.focus();
     }
-  }, [open]);
+    if (open && source === "shell") shell.current?.focus();
+  }, [open, source]);
+  const currentExitCode = source === "shell" ? shellState.exitCode : exitCode;
+  const currentError = source === "shell" ? shellState.error : error;
   return createPortal(
     <section
       className={`terminal-panel ${open ? "is-open" : ""}`}
       id="pi-terminal-panel"
+      data-theme="dark"
       style={{ height: open ? height : undefined }}
       aria-label={t("Pi 终端")}
       data-desktop-native-input
@@ -268,41 +321,94 @@ export function TerminalPanel({
       )}
       <header>
         <button
+          className="terminal-title"
           onClick={() => onOpenChange(!open)}
           aria-expanded={open}
           aria-label={open ? t("收起终端") : t("终端")}
         >
           <TerminalIcon size={14} /> {t("终端")}
         </button>
-        {exitCode !== undefined && <span>{t("已退出 ·")} {exitCode}</span>}
-        {open && exitCode === undefined && (
-          <IconButton
-            icon={Square}
-            label={t("中断 Ctrl+C")}
-            onClick={() =>
-              void action("terminal.input", { data: "\x03" }).catch((reason) =>
-                setError(String(reason)),
-              )
-            }
-          />
+        {open && (
+          <div
+            className="terminal-sources"
+            role="group"
+            aria-label={t("终端类型")}
+          >
+            <button
+              aria-pressed={source === "shell"}
+              onClick={() => setSource("shell")}
+            >
+              Shell
+            </button>
+            <button
+              aria-pressed={source === "pi"}
+              onClick={() => setSource("pi")}
+            >
+              {t("Pi 扩展")}
+            </button>
+          </div>
+        )}
+        {currentExitCode !== undefined && (
+          <span>
+            {t("已退出 ·")} {currentExitCode}
+          </span>
         )}
         {open && (
-          <IconButton
-            icon={Eraser}
-            label={t("清屏")}
-            onClick={() => terminal.current?.clear()}
-          />
-        )}
-        {open && (
-          <IconButton
-            icon={X}
-            label={t("关闭终端")}
-            onClick={() => onOpenChange(false)}
-          />
+          <div className="terminal-actions">
+            {currentExitCode === undefined && (
+              <IconButton
+                icon={Square}
+                label={t("中断 Ctrl+C")}
+                onClick={() =>
+                  source === "shell"
+                    ? shell.current?.interrupt()
+                    : void action("terminal.input", { data: "\x03" })
+                        .then(() => terminal.current?.focus())
+                        .catch((reason) => setError(String(reason)))
+                }
+              />
+            )}
+            {source === "shell" && currentExitCode !== undefined && (
+              <IconButton
+                icon={RotateCcw}
+                label={t("重新启动终端")}
+                onClick={() => shell.current?.restart()}
+              />
+            )}
+            <IconButton
+              icon={Eraser}
+              label={t("清屏")}
+              onClick={() => {
+                if (source === "shell") shell.current?.clear();
+                else {
+                  terminal.current?.clear();
+                  terminal.current?.focus();
+                }
+              }}
+            />
+            <IconButton
+              icon={X}
+              label={t("关闭终端")}
+              onClick={() => onOpenChange(false)}
+            />
+          </div>
         )}
       </header>
-      {error && open && <p role="alert">{error}</p>}
-      <div ref={container} className="terminal-viewport" />
+      {currentError && open && <p role="alert">{currentError}</p>}
+      <div
+        ref={container}
+        className="terminal-viewport"
+        hidden={source !== "pi"}
+        data-terminal-source="pi"
+      />
+      {shellCwd === cwd && cwd && (
+        <ShellTerminal
+          key={cwd}
+          ref={shell}
+          active={open && source === "shell"}
+          onState={(error, exitCode) => setShellState({ error, exitCode })}
+        />
+      )}
     </section>,
     mount,
   );

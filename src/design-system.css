@@ -1,0 +1,424 @@
+/* Desktop application interpretation of Design.md. SDK presentation keeps its own tokens. */
+:root {
+  --chat-measure: 860px;
+}
+.app-shell,
+[role="dialog"],
+.select-popover,
+.context-usage-popup {
+  @apply font-sans;
+}
+.app-shell {
+  @apply bg-canvas text-ink;
+  grid-template-columns: 264px minmax(0, 1fr) 304px;
+}
+.app-shell.inspector-hidden {
+  grid-template-columns: 264px minmax(0, 1fr);
+}
+.app-shell.sidebar-hidden {
+  grid-template-columns: 0 minmax(0, 1fr) 304px;
+}
+.app-shell.sidebar-hidden.inspector-hidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+.sidebar {
+  @apply border-r border-line bg-soft;
+}
+.brand {
+  @apply h-11 min-h-11 border-b border-transparent px-4 py-1;
+}
+.brand-mark {
+  @apply rounded-lg bg-transparent text-ink;
+}
+.sidebar-actions button {
+  @apply rounded-lg;
+}
+.workspace-group-name,
+.sidebar .session-row strong,
+.settings-link {
+  @apply text-sm;
+}
+.workspace-navigation {
+  @apply mt-4;
+}
+.sidebar .session-row,
+.sidebar .session-project > summary,
+.settings-link {
+  @apply rounded-lg;
+}
+.sidebar .session-row.active {
+  @apply bg-card;
+}
+.workspace-header,
+.inspector > header {
+  @apply h-11 min-h-11 border-b border-line px-6 py-1;
+}
+.header-title h1 {
+  @apply font-display text-[14px] font-normal leading-5 tracking-[-0.02em];
+}
+.header-title > button {
+  opacity: 1;
+}
+.workspace-tabs,
+.sidebar-hidden .workspace-tabs {
+  @apply h-10 min-h-10 gap-1 border-b border-line px-5 py-1;
+}
+.workspace-tabs button {
+  @apply rounded-lg px-3 py-1.5 text-sm font-medium text-muted;
+}
+.workspace-tabs button.selected {
+  @apply bg-card text-ink;
+}
+.workspace-tabs button.selected::after {
+  display: none;
+}
+.chat-view {
+  --chat-measure: clamp(620px, 68cqi, 920px);
+}
+.conversation-empty {
+  @apply gap-4;
+}
+.conversation-empty h2 {
+  @apply font-display text-[28px] font-normal leading-tight tracking-[-0.02em];
+}
+.conversation-empty > svg {
+  @apply text-coral;
+}
+.chat-view.is-empty {
+  overflow: hidden;
+}
+.chat-view.is-empty > .conversation-empty {
+  flex: 1 1 0;
+  contain: size;
+  min-height: 0;
+  margin-top: 0;
+  padding: 0 24px;
+  overflow: hidden;
+}
+.conversation-empty > :is(.empty-brand, h2, button) {
+  flex-shrink: 0;
+}
+.chat-view.is-empty > .composer-region {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.workspace-content:has(.chat-view.is-empty) {
+  min-height: min-content;
+}
+.workspace-terminal-dock {
+  flex-shrink: 1;
+}
+.workspace-terminal-dock > div {
+  height: 100%;
+}
+.workspace-terminal-dock .terminal-panel {
+  max-height: 100%;
+}
+.empty-state h2 {
+  @apply font-display text-lg font-normal leading-6 tracking-[-0.02em];
+}
+.composer {
+  @apply rounded-2xl border border-line bg-canvas shadow-sm;
+  container: composer / inline-size;
+}
+.composer-region {
+  padding-bottom: 24px;
+}
+.composer-usage .composer-context {
+  @apply h-6 p-0 text-[11px];
+}
+.composer-usage .generation-status {
+  @apply text-[11px];
+}
+.composer:focus-within {
+  box-shadow: 0 0 0 3px rgb(204 120 92 / 15%);
+  border-color: var(--ui-action);
+}
+.composer > textarea,
+.composer .desktop-extension-editor .desktop-textarea[data-composer-input] {
+  @apply block px-4 py-3 font-sans text-sm font-normal leading-5;
+}
+.composer > textarea::placeholder {
+  color: var(--ui-muted);
+  opacity: 1;
+  font: inherit;
+}
+.composer .desktop-textarea[data-composer-input]::placeholder {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+.composer-toolbar {
+  @apply px-3 pb-3;
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+.composer-options {
+  flex: none;
+  flex-wrap: nowrap;
+}
+.composer-options .composer-context {
+  margin-left: 0;
+}
+.send-controls {
+  width: 100%;
+  min-width: 0;
+  margin-left: 0;
+  justify-content: flex-end;
+}
+.composer-models {
+  flex: 0 1 auto;
+  margin-right: 0;
+}
+.composer-models .field:first-child {
+  width: 250px;
+  max-width: 250px;
+  flex: 0 1 250px;
+}
+.composer-models .field:last-child {
+  width: 104px;
+  flex: 0 0 104px;
+}
+.composer-models .select-trigger {
+  width: 100%;
+  justify-content: space-between;
+}
+.composer-models .select-trigger > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.composer-models .select-trigger > svg {
+  flex-shrink: 0;
+}
+@container composer (max-width: 600px) {
+  .composer-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .composer-options {
+    flex-wrap: wrap;
+  }
+  .send-controls .composer-models {
+    flex: 1 1 0;
+    margin-right: 0;
+  }
+  .composer-models .field:first-child {
+    width: auto;
+    max-width: none;
+    flex: 1 1 0;
+  }
+}
+.select-trigger[aria-busy="true"] {
+  cursor: progress;
+}
+.image-preview-trigger,
+.attachment-list .image-preview-trigger {
+  @apply inline-flex max-w-full cursor-zoom-in appearance-none border-0 bg-transparent p-0 leading-none;
+}
+.image-preview-trigger:focus-visible {
+  @apply outline-2 outline-offset-2 outline-coral;
+}
+.message-user .message-body {
+  @apply rounded-xl bg-card;
+}
+.field > :is(input, select),
+.json-editor,
+.desktop-textarea {
+  @apply rounded-lg border-line bg-canvas;
+}
+.field > :is(input, select):focus {
+  @apply border-coral;
+  box-shadow: 0 0 0 3px rgb(204 120 92 / 15%);
+}
+.field > :is(input, select) {
+  @apply min-h-9 px-3 py-1.5;
+}
+.field-embedded .select-trigger,
+.composer .select-trigger {
+  @apply min-h-0;
+}
+.select-trigger {
+  @apply rounded-lg border-line bg-canvas;
+}
+.select-popover,
+.menu-list,
+.context-add-menu,
+.context-usage-popup {
+  @apply rounded-xl border border-line bg-canvas shadow-sm;
+}
+.select-popover > button {
+  @apply font-normal;
+}
+.select-popover > button[aria-selected="true"] {
+  @apply bg-transparent font-medium text-ink;
+}
+.select-popover > button.is-highlighted {
+  @apply bg-card;
+}
+.menu-list button[aria-pressed="true"] {
+  @apply bg-card text-ink;
+}
+.ui-dialog {
+  box-shadow: 0 1px 3px rgb(20 20 19 / 8%);
+}
+.settings-modal[role="dialog"] {
+  @apply m-0 rounded-2xl border border-line bg-canvas shadow-sm;
+  height: min(800px, calc(100dvh - 48px));
+}
+.settings-modal .settings-view {
+  grid-template-columns: 188px minmax(0, 1fr);
+}
+.settings-tabs {
+  @apply gap-1 bg-soft px-3 py-5;
+}
+.settings-tabs > h2 {
+  @apply font-display text-[22px] font-normal leading-7 tracking-[-0.02em];
+}
+.settings-tabs button {
+  @apply rounded-lg text-sm font-normal;
+}
+.settings-tabs button.selected {
+  @apply bg-card text-ink;
+}
+.settings-tabs button.selected svg {
+  @apply text-ink;
+}
+.settings-chrome {
+  @apply h-12;
+}
+.settings-heading {
+  @apply px-6 pb-4;
+}
+.settings-heading h2 {
+  @apply font-display text-[22px] font-normal leading-7 tracking-[-0.02em];
+}
+.settings-heading p {
+  @apply mt-1.5 text-xs leading-5 text-muted;
+}
+.settings-group > h2,
+.settings-section-heading > h2,
+.provider-model-heading > h2,
+.integration-form-heading > h2 {
+  @apply text-base font-medium;
+}
+.settings-group {
+  @apply py-5;
+}
+.settings-save {
+  @apply bg-canvas px-6 py-4;
+}
+.integration-form,
+.custom-provider-form,
+.settings-modal .raw-settings {
+  @apply rounded-xl bg-soft p-4;
+}
+.settings-view .select-trigger {
+  @apply rounded-lg;
+}
+.setting-help,
+.settings-scope-note,
+.settings-locations {
+  @apply text-xs leading-5;
+}
+.resource-row,
+.resource-command {
+  @apply rounded-lg;
+}
+.settings-resources .resource-filters button.selected {
+  @apply border-line bg-card text-ink;
+}
+.code-block {
+  @apply overflow-hidden rounded-xl border-0 bg-code text-on-code;
+}
+.code-toolbar {
+  @apply border-b border-white/10 bg-code-raised text-code-muted;
+}
+.code-toolbar button {
+  @apply text-code-muted;
+}
+.code-block pre,
+.code-block code {
+  @apply bg-transparent text-on-code;
+  font-family: var(--font-mono);
+}
+.code-block .token.keyword,
+.code-block .token.tag {
+  color: #e8a55a;
+}
+.code-block .token.string,
+.code-block .token.attr-value {
+  color: #5db8a6;
+}
+.code-block .token.comment {
+  color: #a09d96;
+}
+.code-block .token.function {
+  color: #cc785c;
+}
+.files-view .file-list {
+  @apply bg-soft;
+}
+.file-row.selected {
+  @apply bg-card;
+}
+.preview-header,
+.git-changes-summary {
+  @apply bg-soft;
+}
+.git-changes-summary,
+.diff-file {
+  @apply rounded-xl;
+}
+.terminal-panel {
+  @apply border-line bg-code text-on-code;
+}
+.terminal-panel header {
+  @apply border-white/10 bg-code-raised;
+}
+.terminal-panel .terminal-actions > button,
+.terminal-panel .terminal-sources > button,
+.terminal-panel > header > span {
+  @apply text-code-muted;
+}
+.terminal-panel .terminal-sources > button[aria-pressed="true"] {
+  @apply bg-white/10 text-on-code;
+}
+.ui-tooltip {
+  @apply font-sans;
+}
+.ui-switch {
+  vertical-align: middle;
+}
+.ui-switch::before {
+  content: "";
+}
+/* A desktop window keeps its navigation at the native minimum width. */
+@media (min-width: 760px) and (max-width: 1180px) {
+  .app-shell,
+  .app-shell.inspector-hidden {
+    grid-template-columns: 232px minmax(0, 1fr);
+  }
+  .app-shell.sidebar-hidden,
+  .app-shell.sidebar-hidden.inspector-hidden {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar {
+    position: static;
+    width: auto;
+    box-shadow: none;
+  }
+  .sidebar-backdrop {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .settings-modal .settings-view {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+  .settings-heading {
+    @apply px-5;
+  }
+  .settings-modal .settings-content {
+    @apply px-5;
+  }
+}

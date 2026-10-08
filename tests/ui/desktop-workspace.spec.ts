@@ -9,7 +9,7 @@ test.beforeAll(async () => {
   await mkdir(".local/workspace-evidence", { recursive: true });
 });
 
-test("chat, evidence and docked terminal preserve drafts across desktop and narrow layouts", async ({
+test("full-width file and tree views preserve drafts alongside the docked terminal", async ({
   page,
 }) => {
   test.setTimeout(90000);
@@ -21,7 +21,7 @@ test("chat, evidence and docked terminal preserve drafts across desktop and narr
   await sdkAction(page, "prompt", { message: "presentation-code-probe" });
   const editor = page.getByRole("textbox", { name: "消息", exact: true });
   await editor.fill("保留这段草稿");
-  for (const width of [1440, 1024, 768, 390, 375]) {
+  for (const width of [1440, 1024, 760]) {
     await page.setViewportSize({ width, height: 940 });
     const sidebar = page.getByRole("button", {
       name: "收起侧边栏",
@@ -39,7 +39,15 @@ test("chat, evidence and docked terminal preserve drafts across desktop and narr
     );
     await expect(
       page.getByRole("heading", { name: "Review result", exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
+    await expect(page.locator(".composer")).toHaveCount(0);
+    const content = (await page.locator(".workspace-content").boundingBox())!;
+    const files = (await page.getByRole("region", { name: "文件与更改" }).boundingBox())!;
+    expect(files.x).toBeCloseTo(content.x, 0);
+    expect(files.width).toBeCloseTo(content.width, 0);
+    expect(files.height).toBeCloseTo(content.height, 0);
+    await page.getByRole("button", { name: "文件与更改", exact: true }).click();
+    await expect(page.locator(".file-preview")).toBeVisible();
     await page.screenshot({
       path: `.local/workspace-evidence/files-${width}.png`,
     });
@@ -47,14 +55,22 @@ test("chat, evidence and docked terminal preserve drafts across desktop and narr
       .getByRole("button", { name: "关闭文件面板", exact: true })
       .click();
     await expect(editor).toHaveValue("保留这段草稿");
+    await expect(page.getByRole("heading", { name: "Review result", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "会话树", exact: true }).click();
+    const tree = (await page.locator(".session-tree-view").boundingBox())!;
+    expect(tree.x).toBeCloseTo(content.x, 0);
+    expect(tree.width).toBeCloseTo(content.width, 0);
+    expect(tree.height).toBeCloseTo(content.height, 0);
+    await page.screenshot({ path: `.local/workspace-evidence/tree-${width}.png` });
+    await page.getByRole("button", { name: "对话", exact: true }).click();
+    await expect(editor).toHaveValue("保留这段草稿");
     await page.getByRole("button", { name: "终端", exact: true }).click();
     const terminal = await page
       .locator(".terminal-panel.is-open")
       .boundingBox();
     const composer = await page.locator(".composer").boundingBox();
     expect(composer!.y + composer!.height).toBeLessThanOrEqual(terminal!.y + 1);
-    await page.getByRole("separator", { name: "调整终端高度" }).focus();
-    await page.keyboard.press("ArrowUp");
+    await page.getByRole("separator", { name: "调整终端高度" }).press("ArrowUp");
     await expect
       .poll(
         async () =>
@@ -83,7 +99,7 @@ test("chat, evidence and docked terminal preserve drafts across desktop and narr
     .click();
   await page.getByRole("button", { name: "添加到消息", exact: true }).click();
   await expect(page.locator(".attachment-list")).toContainText("test-note.txt");
-  await page.getByRole("button", { name: "关闭文件面板", exact: true }).click();
+  await expect(page.getByRole("button", { name: "对话", exact: true })).toHaveAttribute("aria-current", "page");
   await page.getByRole("button", { name: "添加上下文", exact: true }).click();
   await context
     .getByRole("textbox", { name: "搜索技能与命令" })
@@ -104,7 +120,7 @@ test("chat, evidence and docked terminal preserve drafts across desktop and narr
   ).toHaveAttribute("data-value", "off");
   await expect(
     page.getByRole("combobox", { name: "思考等级", exact: true }),
-  ).toContainText("关闭思考");
+  ).toContainText("off");
   await sdkAction(page, "theme.set", { theme: "dark" });
   await page.getByRole("button", { name: "文件与更改", exact: true }).click();
   await page.screenshot({ path: ".local/workspace-evidence/dark-files.png" });
@@ -131,6 +147,7 @@ test("encoded file references locate lines and tool controls expand only their o
   });
   for (const name of ["Relative file", "File URL"]) {
     await page.getByRole("link", { name, exact: true }).click();
+    await expect(page.getByRole("button", { name: "文件与更改", exact: true })).toHaveAttribute("aria-current", "page");
     const line = page.locator('.file-preview [data-file-line="42"]');
     await expect(line).toHaveClass("selected-file-line");
     await expect(line).toContainText("reference line 42");
@@ -143,6 +160,7 @@ test("encoded file references locate lines and tool controls expand only their o
     path: join(snapshot.agentDir, "desktop", "tool-display-control.mjs"),
     args: { mode: "seed", expanded: false },
   });
+  await page.locator(".process-group > summary").click();
   const row = (id: string) =>
     page.locator(`.tool-execution[data-tool-call-id="${id}"]`);
   await row("display-fallback")

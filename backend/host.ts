@@ -1,11 +1,21 @@
 import { EventEmitter } from "node:events";
 import { randomUUID } from "node:crypto";
-import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
+import { readFile, writeFile, mkdir, stat, unlink } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { desktopSessionHistory } from "./session-history.ts";
+import {
+  desktopSessionHistory,
+  persistDesktopSession,
+  resumeDesktopSession,
+  rememberDesktopSession,
+  forgetDesktopSession,
+} from "./session-history.ts";
+import { GlobalSettings, globalSettingsActions } from "./global-settings.ts";
+import { listSystemFonts } from "./system-fonts.ts";
 import { browseDirectories, createDirectory } from "./folders.ts";
-import { GenerationTracker } from "./generation-metrics.ts";
+import { GenerationTracker, recordedGeneration } from "./generation-metrics.ts";
+import { SessionTitleGenerator } from "./session-title.ts";
 import {
   sdkContext,
   type DesktopSdkOperation,
@@ -82,6 +92,7 @@ import {
   getAgentDir,
   getPackageDir,
   VERSION,
+  ModelRuntime,
   ProjectTrustStore,
   hasTrustRequiringProjectResources,
   type Theme,
@@ -172,6 +183,7 @@ export function messageView(
 
 export class DesktopHost extends EventEmitter {
   private generation = new GenerationTracker();
+  private sessionTitles = new SessionTitleGenerator();
   private readonly backendId = randomUUID();
   private snapshotRevision = 0;
   readonly terminalQueries = new TerminalQueries((event) =>
@@ -212,6 +224,7 @@ export class DesktopHost extends EventEmitter {
   private editorRevision = 0;
   private editorDrafts = new Map<string, string>();
   private boundSessionId?: string;
+  private workspaceDraft?: SessionManager;
   private sessionLifetime = new AbortController();
   private readonly authorizations = new AuthorizationScopes(
     (event) => this.emitEvent(event),
@@ -231,6 +244,7 @@ export class DesktopHost extends EventEmitter {
   private editorSelection?: DesktopSelection;
   private expanded = false;
   private toolExpansions = new Map<string, boolean>();
+  private turnToolCalls = new Set<string>();
   private authAbort?: AbortController;
   private authId?: string;
   private changing = false;
@@ -255,6 +269,7 @@ export class DesktopHost extends EventEmitter {
   private inflightPrompts = 0;
   private activeTools: DesktopSnapshot["activeTools"] = [];
   private recentWorkspaces: string[] = [];
+  private globalSettings?: GlobalSettings;
   private projectTrustByCwd = new Map<string, boolean>();
   private theme?: Theme;
   private readonly themeProxies = new WeakSet<Theme>();
@@ -1218,6 +1233,7 @@ export class DesktopHost extends EventEmitter {
   private async initializeWorkspace(
     cwdInput: string,
     options: DesktopStartupOptions,
+    newSession = false,
   ) {
     const cwd = resolve(cwdInput);
     if (!(await stat(cwd)).isDirectory()) throw new Error("工作区不是文件夹");
@@ -1271,13 +1287,18 @@ export class DesktopHost extends EventEmitter {
       "sessions",
       `--${cwd.replace(/^[/\\]/, "").replace(/[:\\/]/g, "-")}--`,
     );
+    const directory = settings.getSessionDir() ?? sessionDir;
+    const restored = newSession
+      ? undefined
+      : await resumeDesktopSession(this.agentDir, cwd, directory);
+    const sessionManager = restored ?? SessionManager.create(cwd, directory);
+    // Pi's editor needs a backing manager. Keep the initial blank workspace
+    // unsaved and out of history until the user actually starts a conversation.
+    this.workspaceDraft = !newSession && !restored ? sessionManager : undefined;
     this.runtime = await createAgentSessionRuntime(this.factory, {
       cwd,
       agentDir: this.agentDir,
-      sessionManager: SessionManager.create(
-        cwd,
-        settings.getSessionDir() ?? sessionDir,
-      ),
+      sessionManager,
     });
     if (this.disposal) throw new Error("Pi 已关闭");
     const runtime = this.runtime;
@@ -1324,8 +1345,8 @@ export class DesktopHost extends EventEmitter {
       preferences = record(
         JSON.parse(await readFile(join(this.agentDir, "desktop.json"), "utf8")),
       );
-      this.recentWorkspaces = Array.isArray(preferences.workspaces)
-        ? preferences.workspaces.filter(
+      this.recentWorkspaces = Array.isArray(preferences.selectedWorkspaces)
+        ? preferences.selectedWorkspaces.filter(
             (p): p is string => typeof p === "string",
           )
         : [];
@@ -1339,11 +1360,16 @@ export class DesktopHost extends EventEmitter {
     await mkdir(this.agentDir, { recursive: true });
     await writeFile(
       join(this.agentDir, "desktop.json"),
-      JSON.stringify({ ...preferences, workspaces: this.recentWorkspaces }, null, 2),
+      JSON.stringify({ ...preferences, workspaces: this.recentWorkspaces, selectedWorkspaces: this.recentWorkspaces }, null, 2),
     );
   }
   private async bind() {
     if (this.disposal) return;
+    if (this.session.sessionManager !== this.workspaceDraft) {
+      this.workspaceDraft = undefined;
+      persistDesktopSession(this.session.sessionManager);
+    }
+    this.sessionTitles.cancel();
     this.restoreSessionReload?.();
     this.restoreSessionPrompt?.();
     this.restoreSessionBash?.();
@@ -1446,9 +1472,14 @@ export class DesktopHost extends EventEmitter {
       onError: (error) => this.notice(error.error, "error"),
     });
     await this.editorMount;
+    if (!this.disposal && this.runtime?.session === session)
+      rememberDesktopSession(this.agentDir, session.sessionManager);
+    this.sessionTitles.update(session, this.sessionLifetime.signal);
   }
   private onSessionEvent(event: AgentSessionEvent) {
+    if (event.type === "session_info_changed") this.sessionTitles.cancel();
     this.generation.observe(event, this.session.sessionId);
+    if (event.type === "agent_start") this.turnToolCalls.clear();
     this.desktopUI.terminalRuntime.capture().application?.event(event);
     this.emitEvent({ type: "sdk_event", data: event });
     const phase = (id: string) => {
@@ -1465,6 +1496,7 @@ export class DesktopHost extends EventEmitter {
       return current;
     };
     if (event.type === "tool_execution_start" && !event.parentToolCallId) {
+      this.turnToolCalls.add(event.toolCallId);
       phase(event.toolCallId).executionStarted = true;
       this.activeTools.push({
         id: event.toolCallId,
@@ -1518,8 +1550,11 @@ export class DesktopHost extends EventEmitter {
       this.streaming = undefined;
     }
     if (event.type === "agent_settled") {
+      for (const id of this.turnToolCalls) this.toolExpansions.set(id, false);
+      this.turnToolCalls.clear();
       this.streaming = undefined;
       this.activeTools = [];
+      this.sessionTitles.update(this.session, this.sessionLifetime.signal);
     }
     if (event.type === "auto_retry_start")
       this.notice(
@@ -1993,6 +2028,14 @@ export class DesktopHost extends EventEmitter {
   snapshot(): DesktopSnapshot {
     const revision = ++this.snapshotRevision;
     const session = this.session;
+    if (
+      this.workspaceDraft === session.sessionManager &&
+      session.sessionFile &&
+      existsSync(session.sessionFile)
+    ) {
+      this.workspaceDraft = undefined;
+      rememberDesktopSession(this.agentDir, session.sessionManager);
+    }
     const services = this.runtime!.services;
     const models = services.modelRuntime.getModels();
     const available = new Set(
@@ -2009,6 +2052,7 @@ export class DesktopHost extends EventEmitter {
       available: available.has(`${m.provider}/${m.id}`),
     });
     const entries = session.sessionManager.getEntries();
+    const completedAt = new Map(entries.map((entry) => [entry.id, entry.timestamp]));
     const projection = session.sessionManager.buildSessionProjection();
     const ids = new Map<string, string[]>();
     for (const entry of projection.entries)
@@ -2036,7 +2080,9 @@ export class DesktopHost extends EventEmitter {
         );
         if (m.role === "assistant")
           view.completionNotice = this.transcriptMarkdown?.completionNotice(m);
-        if (m.role === "assistant") view.generation = this.generation.get(session.sessionId, m.timestamp);
+        if (m.role === "assistant")
+          view.generation = this.generation.get(session.sessionId, m.timestamp)
+            ?? recordedGeneration(m.timestamp, completedAt.get(view.entryId ?? ""), view.outputTokens);
         rendererMessages.set(view.id, m);
         return view;
       });
@@ -2257,8 +2303,12 @@ export class DesktopHost extends EventEmitter {
       cwd: this.runtime!.cwd,
       agentDir: this.agentDir,
       sessionId: session.sessionId,
-      sessionFile: session.sessionFile,
+      sessionFile:
+        this.workspaceDraft === session.sessionManager
+          ? undefined
+          : session.sessionFile,
       sessionName: session.sessionName,
+      running: !session.isIdle || session.isBashRunning || this.inflightPrompts > 0,
       busy:
         !session.isIdle ||
         session.isBashRunning ||
@@ -2424,6 +2474,7 @@ export class DesktopHost extends EventEmitter {
     const mutations = new Set([
       "session.new",
       "session.switch",
+      "session.delete",
       "session.fork",
       "session.clone",
       "session.navigate",
@@ -2459,7 +2510,8 @@ export class DesktopHost extends EventEmitter {
       return this.perform(request);
     }
     if (this.changing) throw new Error("另一项操作正在进行，请稍后重试");
-    this.idle();
+    if (this.runtime) this.idle();
+    else if (this.authAbort) throw new Error("已有登录流程正在进行");
     this.changing = true;
     this.publish();
     let result: unknown;
@@ -2477,6 +2529,14 @@ export class DesktopHost extends EventEmitter {
   }
   private async perform(request: ActionRequest): Promise<unknown> {
     const a = request.args ?? {};
+    if (request.action === "fonts.list") return listSystemFonts(a.refresh === true);
+    if (request.action === "settings.snapshot" && this.runtime) return this.snapshot();
+    if (!this.runtime && globalSettingsActions.has(request.action)) {
+      this.globalSettings ??= new GlobalSettings(this.agentDir, this.hostLifetime.signal,
+        (models, settings, args) => this.login(models, settings, args, this.hostLifetime.signal),
+        message => this.notice(message));
+      return this.globalSettings.action(request);
+    }
     if (request.action === "transcript.layout") {
       const session = this.runtime?.session;
       if (
@@ -2536,11 +2596,11 @@ export class DesktopHost extends EventEmitter {
         this.updateDesktopAppearance(a.appearance);
       }
       if (a.resumeExisting === true && this.runtime) return this.snapshot();
+      const cwd = a.cwd ?? process.env.PI_DESKTOP_CWD;
+      // Launching the host from a directory does not select that workspace.
+      if (cwd === undefined || cwd === "") return null;
       return this.initialize(
-        required(
-          a.cwd ?? process.env.PI_DESKTOP_CWD ?? process.cwd(),
-          "工作目录",
-        ),
+        required(cwd, "工作目录"),
         a.startup === undefined ? undefined : startupOptions(a.startup),
       );
     }
@@ -3194,13 +3254,47 @@ export class DesktopHost extends EventEmitter {
       case "session.new":
         this.idle();
         if (typeof a.cwd === "string" && resolve(required(a.cwd, "工作区路径")) !== this.runtime!.cwd)
-          return this.initializeWorkspace(a.cwd, {});
+          return this.initializeWorkspace(a.cwd, {}, true);
         await this.runtime!.newSession();
         break;
       case "session.switch":
         this.idle();
         await this.runtime!.switchSession(required(a.path, "会话路径"));
         break;
+      case "session.delete": {
+        this.idle();
+        const path = resolve(required(a.path, "会话路径"));
+        const id = required(a.id, "会话 ID");
+        const history = await desktopSessionHistory(
+          this.agentDir,
+          this.runtime!.services.settingsManager.getSessionDir(),
+        );
+        const target = history.find(
+          (item) => item.id === id && resolve(item.path) === path,
+        );
+        if (!target) throw new Error("会话不存在或已被删除");
+        if (session.sessionFile && resolve(session.sessionFile) === path) {
+          const next = (await SessionManager.list(
+            this.runtime!.cwd,
+            session.sessionManager.getSessionDir(),
+          )).find((item) => resolve(item.path) !== path);
+          // Detach from the file before deleting it. An empty workspace keeps
+          // Pi's editor manager in memory until the user sends a message.
+          const result = next
+            ? await this.runtime!.switchSession(next.path)
+            : await this.runtime!.newSession({
+                setup: async (manager) => {
+                  this.workspaceDraft = manager;
+                },
+              });
+          if (result.cancelled)
+            throw new Error("会话切换已取消，未删除会话");
+        }
+        await unlink(path);
+        forgetDesktopSession(this.agentDir, id, target.path);
+        this.editorDrafts.delete(id);
+        break;
+      }
       case "session.name":
         session.setSessionName(required(a.name, "会话名称"));
         break;
@@ -3496,93 +3590,10 @@ export class DesktopHost extends EventEmitter {
           operations: intercepted?.operations,
         });
       }
-      case "auth.login": {
+      case "auth.login":
         this.idle();
-        if (this.authAbort) throw new Error("已有登录流程正在进行");
-        const controller = new AbortController();
-        const authorizationId = randomUUID();
-        this.authId = authorizationId;
-        const loginSignal = AbortSignal.any([
-          controller.signal,
-          this.sessionLifetime.signal,
-        ]);
-        this.authAbort = controller;
-        try {
-          await session.modelRuntime.login(
-            required(a.provider, "提供商"),
-            a.method === "api_key" ? "api_key" : "oauth",
-            {
-              signal: loginSignal,
-              prompt: async (info) => {
-                const signal = info.signal
-                  ? AbortSignal.any([info.signal, loginSignal])
-                  : loginSignal;
-                const value = await this.ask(
-                  {
-                    kind: info.type === "select" ? "select" : "input",
-                    title: info.message,
-                    options:
-                      info.type === "select"
-                        ? info.options.map((option) => ({
-                            value: option.id,
-                            label: option.label,
-                            description: option.description,
-                          }))
-                        : undefined,
-                    secret: info.type === "secret",
-                    placeholder:
-                      "placeholder" in info ? info.placeholder : undefined,
-                  },
-                  signal,
-                );
-                if (typeof value !== "string" || signal.aborted)
-                  throw new Error("登录已取消");
-                if (
-                  info.type === "select" &&
-                  !info.options.some((option) => option.id === value)
-                )
-                  throw new Error("登录选项无效");
-                return value;
-              },
-              notify: (event) => {
-                if (loginSignal.aborted) return;
-                this.emitEvent({ type: "activity", name: "auth", data: event });
-                if (loginSignal.aborted) return;
-                if (event.type === "auth_url")
-                  this.emitEvent({
-                    type: "auth_url",
-                    id: authorizationId,
-                    url: event.url,
-                    message: event.instructions,
-                  });
-                else if (event.type === "device_code")
-                  this.emitEvent({
-                    type: "auth_url",
-                    id: authorizationId,
-                    url: event.verificationUri,
-                    message: `授权码：${event.userCode}`,
-                    desktopCopy: true,
-                  });
-                else this.notice(event.message);
-              },
-            },
-            {
-              getDeviceId: () => session.settingsManager.getOrCreateDeviceId(),
-            },
-          );
-        } finally {
-          if (this.authAbort === controller) {
-            this.authAbort = undefined;
-            this.authId = undefined;
-          }
-          this.emitEvent({
-            type: "activity",
-            name: "auth_complete",
-            data: { id: authorizationId },
-          });
-        }
+        await this.login(session.modelRuntime, session.settingsManager, a, this.sessionLifetime.signal);
         break;
-      }
       case "auth.logout":
         this.idle();
         await session.modelRuntime.logout(required(a.provider, "提供商"));
@@ -3684,6 +3695,92 @@ export class DesktopHost extends EventEmitter {
     this.publish();
     return this.snapshot();
   }
+  private async login(modelRuntime: ModelRuntime, settingsManager: SettingsManager, a: RecordValue, lifetime: AbortSignal) {
+    if (this.authAbort) throw new Error("已有登录流程正在进行");
+    const controller = new AbortController();
+    const authorizationId = randomUUID();
+    this.authId = authorizationId;
+    const loginSignal = AbortSignal.any([
+      controller.signal,
+      lifetime,
+    ]);
+    this.authAbort = controller;
+    try {
+      await modelRuntime.login(
+        required(a.provider, "提供商"),
+        a.method === "api_key" ? "api_key" : "oauth",
+        {
+          signal: loginSignal,
+          prompt: async (info) => {
+            const signal = info.signal
+              ? AbortSignal.any([info.signal, loginSignal])
+              : loginSignal;
+            const value = await this.ask(
+              {
+                kind: info.type === "select" ? "select" : "input",
+                title: info.message,
+                options:
+                  info.type === "select"
+                    ? info.options.map((option) => ({
+                        value: option.id,
+                        label: option.label,
+                        description: option.description,
+                      }))
+                    : undefined,
+                secret: info.type === "secret",
+                placeholder:
+                  "placeholder" in info ? info.placeholder : undefined,
+              },
+              signal,
+              lifetime,
+            );
+            if (typeof value !== "string" || signal.aborted)
+              throw new Error("登录已取消");
+            if (
+              info.type === "select" &&
+              !info.options.some((option) => option.id === value)
+            )
+              throw new Error("登录选项无效");
+            return value;
+          },
+          notify: (event) => {
+            if (loginSignal.aborted) return;
+            this.emitEvent({ type: "activity", name: "auth", data: event });
+            if (loginSignal.aborted) return;
+            if (event.type === "auth_url")
+              this.emitEvent({
+                type: "auth_url",
+                id: authorizationId,
+                url: event.url,
+                message: event.instructions,
+              });
+            else if (event.type === "device_code")
+              this.emitEvent({
+                type: "auth_url",
+                id: authorizationId,
+                url: event.verificationUri,
+                message: `授权码：${event.userCode}`,
+                desktopCopy: true,
+              });
+            else this.notice(event.message);
+          },
+        },
+        {
+          getDeviceId: () => settingsManager.getOrCreateDeviceId(),
+        },
+      );
+    } finally {
+      if (this.authAbort === controller) {
+        this.authAbort = undefined;
+        this.authId = undefined;
+      }
+      this.emitEvent({
+        type: "activity",
+        name: "auth_complete",
+        data: { id: authorizationId },
+      });
+    }
+  }
   private packages() {
     const manager = new DefaultPackageManager({
       cwd: this.runtime!.cwd,
@@ -3725,6 +3822,7 @@ export class DesktopHost extends EventEmitter {
     return disposal;
   }
   private async disposeResources(transitions: Promise<void>) {
+    this.sessionTitles.cancel();
     this.restoreSessionReload?.();
     this.restoreSessionPrompt?.();
     this.restoreSessionBash?.();

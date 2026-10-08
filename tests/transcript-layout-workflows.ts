@@ -96,12 +96,15 @@ export async function verifyTranscriptLayout(page: Page, screenshot: string) {
     const one = await assertWidths(page);
     expect(zero).not.toEqual(one);
     await page.getByRole("button", { name: /^(收起|打开)检查器$/ }).click();
-    await assertWidths(page);
+    // Overlay inspectors cover the transcript; measure it once uncovered.
+    if (!(await page.getByRole("button", { name: "关闭检查器遮罩", exact: true }).isVisible()))
+      await assertWidths(page);
     const closeInspector = page.getByRole("button", {
       name: "关闭检查器",
       exact: true,
     });
     if (await closeInspector.isVisible()) await closeInspector.click();
+    await assertWidths(page);
     await page
       .locator(".chat-view")
       .evaluate((element) => ((element as HTMLElement).style.width = "340px"));

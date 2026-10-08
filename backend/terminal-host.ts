@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import { spawn, type IPty } from "node-pty";
 import { parseTerminalEffect } from "../shared/terminal-effect.ts";
 import { isConPtyStartupTitle } from "./conpty-startup.ts";
+import { ShellTerminal } from "./shell-terminal.ts";
+import { listSystemFonts } from "./system-fonts.ts";
 import type {
   ActionRequest,
   DesktopSnapshot,
@@ -18,6 +20,7 @@ export class TerminalHost extends EventEmitter {
   private lastEffect = { sequence: 0, index: 0 };
   private firstTitle = true;
   private pty?: IPty;
+  private shell?: ShellTerminal;
   private channel?: Socket;
   private ready: Promise<void>;
   private pending = new Map<
@@ -106,7 +109,13 @@ export class TerminalHost extends EventEmitter {
               const packet = JSON.parse(line);
               if (packet.event) {
                 const event = packet.event;
-                if (event.type === "snapshot") this.latest = event.data;
+                if (event.type === "snapshot") {
+                  this.latest = event.data;
+                  if (this.shell && this.shell.cwd !== event.data.cwd) {
+                    this.shell.dispose();
+                    this.shell = undefined;
+                  }
+                }
                 if (event.type === "dialog")
                   this.dialogs.set(event.data.id, event.data);
                 if (event.type === "dialog_closed")
@@ -179,6 +188,7 @@ export class TerminalHost extends EventEmitter {
         this.emit("event", { type: "terminal_output", ...chunk });
       });
       this.pty.onExit(({ exitCode }) => {
+        this.shell?.dispose();
         this.exitCode = exitCode;
         this.closed = true;
         process.removeListener("exit", cleanup);
@@ -215,8 +225,38 @@ export class TerminalHost extends EventEmitter {
       await this.dispose();
       return null;
     }
+    if (request.action === "fonts.list") {
+      if (this.closed || this.disposal) throw new Error("Pi SDK terminal has exited");
+      return listSystemFonts(request.args?.refresh === true);
+    }
     await this.ready;
     const args = request.args ?? {};
+    if (request.action.startsWith("shell.")) {
+      if (this.closed || this.disposal)
+        throw new Error("Pi SDK terminal has exited");
+      const cwd = this.latest?.cwd;
+      if (!cwd) throw new Error("Select a workspace first");
+      if (
+        request.action === "shell.snapshot" ||
+        request.action === "shell.restart"
+      ) {
+        if (
+          !this.shell ||
+          this.shell.cwd !== cwd ||
+          request.action === "shell.restart"
+        ) {
+          this.shell?.dispose();
+          this.shell = undefined;
+          this.shell = new ShellTerminal(cwd, (event) =>
+            this.emit("event", event),
+          );
+        }
+        return this.shell.snapshot();
+      }
+      if (!this.shell || this.shell.cwd !== cwd)
+        throw new Error("Shell terminal changed");
+      return this.shell.action(request.action, args);
+    }
     if (request.action === "terminal.snapshot")
       return {
         terminalId: this.terminalId,
@@ -312,6 +352,7 @@ export class TerminalHost extends EventEmitter {
   }
   dispose(): Promise<void> {
     return (this.disposal ??= Promise.resolve().then(async () => {
+      this.shell?.dispose();
       let failure: unknown;
       try {
         await this.ready;

@@ -36,7 +36,8 @@ export async function listFiles(
   input: string,
   showExcluded = false,
 ): Promise<FileItem[]> {
-  const target = await workspacePath(cwd, input);
+  const root = await realpath(cwd);
+  const target = await workspacePath(root, input);
   const entries = await readdir(target, { withFileTypes: true });
   const result = await Promise.all(
     entries
@@ -46,7 +47,7 @@ export async function listFiles(
         const info = await lstat(path);
         return {
           name: e.name,
-          path: relative(cwd, path).replaceAll("\\", "/"),
+          path: relative(root, path).replaceAll("\\", "/"),
           directory: e.isDirectory(),
           size: info.size,
         };

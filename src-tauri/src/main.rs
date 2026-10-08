@@ -231,16 +231,6 @@ fn launch(app: &tauri::AppHandle) -> Result<Backend, Box<dyn std::error::Error>>
             .arg("--desktop-channel");
         c
     };
-    if std::env::var_os("PI_DESKTOP_CWD").is_none() {
-        command.env(
-            "PI_DESKTOP_CWD",
-            if cfg!(debug_assertions) {
-                root.to_path_buf()
-            } else {
-                app.path().home_dir()?
-            },
-        );
-    }
     command
         .env(
             "PI_DESKTOP_CHANNEL_PORT",

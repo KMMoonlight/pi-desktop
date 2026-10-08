@@ -49,7 +49,7 @@ export async function verifyToolDisplay(page: Page, screenshot: string) {
         // WebView2 quantizes CSS hairlines to physical pixels at Windows scaling.
         return Math.floor(width * devicePixelRatio) / devicePixelRatio;
       },
-      state === "success" ? 1 : 2,
+      1,
     );
     await expect
       .poll(() =>
@@ -66,6 +66,7 @@ export async function verifyToolDisplay(page: Page, screenshot: string) {
       "base64",
     );
     await run({ mode: "seed", image, expanded: false });
+    await page.locator(".process-group > summary").click();
     await expect(page.locator(".tool-execution")).toHaveCount(5);
     for (const variant of ["fallback", "custom", "control", "self", "unknown"])
       await expect(
@@ -77,7 +78,7 @@ export async function verifyToolDisplay(page: Page, screenshot: string) {
     await expect(page.locator(".tool-execution > summary")).toHaveCount(0);
     await expect(
       row("display-fallback").locator(".tool-images img"),
-    ).toHaveCount(1);
+    ).toHaveCount(0);
     await background("display-fallback", "toolErrorBg");
     await background("display-custom", "toolSuccessBg");
     await expect(row("display-self").locator(".tool-body")).toHaveCSS(
@@ -102,14 +103,16 @@ export async function verifyToolDisplay(page: Page, screenshot: string) {
           );
         }),
     ).toBe(true);
-    await label("display-fallback").click({
+    const fallbackToggle = row("display-fallback").getByRole("button", { name: "展开 display_fallback 输出", exact: true });
+    await fallbackToggle.click({
       button: "right",
       position: { x: 6, y: 6 },
     });
     await expanded("display-fallback", false);
-    await label("display-fallback").click({ position: { x: 6, y: 6 } });
+    await fallbackToggle.click();
     await expanded("display-fallback", true);
     await expect(row("display-fallback")).toContainText("line 14");
+    await expect(row("display-fallback").locator(".tool-images img")).toHaveCount(1);
     await expanded("display-custom", false);
     await run({ expanded: false });
     await expanded("display-fallback", true);

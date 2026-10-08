@@ -77,6 +77,46 @@ function append(
     host.session.sessionManager.buildSessionContext().messages;
 }
 
+async function expandCompletedThinking(host: DesktopHost) {
+  const message = host.snapshot().messages.at(-1)!;
+  for (const block of message.markdown ?? [])
+    if (message.content[block.blockIndices[0]]?.type === "thinking")
+      await host.action({
+        action: "transcript.thinking",
+        args: { messageId: message.id, blockIndex: block.blockIndices[0], visible: true },
+      });
+}
+
+test("DOM headings omit terminal prefixes while retaining literal hashes, inline styles and raw source", async () => {
+  const { host, close } = await setup();
+  try {
+    const source = [1, 2, 3, 4, 5, 6].map(depth => `${"#".repeat(depth)} **Title ${depth}** with \`###\``).join("\n\n")
+      + "\n\n\\### literal text\n\n```md\n### literal code\n```\n\n---\n\n> ### Quoted title";
+    const raw = rawAssistant([{ type: "text", text: source }]);
+    append(host, raw as never);
+    const view = host.snapshot().messages.at(-1)!;
+    const blocks = view.markdown![0].blocks;
+    assert.equal(view.markdown![0].source, source);
+    const headings = blocks.filter(block => block.kind === "heading");
+    assert.equal(headings.length, 6);
+    headings.forEach((heading, index) => {
+      assert.ok(heading.kind === "heading");
+      assert.equal(heading.text, `Title ${index + 1} with ###`);
+      assert.equal(heading.runs?.map(run => run.text).join(""), heading.text);
+      assert.ok(heading.runs?.some(run => run.style?.color));
+      assert.notEqual(heading.runs?.[0].style?.color, heading.runs?.at(-1)?.style?.color);
+    });
+    assert.ok(blocks.some(block => block.kind === "paragraph" && block.text === "### literal text"));
+    assert.ok(blocks.some(block => block.kind === "code" && block.copyText === "### literal code"));
+    assert.ok(blocks.some(block => block.kind === "divider"));
+    const quote = blocks.find(block => block.kind === "quote");
+    const quotedHeading = quote?.children[0];
+    assert.ok(quotedHeading?.kind === "heading");
+    assert.equal(quotedHeading.text, "Quoted title");
+    assert.deepEqual(host.session.messages.at(-1), raw);
+  } finally { await close(); }
+});
+
 test("transcript transformations match original Pi role, padding, trim, grouping and failure semantics", async () => {
   const { fixture, host, api, original, close } = await setup();
   try {
@@ -110,6 +150,8 @@ test("transcript transformations match original Pi role, padding, trim, grouping
       { type: "thinking", thinking: " three " },
     ]);
     append(host, raw as never);
+    await expandCompletedThinking(host);
+    seen.length = 0;
     const snapshot = host.snapshot();
     assert.deepEqual(
       seen.map((item) => item.source),
@@ -368,7 +410,7 @@ test("rendered transformations leave original conversation, persistence and late
   }
 });
 
-test("streamed thinking expansion survives completion without sharing state between messages with equal timestamps", async () => {
+test("streamed thinking collapses on completion and manual expansion remains independent for equal timestamps", async () => {
   const { host, close } = await setup();
   try {
     host.session.settingsManager.setHideThinkingBlock(true);
@@ -385,6 +427,8 @@ test("streamed thinking expansion survives completion without sharing state betw
     assert.equal(host.snapshot().streaming?.markdown?.[0].visible, true);
     append(host, raw as never);
     Reflect.set(host, "streaming", undefined);
+    assert.equal(host.snapshot().messages.at(-1)?.markdown?.[0].visible, false);
+    await expandCompletedThinking(host);
     assert.equal(host.snapshot().messages.at(-1)?.markdown?.[0].visible, true);
     append(host, {
       ...raw,
@@ -427,6 +471,7 @@ test("measured transcript text and thinking columns reach original transformers 
         return source;
       },
     ];
+    await expandCompletedThinking(host);
     const initial = host.snapshot();
     const args = {
       backendId: initial.backendId,
@@ -566,6 +611,7 @@ test("Mermaid width fallback uses measured message content while original thinki
         { type: "text", text: mermaid },
       ]) as never,
     );
+    await expandCompletedThinking(host);
     const initial = host.snapshot();
     const args = { backendId: initial.backendId, sessionId: initial.sessionId };
     await host.action({

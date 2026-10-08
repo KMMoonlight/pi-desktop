@@ -13,3 +13,14 @@ export async function selectField(control: Locator, value: string) {
     .locator(`[role="option"][data-value=${JSON.stringify(value)}]`)
     .click();
 }
+
+/** Settings retain the same categories in the desktop rail and compact picker. */
+export async function selectSettingsCategory(settings: Locator, label: string) {
+  const picker = settings.locator(".settings-category-picker").getByRole("combobox");
+  if (await picker.isVisible()) {
+    await picker.click();
+    await settings.page().getByRole("listbox").getByRole("option", { name: label, exact: true }).click();
+  } else {
+    await settings.getByRole("navigation").getByRole("button", { name: label, exact: true }).click();
+  }
+}

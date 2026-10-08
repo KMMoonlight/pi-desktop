@@ -299,6 +299,7 @@ test(
         args: { message: "Tree user message" },
       });
       await until(() => !host.snapshot().busy);
+      await host.action({ action: "session.name", args: { name: "Resume fixture" } });
       const path = host.session.sessionFile;
       const leaf = host.snapshot().leafId;
       const user = host.snapshot().tree.find((item) => item.role === "user")!;
@@ -329,7 +330,10 @@ test(
       });
       await until(() => host.pendingDialogs.length === 1);
       const resumeDialog = host.pendingDialogs[0];
-      host.answer(resumeDialog.id, resumeDialog.options![0]);
+      const savedOption = resumeDialog.options!.find(option =>
+        (typeof option === "string" ? option : option.label).includes("Resume fixture"));
+      assert.ok(savedOption);
+      host.answer(resumeDialog.id, savedOption);
       await resume;
       assert.equal(host.session.sessionFile, path);
       const revision = host.snapshot().editor.revision;

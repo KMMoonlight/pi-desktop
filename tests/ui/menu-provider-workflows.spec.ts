@@ -27,7 +27,7 @@ test("session and context menus support keyboard operation and errors stay in th
   await menu.getByRole("button", { name: "导入会话", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "导入会话", exact: true });
   await dialog.getByRole("textbox").fill("missing-session.jsonl");
-  await dialog.getByRole("button", { name: "确定", exact: true }).click();
+  await dialog.getByRole("button", { name: "导入会话", exact: true }).click();
   await expect(dialog.getByRole("alert")).toContainText("missing-session");
   await dialog.getByRole("textbox").fill("corrected-path");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
@@ -82,7 +82,7 @@ test("structured provider editor saves actual SDK models, preserves advanced fie
         const css = getComputedStyle(button);
         return [button.getBoundingClientRect().height, css.fontSize, css.borderRadius];
       }));
-    expect(actions.every(([height, font, radius]) => height === 32 && font === "13px" && radius === "8px")).toBe(true);
+    expect(actions.every(([height, font, radius]) => height === 36 && font === "13px" && radius === "8px")).toBe(true);
     await expect(settings.getByRole("button", { name: "保存设置", exact: true })).toBeHidden();
     const inheritedRows = await form.locator(".field").evaluateAll(fields => fields
       .filter(field => parseFloat(getComputedStyle(field).borderBottomWidth) > 0
@@ -160,15 +160,14 @@ test("structured provider editor saves actual SDK models, preserves advanced fie
     await settings
       .getByRole("button", { name: "保存端点", exact: true })
       .click();
-    await expect(
-      settings.getByRole("button", { name: "保存端点", exact: true }),
-    ).toHaveCount(0);
+    await expect(settings.locator(".custom-provider-form")).toHaveCount(0);
     const saved = await sdkAction<string>(page, "config.read", {
       name: "models.json",
     });
     const updated = JSON.parse(saved).providers["ui-custom"];
     expect(updated.headers).toEqual({ "X-Fixture": "keep" });
     expect(updated.models[0].compat).toEqual({ supportsStore: false });
+    expect(updated.models[0].name).toBe("修改的名称");
     await settings
       .getByRole("button", { name: "编辑端点 ui-custom", exact: true })
       .click();

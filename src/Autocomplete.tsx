@@ -1,6 +1,6 @@
 import { t, useLocale } from "./i18n";
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Blocks } from "lucide-react";
+import { CompletionMenu } from "./CompletionMenu";
 import { action } from "./client";
 import type { DesktopCompletionAction } from "../shared/desktop-ui";
 import { desktopKeyId } from "../shared/keyboard";
@@ -130,7 +130,8 @@ export function Autocomplete({
     if (!control) return;
     const keydown = (event: Event) => {
       if (!(event instanceof KeyboardEvent)) return;
-      if (event.isComposing) return;
+      if (event.isComposing || event.keyCode === 229 || event.key === "Process")
+        return;
       const id = normalizedKey(desktopKeyId(event));
       const command = (
         Object.keys(defaultKeys) as DesktopCompletionAction[]
@@ -199,21 +200,16 @@ export function Autocomplete({
   }, [suggestions, selected, editor, keybindings]);
   if (!suggestions?.items.length) return null;
   return (
-    <div className="command-suggestions" role="listbox" aria-label={t("补全建议")}>
-      {suggestions.items.slice(0, 10).map((item, index) => (
-        <button
-          key={`${item.value}-${index}`}
-          role="option"
-          aria-selected={selected === index}
-          className={selected === index ? "selected" : undefined}
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => complete(item)}
-        >
-          <Blocks size={14} />
-          <strong>{item.label}</strong>
-          <span>{item.description}</span>
-        </button>
-      ))}
+    <div className="command-suggestions">
+      <CompletionMenu
+        options={suggestions.items}
+        selected={suggestions.items[selected]?.value ?? ""}
+        label={t("补全建议")}
+        onSelect={(value) => {
+          const item = suggestions.items.find((item) => item.value === value);
+          if (item) complete(item);
+        }}
+      />
     </div>
   );
 }

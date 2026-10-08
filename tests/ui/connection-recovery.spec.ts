@@ -1,10 +1,13 @@
 import { createServer, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { cp, mkdir } from "node:fs/promises";
+import { cp, mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { DesktopHost } from "../../backend/host.ts";
+import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { createFixture } from "../fixture.ts";
+import { sdkAction } from "../editor-workflows.ts";
+import type { DesktopSnapshot } from "../../shared/types.ts";
 
 function deferred() {
   let resolve!: () => void;
@@ -14,7 +17,7 @@ function deferred() {
   return { promise, resolve };
 }
 
-async function recoveryBackend() {
+async function recoveryBackend(savedSession = true) {
   const fixture = await createFixture();
   const nextCwd = join(fixture.root, "next-workspace");
   await mkdir(nextCwd);
@@ -36,11 +39,14 @@ async function recoveryBackend() {
     });
   let host = makeHost();
   const broadcast = (event: unknown) => {
-    for (const response of clients)
-      response.write(`data: ${JSON.stringify(event)}\n\n`);
+    for (const response of clients) {
+      if (!response.writableEnded && !response.destroyed)
+        response.write(`data: ${JSON.stringify(event)}\n\n`);
+    }
   };
   host.on("event", broadcast);
   await host.initialize(fixture.cwd);
+  if (savedSession) await host.action({ action: "session.new" });
   const initial = host.snapshot();
   const server = createServer(async (request, response) => {
     const url = new URL(request.url!, "http://127.0.0.1");
@@ -105,6 +111,11 @@ async function recoveryBackend() {
     initial,
     nextCwd,
     requests,
+    async seedLegacyWorkspace() {
+      const legacy = SessionManager.create(fixture.cwd, join(fixture.agentDir, "sessions", "legacy"));
+      legacy.appendMessage({ role: "user", content: "Old startup session", timestamp: Date.now() });
+      await writeFile(join(fixture.agentDir, "desktop.json"), JSON.stringify({ workspaces: [fixture.cwd] }));
+    },
     url: `http://127.0.0.1:${address.port}`,
     hold() {
       entered = deferred();
@@ -143,6 +154,7 @@ async function recoveryBackend() {
     async close() {
       gate?.resolve();
       for (const response of clients) response.end();
+      clients.clear();
       server.closeAllConnections();
       await new Promise<void>((done) => server.close(() => done()));
       await host.dispose();
@@ -150,6 +162,112 @@ async function recoveryBackend() {
     },
   };
 }
+
+test("no-history startup and restart stay blank; drafts do not create sessions and first send creates one", async ({ page }) => {
+  const backend = await recoveryBackend(false);
+  try {
+    await page.route("**/api/**", route => {
+      const url = new URL(route.request().url());
+      return route.continue({ url: backend.url + url.pathname + url.search });
+    });
+    await page.addInitScript(cwd => localStorage.setItem("pi.workspace.userSelection", cwd), backend.initial.cwd);
+    await page.goto("/");
+    const editor = page.getByRole("textbox", { name: "消息", exact: true });
+    const rows = page.locator(".session-row");
+    await expect(editor).toBeVisible();
+    await expect(page.locator(".header-title h1")).toHaveText("开始对话");
+    await expect(page.getByText("暂无会话", { exact: true })).toBeVisible();
+    await expect(rows).toHaveCount(0);
+    expect(backend.snapshot()?.sessionFile).toBeUndefined();
+    await editor.fill("尚未发送的工作区草稿");
+    await expect.poll(() => page.evaluate(cwd => localStorage.getItem(`pi.draft.workspace:${cwd}`), backend.initial.cwd)).toBe("尚未发送的工作区草稿");
+    await expect(rows).toHaveCount(0);
+    await page.reload();
+    await expect(editor).toHaveValue("尚未发送的工作区草稿");
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const backendId = backend.snapshot()!.backendId;
+      await backend.restart();
+      await expect.poll(() => {
+        const next = backend.snapshot();
+        return !!next && next.backendId !== backendId && !next.changing &&
+          next.editor.text === "尚未发送的工作区草稿";
+      }).toBe(true);
+      await expect(editor).toHaveValue("尚未发送的工作区草稿");
+      await expect(rows).toHaveCount(0);
+      expect(backend.snapshot()?.sessionFile).toBeUndefined();
+    }
+    await page.screenshot({ path: ".local/screenshots/startup-no-history.png" });
+    await page.getByRole("button", { name: "发送消息", exact: true }).click();
+    await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).busy).toBe(false);
+    await expect(rows).toHaveCount(1);
+    await expect(page.locator(".transcript")).toContainText("尚未发送的工作区草稿");
+    const sent = backend.snapshot()!;
+    expect(sent.sessionFile).toBeTruthy();
+    await backend.restart();
+    await expect.poll(() => backend.snapshot()?.sessionId).toBe(sent.sessionId);
+    await expect(rows).toHaveCount(1);
+    await expect(page.locator(".notice")).toHaveCount(0);
+  } finally {
+    await page.close();
+    await backend.close();
+  }
+});
+
+test("an old automatic workspace stays closed until a folder is selected", async ({ page }) => {
+  const backend = await recoveryBackend();
+  const selectedCwd = await realpath(backend.nextCwd);
+  try {
+    await backend.seedLegacyWorkspace();
+    await backend.restart();
+    await page.route("**/api/**", route => {
+      const url = new URL(route.request().url());
+      return route.continue({ url: backend.url + url.pathname + url.search });
+    });
+    await page.addInitScript(cwd => localStorage.setItem("pi.workspace", cwd), backend.initial.cwd);
+    await page.goto("/");
+    const open = page.getByRole("button", { name: "打开工作区", exact: true });
+    await expect(open).toBeVisible();
+    await page.screenshot({ path: ".local/desktop-ui-review/after/startup-no-workspace.png", animations: "disabled" });
+    expect(backend.snapshot()).toBeUndefined();
+    await expect(page.locator(".session-project")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "设置", exact: true }).click();
+    const settings = page.getByRole("dialog");
+    await expect(settings.getByRole("navigation", { name: "设置分类" })).toBeVisible();
+    await settings.getByRole("button", { name: "模型与账号", exact: true }).click();
+    await expect(settings.getByRole("combobox", { name: "默认模型", exact: true })).toBeVisible();
+    await settings.getByRole("button", { name: "项目", exact: true }).click();
+    await expect(settings.getByText("未选择工作区", { exact: true })).toBeVisible();
+    await expect(settings.getByRole("button", { name: "编辑项目默认值", exact: true })).toBeDisabled();
+    await settings.getByRole("button", { name: "扩展与技能", exact: true }).click();
+    await expect(settings.getByText("请先选择工作区", { exact: true })).toBeVisible();
+    await expect(settings.getByRole("button", { name: "重新加载", exact: true })).toBeDisabled();
+    await page.screenshot({ path: ".local/desktop-ui-review/after/settings-no-workspace-resources.png", animations: "disabled" });
+    expect(backend.snapshot()).toBeUndefined();
+    await settings.getByRole("button", { name: "关闭设置", exact: true }).click();
+
+    await open.click();
+    const picker = page.getByRole("dialog");
+    await expect(picker.getByRole("button", { name: "主文件夹", exact: true })).toBeEnabled();
+    await picker.getByRole("textbox", { name: "文件夹路径", exact: true }).fill(backend.nextCwd);
+    await picker.getByRole("button", { name: "转到文件夹", exact: true }).click();
+    await expect(picker.locator(".directory-footer > span")).toHaveAttribute("title", selectedCwd);
+    await picker.getByRole("button", { name: "打开", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "消息", exact: true })).toBeVisible();
+    await expect.poll(() => backend.snapshot()?.cwd).toBe(selectedCwd);
+    await expect(page.locator(".session-project")).toHaveCount(1);
+    await expect(page.getByText("Old startup session", { exact: true })).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("pi.workspace.userSelection"))).toBe(selectedCwd);
+
+    await backend.restart();
+    await page.reload();
+    await expect(page.getByRole("textbox", { name: "消息", exact: true })).toBeVisible();
+    await expect.poll(() => backend.snapshot()?.cwd).toBe(selectedCwd);
+  } finally {
+    await page.close();
+    await backend.close();
+  }
+});
 
 for (const width of [1440, 760]) {
   test(`workspace bootstrap defers stale session synchronization at ${width}px`, async ({
@@ -168,7 +286,7 @@ for (const width of [1440, 760]) {
       );
       await page.addInitScript(
         ({ cwd, sessionId }) => {
-          localStorage.setItem("pi.workspace", cwd);
+          localStorage.setItem("pi.workspace.userSelection", cwd);
           localStorage.setItem(
             `pi.draft.${sessionId}`,
             "Previous workspace draft",
@@ -180,6 +298,7 @@ for (const width of [1440, 760]) {
       await backend.restart();
       await page.goto("/");
       await entered;
+      if (width === 1440) await page.screenshot({ path: ".local/desktop-ui-review/after/startup-loading.png", animations: "disabled" });
       // Keep the real runtime absent longer than the composer's debounce.
       await page.waitForTimeout(450);
       backend.release();
@@ -206,7 +325,7 @@ for (const width of [1440, 760]) {
     }
   });
 
-  test(`backend restart renews credentials and reinitializes SDK without reload at ${width}px`, async ({
+  test(`backend restart restores the active session and draft without adding a session at ${width}px`, async ({
     page,
   }) => {
     const backend = await recoveryBackend();
@@ -221,7 +340,7 @@ for (const width of [1440, 760]) {
         }),
       );
       await page.addInitScript(
-        (cwd) => localStorage.setItem("pi.workspace", cwd),
+        (cwd) => localStorage.setItem("pi.workspace.userSelection", cwd),
         backend.initial.cwd,
       );
       await page.goto("/");
@@ -231,12 +350,19 @@ for (const width of [1440, 760]) {
       await expect
         .poll(() => backend.snapshot()?.editor.text)
         .toBe("Restart recovery draft");
+      const activeId = backend.snapshot()!.sessionId;
+      await expect.poll(() => page.evaluate(
+        id => localStorage.getItem(`pi.draft.${id}`), activeId,
+      )).toBe("Restart recovery draft");
+      const rows = page.locator(".session-row");
+      await expect(rows).toHaveCount(1);
       await backend.restart();
       await expect
-        .poll(() => backend.snapshot()?.cwd)
-        .toBe(backend.initial.cwd);
+        .poll(() => backend.snapshot()?.sessionId)
+        .toBe(activeId);
       expect(backend.snapshot()?.backendId).not.toBe(backend.initial.backendId);
-      await expect(composer).toBeVisible();
+      await expect(composer).toHaveValue("Restart recovery draft");
+      await expect(rows).toHaveCount(1);
       await composer.fill("New backend draft");
       await expect
         .poll(() => backend.snapshot()?.editor.text)
@@ -266,7 +392,7 @@ for (const width of [1440, 760]) {
         }),
       );
       await page.addInitScript(
-        (cwd) => localStorage.setItem("pi.workspace", cwd),
+        (cwd) => localStorage.setItem("pi.workspace.userSelection", cwd),
         backend.nextCwd,
       );
       await backend.restart();
@@ -275,6 +401,7 @@ for (const width of [1440, 760]) {
       await expect(
         page.getByText("Initialization fixture failed", { exact: true }),
       ).toBeVisible();
+      if (width === 1440) await page.screenshot({ path: ".local/desktop-ui-review/after/startup-failed.png", animations: "disabled" });
       backend.disconnect();
       await expect.poll(() => backend.snapshot()?.cwd).toBe(backend.nextCwd);
       await expect(
@@ -316,7 +443,7 @@ for (const width of [1440, 760]) {
           });
       });
       await page.addInitScript(
-        (cwd) => localStorage.setItem("pi.workspace", cwd),
+        (cwd) => localStorage.setItem("pi.workspace.userSelection", cwd),
         backend.initial.cwd,
       );
       await page.goto("/");
@@ -370,7 +497,7 @@ for (const width of [1440, 760]) {
         }),
       );
       await page.addInitScript(
-        (cwd) => localStorage.setItem("pi.workspace", cwd),
+        (cwd) => localStorage.setItem("pi.workspace.userSelection", cwd),
         backend.nextCwd,
       );
       await page.goto("/");

@@ -3,8 +3,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { sdkAction } from "../editor-workflows.ts";
 import type { DesktopSnapshot } from "../../shared/types.ts";
+import { selectSettingsCategory } from "../select-field.ts";
 
-const categories = ["General", "Appearance", "Models & accounts", "Project", "MCP", "Packages", "Advanced"];
+const categories = ["General", "Appearance", "Models & accounts", "Project", "MCP", "Extensions & skills", "Packages", "Advanced"];
 test("language preference updates immediately, persists and preserves drafts and extension text", async ({ page }) => {
   await page.goto("/");
   const editor = page.getByRole("textbox", { name: "消息", exact: true });
@@ -90,7 +91,7 @@ test("English layouts cover all settings and primary carriers in both themes", a
       await button("Settings").click();
       const settings = page.getByRole("dialog", { name: "Settings", exact: true });
       for (const category of categories) {
-        await settings.getByRole("navigation", { name: "Settings categories" }).getByRole("button", { name: category, exact: true }).click();
+        await selectSettingsCategory(settings, category);
         if (category === "Appearance") {
           await expect(settings.getByRole("option")).toHaveCount(0);
           await expect(settings.getByRole("combobox", { name: "Interface language" })).toBeInViewport();
@@ -99,7 +100,7 @@ test("English layouts cover all settings and primary carriers in both themes", a
         if (category === "Models & accounts") await settings.getByRole("button", { name: "Add custom endpoint", exact: true }).click();
         const untranslated = await settings.evaluate(root => {
           const copy = root.cloneNode(true) as HTMLElement;
-          copy.querySelectorAll('input,textarea,[name="interface-language"],.provider-identity,.model-row,.settings-locations dd').forEach(node => node.remove());
+          copy.querySelectorAll('input,textarea,[name="interface-language"],.provider-identity,.model-row,.settings-locations dd,.resource-row strong,.resource-row p,.diagnostics p,.command-list').forEach(node => node.remove());
           return /\p{Script=Han}/u.test(copy.textContent ?? "");
         });
         expect(untranslated, category).toBe(false);
@@ -129,8 +130,6 @@ test("English layouts cover all settings and primary carriers in both themes", a
       await button("Close files panel").click();
       await button("Session tree").click();
       if (width === 1440 || width === 375) await page.screenshot({ path: `.local/i18n/rendered/${theme}-${width}-tree.png` });
-      await button("Resources").click();
-      if (width === 1440 || width === 375) await page.screenshot({ path: `.local/i18n/rendered/${theme}-${width}-resources.png` });
       await button("Chat").click();
       if (width === 1440 || width === 375) {
         await button("Add context").click();

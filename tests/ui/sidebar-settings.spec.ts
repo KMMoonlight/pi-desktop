@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { sdkAction } from "../editor-workflows.ts";
 import type { DesktopSnapshot } from "../../shared/types.ts";
+import { selectSettingsCategory } from "../select-field.ts";
 
 test.beforeAll(() => mkdir(".local/sidebar-settings/tests", { recursive: true }));
 
@@ -54,12 +55,11 @@ test("settings use one content scroller without compressing dense lists or overl
   await editor.fill("设置布局草稿");
   await page.getByRole("button", { name: "设置", exact: true }).click();
   const modal = page.getByRole("dialog", { name: "设置", exact: true });
-  const nav = modal.getByRole("navigation", { name: "设置分类" });
   const content = modal.locator(".settings-content");
   for (const width of [1440, 1024, 768, 390, 375]) {
     await page.setViewportSize({ width, height: width > 1024 ? 940 : width > 700 ? 600 : 740 });
-    for (const [key, label] of [["general", "常规"], ["appearance", "外观与显示"], ["models", "模型与账号"], ["project", "项目"], ["mcp", "MCP"], ["packages", "扩展包"], ["advanced", "高级"]]) {
-      await nav.getByRole("button", { name: label, exact: true }).click();
+    for (const [key, label] of [["general", "常规"], ["appearance", "外观与显示"], ["models", "模型与账号"], ["project", "项目"], ["mcp", "MCP"], ["resources", "扩展与技能"], ["packages", "扩展包"], ["advanced", "高级"]]) {
+      await selectSettingsCategory(modal, label);
       await expect.poll(() => content.evaluate(node => node.scrollTop)).toBe(0);
       if (key === "models") await modal.getByRole("button", { name: "添加提供商", exact: true }).click();
       const extraRules = await content.evaluate(node => [...node.querySelectorAll(
@@ -115,19 +115,20 @@ test("settings use one content scroller without compressing dense lists or overl
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
   }
-  await nav.getByRole("button", { name: "项目", exact: true }).click();
+  await selectSettingsCategory(modal, "项目");
   await expect(modal.locator(".settings-locations dd")).toHaveCount(2);
   await modal.getByRole("button", { name: "关闭设置", exact: true }).hover();
   const tip = page.getByRole("tooltip");
   await expect(tip).toBeVisible();
   expect(await tip.evaluate(node => getComputedStyle(node).fontFamily)).toContain("Segoe UI");
   await expect(tip).toBeInViewport();
-  await nav.getByRole("button", { name: "高级", exact: true }).click();
+  await selectSettingsCategory(modal, "高级");
   await modal.getByRole("textbox", { name: "配置 JSON", exact: true }).fill("{ invalid-json");
   await modal.getByRole("button", { name: "保存配置", exact: true }).click();
-  await expect(modal.locator(".settings-feedback").getByRole("alert")).toBeVisible();
-  await modal.locator(".settings-feedback").getByRole("button", { name: "关闭通知", exact: true }).click();
-  await expect(modal.locator(".settings-feedback")).toHaveCount(0);
+  const notifications = page.locator(".notice-list");
+  await expect(notifications.getByRole("alert")).toBeVisible();
+  await notifications.getByRole("button", { name: "关闭通知", exact: true }).click();
+  await expect(notifications).toHaveCount(0);
   await modal.getByRole("button", { name: "关闭设置", exact: true }).click();
   await expect(editor).toHaveValue("设置布局草稿");
   expect(errors).toEqual([]);

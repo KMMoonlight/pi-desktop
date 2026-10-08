@@ -6,6 +6,30 @@ import { join } from "node:path";
 import { sdkAction } from "../editor-workflows.ts";
 import type { DesktopSnapshot } from "../../shared/types.ts";
 
+test("file docks preserve readable filenames and short file content across window sizes", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "消息", exact: true }).waitFor();
+  await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).changing).toBe(false);
+  await sdkAction(page, "session.new");
+  await page.getByRole("button", { name: "文件与更改", exact: true }).click();
+  await page.getByRole("treeitem", { name: "test-note.txt", exact: true }).click();
+  const preview = page.locator(".file-preview");
+  await expect(preview.locator(".preview-header")).toContainText("test-note.txt");
+  for (const width of [1440, 768, 390, 375]) {
+    await page.setViewportSize({ width, height: 740 });
+    const backdrop = page.getByRole("button", { name: "关闭侧边栏遮罩", exact: true });
+    if (await backdrop.isVisible()) await backdrop.click({ position: { x: width - 5, y: 500 } });
+    const filename = page.getByRole("treeitem", { name: "test-note.txt", exact: true }).locator("span").last();
+    expect(await filename.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+    expect(await preview.locator(".source-code").evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+    await expect(preview.getByRole("button", { name: "添加到消息", exact: true })).toBeInViewport();
+    await page.screenshot({ path: `.local/refactoring-ui/files-${width}.png` });
+  }
+  await preview.getByRole("button", { name: "添加到消息", exact: true }).click();
+  await expect(page.getByRole("button", { name: "关闭文件面板", exact: true })).toHaveCount(0);
+  await expect(page.locator(".attachment-list")).toContainText("test-note.txt");
+});
+
 test("metadata is disclosed at its controls and original task input remains usable", async ({
   page,
 }) => {
@@ -32,15 +56,17 @@ test("metadata is disclosed at its controls and original task input remains usab
   await page.getByRole("button", { name: "打开完整检查器", exact: true }).click();
   await expect(page.getByText("会话检查器", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "关闭检查器", exact: true }).click();
-  await page.getByRole("button", { name: "资源", exact: true }).click();
+  await page.getByRole("button", { name: "设置", exact: true }).click();
+  await page.getByRole("button", { name: "扩展与技能", exact: true }).click();
   const resource = page.locator(".resource-row").first();
   await resource.locator("strong").hover();
   await expect(page.getByRole("tooltip")).toContainText(snapshot.agentDir);
   await page.mouse.move(700, 90);
   await page.screenshot({ path: ".local/modern-evidence/resources-final.png" });
+  await page.getByRole("button", { name: "关闭设置", exact: true }).click();
   await page.getByRole("button", { name: "对话", exact: true }).click();
-  await page.getByRole("button", { name: "分析项目", exact: true }).click();
-  await expect(composer).toHaveValue("分析这个项目的目录结构和主要模块。");
+  await composer.fill("检查项目的目录结构。");
+  await expect(composer).toHaveValue("检查项目的目录结构。");
   await page.screenshot({ path: ".local/modern-evidence/composer-final.png" });
   await composer.fill("/desktop-nat");
   await expect(

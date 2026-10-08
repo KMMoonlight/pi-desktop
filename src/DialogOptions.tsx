@@ -1,5 +1,5 @@
 import { t, useLocale } from "./i18n";
-import { Button } from "reshaped";
+import { Button } from "./primitives";
 import type { DialogRequest } from "../shared/types";
 import { StyledText } from "./StyledText";
 

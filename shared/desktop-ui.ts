@@ -25,6 +25,8 @@ export interface DesktopTextRun {
   style?: DesktopTextStyle;
   href?: string;
   blink?: boolean;
+  code?: boolean;
+  image?: { src: string; alt: string };
 }
 export interface DesktopMarkdownText {
   text: string;
@@ -62,6 +64,7 @@ export type DesktopMarkdownBlock =
       start: number;
       items: {
         marker: DesktopMarkdownText;
+        checked?: boolean;
         children: DesktopMarkdownBlock[];
       }[];
     }
@@ -189,6 +192,7 @@ export type DesktopNode = {
       options: {
         value: string;
         label: string;
+        description?: string;
         style?: DesktopTextStyle;
         runs?: DesktopTextRun[];
       }[];

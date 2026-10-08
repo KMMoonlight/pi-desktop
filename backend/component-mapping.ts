@@ -1738,6 +1738,7 @@ export async function createMappedComponent(
           : undefined;
       return {
         kind: "column",
+        appearance: completionOwner ? "completion" : undefined,
         children: [
           {
             kind: "select",
@@ -1761,7 +1762,7 @@ export async function createMappedComponent(
               let value = string(
                 callComponentMethod(target, "getDisplayValue", item),
               );
-              if (typeof state(layout, "truncatePrimary") === "function") {
+              if (!completionOwner && typeof state(layout, "truncatePrimary") === "function") {
                 const width = mappingWidth ?? geometry.columns;
                 const column = Math.max(
                   1,
@@ -1789,12 +1790,15 @@ export async function createMappedComponent(
                 );
               }
               const styled = componentText(
-                item.value === selected?.value ? selectedText(value) : value,
+                !completionOwner && item.value === selected?.value ? selectedText(value) : value,
                 runtime.text,
               );
               return {
                 value: string(item.value),
                 label: styled.text,
+                description: completionOwner && item.description
+                  ? componentText(string(item.description), runtime.text).text
+                  : undefined,
                 runs: styled.runs,
                 style: styled.runs?.find((run) => run.text.trim())?.style,
               };
@@ -1819,7 +1823,7 @@ export async function createMappedComponent(
             : []),
           ...items
             .filter(
-              (item) => item.value === selected?.value && item.description,
+              (item) => !completionOwner && item.value === selected?.value && item.description,
             )
             .map((item) => ({
               kind: "text" as const,

@@ -1,5 +1,5 @@
 import { t, useLocale } from "./i18n";
-import { Switch } from "reshaped";
+import { Switch } from "./primitives";
 import { SettingsButton as Button } from "./SettingsButton";
 import { Plus, Trash2 } from "lucide-react";
 import { Field, SelectField } from "./ui";

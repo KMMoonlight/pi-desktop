@@ -73,7 +73,7 @@ test("rendered content, evidence and feedback fit both themes and the agreed vie
       await page.getByRole("dialog", { name: "会话操作", exact: true }).getByRole("button", { name: "导入会话", exact: true }).click();
       const imported = page.getByRole("dialog", { name: "导入会话", exact: true });
       await imported.getByRole("textbox").fill("missing-session.jsonl");
-      await imported.getByRole("button", { name: "确定", exact: true }).click();
+      await imported.getByRole("button", { name: "导入会话", exact: true }).click();
       await expect(imported.getByRole("alert")).toContainText("missing-session");
       await expect(imported).toBeInViewport();
       await page.screenshot({ path: `${dir}/${theme}-${width}-error.png` });

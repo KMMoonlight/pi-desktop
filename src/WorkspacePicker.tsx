@@ -9,12 +9,14 @@ export function WorkspacePicker({
   cwd,
   workspaces,
   disabled,
+  pending,
   choose,
   add,
 }: {
   cwd: string;
   workspaces: string[];
   disabled: boolean;
+  pending?: boolean;
   choose: (cwd: string) => void;
   add: () => void;
 }) {
@@ -33,8 +35,8 @@ export function WorkspacePicker({
     trigger.current?.focus();
   };
   useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
+    if (disabled || pending) setOpen(false);
+  }, [disabled, pending]);
   useLayoutEffect(() => {
     if (!open) return;
     const place = () => {
@@ -88,9 +90,12 @@ export function WorkspacePicker({
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={disabled}
+        aria-disabled={disabled || pending || undefined}
+        aria-busy={pending || undefined}
         title={cwd}
-        onClick={() => setOpen(!open)}
+        onClick={() => { if (!pending) setOpen(!open); }}
         onKeyDown={(event) => {
+          if (pending) return;
           if (["ArrowDown", "ArrowUp"].includes(event.key)) {
             event.preventDefault();
             setOpen(true);

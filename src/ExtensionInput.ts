@@ -511,6 +511,9 @@ export function useExtensionInput(
       if (
         replayed.has(native) ||
         native.isComposing ||
+        // IMEs can emit punctuation with a printable key and isComposing=false.
+        // Its text arrives through beforeinput/compositionend, not this key.
+        native.keyCode === 229 ||
         native.key === "Process"
       )
         return;

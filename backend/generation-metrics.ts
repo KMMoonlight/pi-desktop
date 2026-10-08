@@ -1,16 +1,37 @@
-import type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
+import {
+  estimateTokens,
+  type AgentSessionEvent,
+} from "@earendil-works/pi-coding-agent";
 import type { GenerationMetrics } from "../shared/types.ts";
 
 type Sample = {
   key: string;
+  startedAt: number;
   firstOutput?: number;
   end?: number;
   outputTokens: number;
+  estimatedOutputTokens: number;
 };
 const key = (sessionId: string, timestamp: number) =>
   `${sessionId}:${timestamp}`;
 
-/** Token counts come from Pi usage; elapsed output time is measured by this host. */
+/** Pi appends an assistant entry on completion; its message timestamp is the start. */
+export function recordedGeneration(
+  timestamp: number,
+  completedAt: string | undefined,
+  outputTokens = 0,
+): GenerationMetrics | undefined {
+  const end = completedAt === undefined ? NaN : Date.parse(completedAt);
+  if (!Number.isFinite(timestamp) || !Number.isFinite(end) || end < timestamp)
+    return;
+  return {
+    outputTokens: Number.isFinite(outputTokens) ? Math.max(0, outputTokens) : 0,
+    elapsedMs: end - timestamp,
+    completed: true,
+  };
+}
+
+/** Usage stays provider-reported; a separate live rate can use Pi's content estimate. */
 export class GenerationTracker {
   private active?: Sample;
   private finished = new Map<string, GenerationMetrics>();
@@ -35,7 +56,12 @@ export class GenerationTracker {
     const message = event.message;
     const id = key(sessionId, message.timestamp);
     if (event.type === "message_start")
-      this.active = { key: id, outputTokens: 0 };
+      this.active = {
+        key: id,
+        startedAt: now,
+        outputTokens: 0,
+        estimatedOutputTokens: 0,
+      };
     const sample = this.active;
     if (!sample || sample.key !== id) return;
     sample.outputTokens = Number.isFinite(message.usage.output)
@@ -49,8 +75,10 @@ export class GenerationTracker {
         ) &&
         "delta" in update &&
         update.delta
-      )
+      ) {
         sample.firstOutput ??= now;
+        sample.estimatedOutputTokens = estimateTokens(message);
+      }
     }
     if (event.type === "message_end") {
       sample.end = now;
@@ -74,11 +102,22 @@ export class GenerationTracker {
     return {
       outputTokens: sample.outputTokens,
       durationMs,
+      elapsedMs: Math.max(0, (sample.end ?? now) - sample.startedAt),
       completed: sample.end !== undefined,
       tokensPerSecond:
         sample.outputTokens > 0 && durationMs !== undefined && durationMs > 0
           ? (sample.outputTokens * 1000) / durationMs
           : undefined,
+      ...(sample.end === undefined &&
+      sample.outputTokens === 0 &&
+      sample.estimatedOutputTokens > 0 &&
+      durationMs !== undefined &&
+      durationMs > 0
+        ? {
+            estimatedTokensPerSecond:
+              (sample.estimatedOutputTokens * 1000) / durationMs,
+          }
+        : {}),
     };
   }
 }

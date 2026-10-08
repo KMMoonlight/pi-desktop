@@ -1,6 +1,14 @@
-import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
-import { DropdownMenu, MenuItem } from "reshaped";
-import { ChevronDown, CornerDownLeft } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
+import { ChevronDown } from "lucide-react";
+import { CompletionMenu } from "./CompletionMenu";
 import type { DesktopNode, DesktopTextRun } from "../shared/desktop-ui";
 import { StyledText } from "./StyledText";
 
@@ -49,6 +57,58 @@ export function ComponentSelect({
   const ownerId = useId();
   const choicesId = useId();
   const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const [position, setPosition] = useState({
+    left: 0,
+    top: 0,
+    width: 0,
+    maxHeight: 320,
+  });
+  useLayoutEffect(() => {
+    if (!open || !trigger.current) return;
+    const update = () => {
+      const box = trigger.current!.getBoundingClientRect();
+      const below = innerHeight - box.bottom - 16;
+      const height = Math.min(320, Math.max(below, box.top - 16));
+      setPosition({
+        left: Math.max(12, Math.min(box.left, innerWidth - box.width - 12)),
+        top:
+          below >= height ? box.bottom + 4 : Math.max(12, box.top - height - 4),
+        width: box.width,
+        maxHeight: height,
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (
+        !root.current?.contains(event.target as Node) &&
+        !choices.current?.contains(event.target as Node)
+      )
+        setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) {
+        event.preventDefault();
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape, true);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape, true);
+    };
+  }, [open]);
   const selected = node.options.find((option) => option.value === node.value);
   const mountChoices = useCallback((list: HTMLDivElement | null) => {
     choices.current = list;
@@ -59,41 +119,23 @@ export function ComponentSelect({
   }, [node.value]);
   if (node.appearance === "completion")
     return (
-      <div
-        ref={mountChoices}
-        role="listbox"
-        aria-label={node.label}
-        className="desktop-completion"
-        style={{ maxHeight: `calc(${node.visibleOptions ?? 5} * 36px)` }}
-      >
-        {node.options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            role="option"
-            aria-label={option.label}
-            aria-selected={option.value === node.value}
-            disabled={node.disabled}
-            tabIndex={-1}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => onChange(option.value)}
-          >
-            <span>
-              <StyledText text={option.label} runs={option.runs} />
-            </span>
-            <CornerDownLeft size={14} aria-hidden="true" />
-          </button>
-        ))}
-      </div>
+      <CompletionMenu
+        options={node.options}
+        selected={node.value}
+        label={node.label}
+        disabled={node.disabled}
+        visibleOptions={node.visibleOptions}
+        listRef={mountChoices}
+        onSelect={onChange}
+      />
     );
   const items = node.options.map((option) => (
-    <MenuItem
+    <button
+      type="button"
       key={option.value}
-      className="desktop-rich-option"
-      color="neutral"
-      selected={option.value === node.value}
+      className="desktop-rich-option block w-full rounded-md px-3 py-2 text-left text-sm aria-selected:bg-card"
       disabled={node.disabled}
-      attributes={{
+      {...{
         role: "option",
         "aria-label": option.label,
         "aria-selected": option.value === node.value,
@@ -108,10 +150,11 @@ export function ComponentSelect({
         if (event.defaultPrevented) return;
         onChange(option.value);
         setOpen(false);
+        trigger.current?.focus();
       }}
     >
       <StyledText text={option.label} runs={option.runs} />
-    </MenuItem>
+    </button>
   ));
   const list = (
     <div
@@ -139,48 +182,45 @@ export function ComponentSelect({
       {node.visibleOptions ? (
         list
       ) : (
-        <DropdownMenu
-          active={open}
-          onOpen={() => setOpen(true)}
-          onClose={() => setOpen(false)}
-          containerRef={root}
-          width="trigger"
-          trapFocusMode={false}
-          disableHideAnimation
-        >
-          <DropdownMenu.Trigger>
-            {(attributes) => (
-              <button
-                {...attributes}
-                type="button"
-                role="combobox"
-                aria-labelledby={captionId}
-                aria-haspopup="listbox"
-                aria-controls={choicesId}
-                aria-expanded={open}
-                disabled={node.disabled || !node.options.length}
-                data-desktop-action={node.action}
-                data-desktop-mouse-kind="select"
-                value={node.value}
-                className="desktop-rich-select-trigger"
+        <>
+          <button
+            ref={trigger}
+            type="button"
+            role="combobox"
+            aria-labelledby={captionId}
+            aria-haspopup="listbox"
+            aria-controls={choicesId}
+            aria-expanded={open}
+            disabled={node.disabled || !node.options.length}
+            data-desktop-action={node.action}
+            data-desktop-mouse-kind="select"
+            value={node.value}
+            className="desktop-rich-select-trigger appearance-none flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 text-left"
+            onClick={(event) => {
+              if (!event.defaultPrevented) setOpen((value) => !value);
+            }}
+          >
+            <span
+              data-selected-value={node.value}
+              onClick={(event) => {
+                if (event.defaultPrevented) event.stopPropagation();
+              }}
+            >
+              <StyledText text={selected?.label ?? ""} runs={selected?.runs} />
+            </span>
+            <ChevronDown size={16} aria-hidden="true" />
+          </button>
+          {open &&
+            createPortal(
+              <div
+                className="fixed z-[10010] overflow-auto rounded-xl border border-line bg-canvas p-1 shadow-sm"
+                style={position}
               >
-                <span
-                  data-selected-value={node.value}
-                  onClick={(event) => {
-                    if (event.defaultPrevented) event.stopPropagation();
-                  }}
-                >
-                  <StyledText
-                    text={selected?.label ?? ""}
-                    runs={selected?.runs}
-                  />
-                </span>
-                <ChevronDown size={16} aria-hidden="true" />
-              </button>
+                {list}
+              </div>,
+              document.body,
             )}
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>{list}</DropdownMenu.Content>
-        </DropdownMenu>
+        </>
       )}
     </div>
   );

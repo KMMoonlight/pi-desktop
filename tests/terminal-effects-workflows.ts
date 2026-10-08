@@ -24,12 +24,15 @@ export async function verifyTerminalEffects(page: Page, screenshot?: string) {
     await run("setup");
     await run("raw-start");
     const panel = page.getByRole("region", { name: "Pi 终端" });
-    await panel.getByRole("button", { name: "终端", exact: true }).click();
+    await page.getByRole("button", { name: "终端", exact: true }).click();
+    await panel.getByRole("button", { name: "Pi 扩展", exact: true }).click();
     await expect(page).toHaveTitle("Standalone terminal title");
     await expect
       .poll(async () => (await snapshot()).extensionUI.windowProgress)
       .toBe(true);
-    await panel.locator(".xterm-helper-textarea").press("t");
+    await panel
+      .locator('[data-terminal-source="pi"] .xterm-helper-textarea')
+      .press("t");
     await expect.poll(async () => (await run("inspect")).inputs).toContain("t");
     await run("raw-stop");
     await expect(page).toHaveTitle("Standalone OSC 2 title");
@@ -52,7 +55,8 @@ export async function verifyTerminalEffects(page: Page, screenshot?: string) {
     await expect
       .poll(async () => (await run("inspect")).writes)
       .toEqual(expected);
-    await panel.getByRole("button", { name: "终端", exact: true }).click();
+    await page.getByRole("button", { name: "终端", exact: true }).click();
+    await panel.getByRole("button", { name: "Pi 扩展", exact: true }).click();
     const blocked = run("blocked-child");
     await expect
       .poll(async () => {
@@ -63,7 +67,9 @@ export async function verifyTerminalEffects(page: Page, screenshot?: string) {
         return output.chunks.map((chunk) => chunk.data).join("");
       })
       .toContain("BLOCKED_TERMINAL_READY");
-    await panel.locator(".xterm-helper-textarea").press("q");
+    await panel
+      .locator('[data-terminal-source="pi"] .xterm-helper-textarea')
+      .press("q");
     await blocked;
     expected.push({ length: 18, text: "blocked child copy" });
     await expect(page).toHaveTitle("Blocked child title");

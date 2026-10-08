@@ -12,9 +12,12 @@ import {
   type loadComponentRuntime,
 } from "./component-runtime.ts";
 import { componentText } from "./component-text.ts";
+import {
+  componentMarkdownInline,
+  type InlineContext,
+} from "./component-markdown-inline.ts";
 
 type TextApi = Awaited<ReturnType<typeof loadComponentRuntime>>["text"];
-type InlineContext = { applyText(text: string): string; stylePrefix: string };
 const objects = (value: unknown): object[] =>
   Array.isArray(value)
     ? value.filter((item) => item && typeof item === "object")
@@ -34,12 +37,11 @@ export function componentMarkdown(
     const transform = required(theme, name) as (text: string) => string;
     return Reflect.apply(transform, theme, [text]);
   };
-  const inline = (tokens: object[], context?: InlineContext) =>
-    withComponentMarkdownLinks(target, tokens, () =>
-      string(
-        callComponentMethod(target, "renderInlineTokens", tokens, context),
-      ),
-    );
+  const inline = (
+    tokens: object[],
+    context?: InlineContext,
+    decorate?: (text: string) => string,
+  ) => componentMarkdownInline(target, tokens, api, context, decorate);
   const render = (token: object, context?: InlineContext) =>
     withComponentMarkdownLinks(target, [token], () => {
       const lines = callComponentMethod(
@@ -70,14 +72,34 @@ export function componentMarkdown(
       switch (type) {
         case "space":
           return [];
-        case "heading":
+        case "heading": {
+          const depth = Number(field(token, "depth"));
+          const style = (value: string) =>
+            themeText(
+              "heading",
+              themeText(
+                "bold",
+                depth === 1 ? themeText("underline", value) : value,
+              ),
+            );
+          const heading = inline(
+            objects(field(token, "tokens")),
+            {
+              applyText: style,
+              stylePrefix: string(
+                callComponentMethod(target, "getStylePrefix", style),
+              ),
+            },
+            decorate,
+          );
           return [
             {
               kind: "heading",
-              depth: Number(field(token, "depth")),
-              ...text(render(token, context).join("\n")),
+              depth,
+              ...heading,
             },
           ];
+        }
         case "paragraph":
         case "text": {
           const tokens =
@@ -95,11 +117,10 @@ export function componentMarkdown(
             {
               kind: "paragraph",
               ...(preformatted ? { preformatted: true } : {}),
-              ...text(
-                inline(
-                  type === "text" ? [token] : objects(field(token, "tokens")),
-                  context,
-                ),
+              ...inline(
+                type === "text" ? [token] : objects(field(token, "tokens")),
+                context,
+                decorate,
               ),
             },
           ];
@@ -173,11 +194,11 @@ export function componentMarkdown(
                   : undefined;
                 const marker =
                   string(preserved) || (ordered ? `${start + index}. ` : "- ");
-                const task = field(item, "task")
-                  ? `[${field(item, "checked") ? "x" : " "}] `
-                  : "";
                 return {
-                  marker: text(themeText("listBullet", marker + task)),
+                  marker: text(themeText("listBullet", marker)),
+                  ...(field(item, "task")
+                    ? { checked: !!field(item, "checked") }
+                    : {}),
                   children: blocks(
                     objects(field(item, "tokens")),
                     context,
@@ -193,16 +214,13 @@ export function componentMarkdown(
             {
               kind: "table",
               headers: objects(field(token, "header")).map((cell) =>
-                text(
-                  themeText(
-                    "bold",
-                    inline(objects(field(cell, "tokens")), context),
-                  ),
+                inline(objects(field(cell, "tokens")), context, (value) =>
+                  decorate(themeText("bold", value)),
                 ),
               ),
               rows: (field(token, "rows") as unknown[]).map((row) =>
                 objects(row).map((cell) =>
-                  text(inline(objects(field(cell, "tokens")), context)),
+                  inline(objects(field(cell, "tokens")), context, decorate),
                 ),
               ),
               align: (field(token, "align") as unknown[]).map((value) =>
@@ -217,6 +235,14 @@ export function componentMarkdown(
             {
               kind: "divider",
               style: firstStyle(render(token, context).join("\n")),
+            },
+          ];
+        case "latexBlock":
+          return [
+            {
+              kind: "paragraph",
+              preformatted: true,
+              ...text(render(token, context).join("\n")),
             },
           ];
         default: {

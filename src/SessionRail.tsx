@@ -1,5 +1,5 @@
 import { t, useLocale, getLocale } from "./i18n";
-import { Folder, Pin, Plus, ChevronRight } from "lucide-react";
+import { Folder, Pin, Plus, ChevronRight, Trash2 } from "lucide-react";
 import { useState } from "react";
 import type { SessionItem } from "../shared/types";
 import { Hint, IconButton, baseName } from "./ui";
@@ -25,8 +25,10 @@ export function SessionRail({
   currentName,
   search,
   busy,
+  pending,
   select,
   pin,
+  remove,
   newSession,
 }: {
   sessions: SessionItem[];
@@ -37,8 +39,10 @@ export function SessionRail({
   currentName?: string;
   search: string;
   busy: boolean;
+  pending?: boolean;
   select: (session?: SessionItem) => void;
   pin: (id: string) => void;
+  remove: (session: SessionItem) => void;
   newSession: (cwd: string) => void;
 }) {
   useLocale();
@@ -52,8 +56,7 @@ export function SessionRail({
   if (cwd) groups.set(projectKey(cwd), { cwd, sessions: [] });
   for (const session of sessions) {
     const key = projectKey(session.cwd);
-    if (!groups.has(key)) groups.set(key, { cwd: session.cwd, sessions: [] });
-    groups.get(key)!.sessions.push(session);
+    groups.get(key)?.sessions.push(session);
   }
   const names = [...groups.values()].map(group => baseName(group.cwd).toLowerCase());
   const fresh =
@@ -64,14 +67,15 @@ export function SessionRail({
     <div
       className={`session-row ${session.id === currentId ? "active" : ""} ${pins.includes(session.id) ? "is-pinned" : ""}`}
       key={session.path}
+      data-session-id={session.id}
     >
       <Hint
         text={`${session.cwd} · ${new Date(session.modified).toLocaleString(getLocale())}`}
       >
-        <button disabled={busy} aria-current={session.id === currentId ? "page" : undefined} onClick={() => select(session)}>
+        <button disabled={busy} aria-disabled={pending || undefined} aria-current={session.id === currentId ? "page" : undefined} onClick={() => { if (!pending) select(session); }}>
           <span>
             <strong>
-              {session.name || session.firstMessage || t("未命名会话")}
+              {session.name || (session.messageCount > 0 && session.firstMessage) || t("新会话")}
             </strong>
             <small className="session-time">{relativeTime(session.modified)}</small>
           </span>
@@ -81,12 +85,20 @@ export function SessionRail({
         icon={Pin}
         label={pins.includes(session.id) ? t("取消固定") : t("固定会话")}
         active={pins.includes(session.id)}
+        attributes={{ "data-session-action": "pin" }}
         onClick={() => pin(session.id)}
+      />
+      <IconButton
+        icon={Trash2}
+        label={t("删除会话")}
+        disabled={busy}
+        attributes={{ "data-session-action": "delete", "aria-disabled": pending || undefined }}
+        onClick={() => { if (!pending) remove(session); }}
       />
     </div>
   );
   return (
-    <div className="session-list">
+    <div className="session-list min-h-0 flex-1 overflow-y-auto px-3 pb-3">
       {[...groups.values()]
         .filter(
           (group) =>
@@ -123,9 +135,11 @@ export function SessionRail({
               <button
                 type="button" className="workspace-new-session"
                 aria-label={t("在 {value1} 中新建会话", { value1: baseName(group.cwd) })} disabled={busy}
+                aria-disabled={pending || undefined}
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
+                  if (pending) return;
                   const next = { ...disclosures, [projectKey(group.cwd)]: true };
                   setDisclosures(next);
                   localStorage.setItem("pi.workspaceDisclosures", JSON.stringify(next));
@@ -134,7 +148,7 @@ export function SessionRail({
               ><Plus size={14} /></button>
             </summary>
             {fresh && projectKey(group.cwd) === projectKey(cwd!) && (
-              <button className="session-row active" aria-current="page" disabled={busy} onClick={() => select()}>
+              <button className="session-row active" data-session-id={currentId} aria-current="page" disabled={busy} aria-disabled={pending || undefined} onClick={() => { if (!pending) select(); }}>
                 <span>
                   <strong>{currentName ?? t("新会话")}</strong>
                 </span>

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdir, realpath } from "node:fs/promises";
+import { join } from "node:path";
 import { createFixture } from "./fixture.ts";
 import {
   getPowerShellConfig,
@@ -86,6 +88,44 @@ test(
             .join(""),
         );
       await action("initialize", { cwd: fixture.cwd });
+      const shell = await action("shell.snapshot");
+      const shellOutput = async () =>
+        stripVTControlCharacters(
+          (await action("shell.snapshot")).chunks
+            .map((chunk: any) => chunk.data)
+            .join(""),
+        );
+      await action("shell.input", {
+        terminalId: shell.terminalId,
+        data: 'echo "SHELL_WORKS"\r',
+      });
+      await until(shellOutput, (value) => /\r?\nSHELL_WORKS\r?\n/.test(value));
+      await assert.rejects(
+        action("shell.input", { terminalId: "stale", data: "exit\r" }),
+        /Shell terminal changed/,
+      );
+      await action("shell.resize", {
+        terminalId: shell.terminalId,
+        cols: 87,
+        rows: 23,
+      });
+      await assert.rejects(
+        action("shell.resize", {
+          terminalId: shell.terminalId,
+          cols: 0,
+          rows: 23,
+        }),
+        /Invalid terminal size/,
+      );
+      if (process.platform !== "win32") {
+        await action("shell.input", {
+          terminalId: shell.terminalId,
+          data: "pwd\r",
+        });
+        await until(shellOutput, (value) =>
+          value.includes("\n" + fixture.cwd + "\r\n"),
+        );
+      }
       await action("terminal.resize", { cols: 91, rows: 27 });
       await assert.rejects(
         action("terminal.resize", { cols: 0, rows: 27 }),
@@ -100,7 +140,17 @@ test(
       assert.match(ready, /"cols":91/);
       assert.match(ready, /"rows":27/);
       await until(output, (value) => value.includes("PTY_CWD:"));
-      assert.ok((await output()).includes("PTY_CWD:" + fixture.cwd));
+      assert.ok(
+        (await output()).includes("PTY_CWD:" + (await realpath(fixture.cwd))),
+      );
+      // Shell commands remain independent while an extension blocks the worker.
+      await action("shell.input", {
+        terminalId: shell.terminalId,
+        data: 'echo "SHELL_INDEPENDENT"\r',
+      });
+      await until(shellOutput, (value) =>
+        /\r?\nSHELL_INDEPENDENT\r?\n/.test(value),
+      );
       // These actions must complete while spawnSync blocks the worker.
       await action("terminal.resize", { cols: 83, rows: 24 });
       await action("terminal.input", { data: "q" });
@@ -108,6 +158,24 @@ test(
       await until(output, (value) => value.includes("PTY_INPUT:71"));
       const state = await action("snapshot");
       assert.equal(state.statuses["pty-result"], "PTY_EXIT:7");
+      assert.ok(!(await output()).includes("SHELL_INDEPENDENT"));
+      await action("shell.input", {
+        terminalId: shell.terminalId,
+        data: "exit\r",
+      });
+      await until(
+        () => action("shell.snapshot"),
+        (value) => value.exitCode !== undefined,
+      );
+      const restartedShell = await action("shell.restart");
+      assert.notEqual(restartedShell.terminalId, shell.terminalId);
+      await action("shell.input", {
+        terminalId: restartedShell.terminalId,
+        data: 'echo "SHELL_RESTARTED"\r',
+      });
+      await until(shellOutput, (value) =>
+        /\r?\nSHELL_RESTARTED\r?\n/.test(value),
+      );
       const previous = (await output()).length;
       const cancelled = action("prompt", { message: "/terminal-probe" });
       await until(output, (value) =>
@@ -155,6 +223,27 @@ test(
         await action("snapshot"),
         "Idle Ctrl+C must not kill the SDK worker",
       );
+      const nextCwd = join(fixture.cwd, "other-workspace");
+      await mkdir(nextCwd);
+      await action("initialize", { cwd: nextCwd });
+      const nextShell = await action("shell.snapshot");
+      assert.notEqual(nextShell.terminalId, restartedShell.terminalId);
+      await assert.rejects(
+        action("shell.input", {
+          terminalId: restartedShell.terminalId,
+          data: "exit\r",
+        }),
+        /Shell terminal changed/,
+      );
+      if (process.platform !== "win32") {
+        await action("shell.input", {
+          terminalId: nextShell.terminalId,
+          data: "pwd\r",
+        });
+        await until(shellOutput, (value) =>
+          value.includes("\n" + nextCwd + "\r\n"),
+        );
+      }
       await action("shutdown");
     } finally {
       child.kill();

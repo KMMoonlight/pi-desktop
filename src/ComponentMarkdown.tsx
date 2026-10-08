@@ -49,15 +49,28 @@ export function ComponentMarkdown({
                 key={index}
                 start={block.ordered ? block.start : undefined}
                 className="desktop-markdown-list"
+                role="list"
               >
                 {block.items.map((item, itemIndex) => (
                   <li key={itemIndex}>
-                    <span
-                      className="desktop-markdown-marker"
-                      aria-hidden="true"
-                    >
-                      <StyledText {...item.marker} />
-                    </span>
+                    {item.checked !== undefined ? (
+                      <input
+                        type="checkbox"
+                        checked={item.checked}
+                        disabled
+                        aria-label={item.children
+                          .map((child) => ("text" in child ? child.text : ""))
+                          .join(" ")}
+                        className="desktop-markdown-checkbox"
+                      />
+                    ) : (
+                      <span
+                        className="desktop-markdown-marker"
+                        aria-hidden="true"
+                      >
+                        {block.ordered ? item.marker.text : "•"}
+                      </span>
+                    )}
                     <div>
                       <ComponentMarkdown blocks={item.children} />
                     </div>
@@ -117,9 +130,7 @@ export function ComponentMarkdown({
               </div>
             );
           case "divider":
-            return (
-              <hr key={index} style={{ borderColor: block.style?.color }} />
-            );
+            return <hr key={index} className="desktop-markdown-divider" />;
         }
       })}
     </>

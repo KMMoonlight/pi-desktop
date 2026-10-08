@@ -1,10 +1,13 @@
 import { t, useI18n, localizeText, getLocale } from "./i18n";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Modal, Switch } from "reshaped";
+import { useEffect, useRef, useState } from "react";
+import { Modal, Switch } from "./primitives";
 import { SettingsButton as Button } from "./SettingsButton";
 import {
   Save,
   LogIn,
+  KeyRound,
+  ChevronDown,
+  ChevronUp,
   LogOut,
   RefreshCw,
   Plus,
@@ -13,39 +16,48 @@ import {
   Check,
   Server,
   Search,
-  Settings2, Palette, Bot, Folder, SlidersHorizontal, X,
+  Settings2, Palette, Bot, Folder, SlidersHorizontal, Blocks, X,
 } from "lucide-react";
 import { Field, SelectField, IconButton, Empty, Hint, baseName } from "./ui";
-import type { DesktopSnapshot, RecordValue } from "../shared/types";
+import type { DesktopSettingsSnapshot, DesktopSnapshot, RecordValue } from "../shared/types";
 import type { Run } from "./Workspace";
+import { ResourcesView } from "./Resources";
 import { CustomProviders } from "./CustomProviders";
+import { FontSettings } from "./FontSettings";
 
 const object = (v: unknown): RecordValue =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as RecordValue) : {};
 export function SettingsView({
   snapshot,
+  resourceSnapshot,
+  useCommand,
   run,
   showThinking,
   onShowThinking,
   colorMode,
   onColorMode,
+  messageMode,
+  onMessageMode,
   open,
   onClose,
-  feedback,
 }: {
-  snapshot: DesktopSnapshot;
+  snapshot: DesktopSettingsSnapshot;
+  resourceSnapshot?: DesktopSnapshot;
+  useCommand: (command: string) => void;
   run: Run;
   showThinking: boolean;
   onShowThinking: (value: boolean) => void;
   colorMode: string;
   onColorMode: (value: string) => void;
+  messageMode: string;
+  onMessageMode: (value: string) => void;
   open: boolean;
   onClose: () => void;
-  feedback?: ReactNode;
 }) {
   const { locale, setLocale } = useI18n();
   const [tab, setTab] = useState("general");
   const [scope, setScope] = useState("global");
+  useEffect(() => { if (!snapshot.cwd) setScope("global"); }, [snapshot.cwd]);
   const [draft, setDraft] = useState<RecordValue>(snapshot.globalSettings);
   const [search, setSearch] = useState("");
   const [addProvider, setAddProvider] = useState(false);
@@ -57,6 +69,12 @@ export function SettingsView({
   >([]);
   const [source, setSource] = useState("");
   const [advanced, setAdvanced] = useState("");
+  const [configError, setConfigError] = useState("");
+  const [configSaving, setConfigSaving] = useState(false);
+  const configErrorNode = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (configError) configErrorNode.current?.scrollIntoView({ block: "nearest" });
+  }, [configError]);
   const [configName, setConfigName] = useState("models.json");
   const [mcp, setMcp] = useState<RecordValue>({});
   const [mcpStatus, setMcpStatus] = useState("");
@@ -142,7 +160,10 @@ export function SettingsView({
         name: configName,
         local: scope === "project",
       }).then((data) => {
-        if (data) setAdvanced(data);
+        if (data !== undefined) {
+          try { setAdvanced(JSON.stringify(JSON.parse(data), null, 2)); }
+          catch { setAdvanced(data); }
+        }
       });
   }, [tab, scope, configName]);
   const save = async (settings: RecordValue = draft) => {
@@ -168,10 +189,11 @@ export function SettingsView({
     ["models", t("模型与账号"), t("连接提供商并选择默认模型")],
     ["project", t("项目"), t("当前 workspace 和项目配置")],
     ["mcp", "MCP", t("管理外部工具连接")],
+    ["resources", t("扩展与技能"), t("当前工作区加载的扩展、技能、提示词和上下文")],
     ["packages", t("扩展包"), t("管理已安装的 Pi 扩展")],
     ["advanced", t("高级"), t("上下文、重试和完整配置")],
   ];
-  const categoryIcons = [Settings2, Palette, Bot, Folder, Server, Package, SlidersHorizontal];
+  const categoryIcons = [Settings2, Palette, Bot, Folder, Server, Blocks, Package, SlidersHorizontal];
   async function saveMcp(value: RecordValue) {
     setPending(true);
     try {
@@ -192,10 +214,10 @@ export function SettingsView({
   };
   return (
     <Modal key={open ? "open" : "closed"} active={open} onClose={onClose}
-      size="800px" padding={0} className="settings-modal" ariaLabel={t("设置")}
+      size="960px" padding={0} className="settings-modal" ariaLabel={t("设置")}
       attributes={{ "data-desktop-native-input": "" }}>
-    <section className="settings-view" ref={formRoot} data-category={tab}>
-      <nav className="settings-tabs" aria-label={t("设置分类")}>
+    <section className="settings-view grid h-full min-h-0 w-full overflow-hidden" ref={formRoot} data-category={tab}>
+      <nav className="settings-tabs flex min-h-0 flex-col gap-1 overflow-y-auto border-r border-line bg-soft px-3 py-6" aria-label={t("设置分类")}>
         <h2>{t("设置")}</h2>
         {categories.map(([key, label], index) => {
           const Icon = categoryIcons[index];
@@ -210,9 +232,16 @@ export function SettingsView({
           </button>
         ); })}
       </nav>
-      <div className="settings-panel">
-        <div className="settings-chrome"><IconButton icon={X} label={t("关闭设置")} onClick={onClose} /></div>
-        <header className="settings-heading">
+      <div className="settings-panel flex min-h-0 min-w-0 flex-col">
+        <div className="settings-chrome flex h-12 shrink-0 items-center justify-end px-4">
+          <div className="settings-category-picker">
+            <SelectField name={t("设置分类")} value={tab} onChange={setTab}>
+              {categories.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </SelectField>
+          </div>
+          <IconButton icon={X} label={t("关闭设置")} onClick={onClose} />
+        </div>
+        <header className="settings-heading flex shrink-0 items-center justify-between gap-4 px-6 pb-5">
           <div>
             <h2>{categories.find(([key]) => key === tab)?.[1]}</h2>
             <p>{categories.find(([key]) => key === tab)?.[2]}</p>
@@ -220,16 +249,16 @@ export function SettingsView({
           {["general", "advanced", "mcp", "packages"].includes(tab) && (
             <SelectField name={t("配置范围")} value={scope} onChange={setScope} appearance="embedded">
               <option value="global">{t("全局配置")}</option>
-              <option value="project">{t("项目配置")}</option>
+              <option value="project" disabled={!snapshot.cwd}>{t("项目配置")}</option>
             </SelectField>
           )}
         </header>
-        {feedback && <div className="settings-feedback">{feedback}</div>}
-      <div className="settings-content" ref={contentRoot}>
+      <div className="settings-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-6 pb-6" ref={contentRoot}>
+        {tab === "resources" && <ResourcesView snapshot={resourceSnapshot} run={run} useCommand={useCommand} />}
         {scope === "project" && ["general", "advanced", "models"].includes(tab) && (
           <p className="settings-scope-note">{t("当前项目的覆盖项；未设置的值继承全局配置。")}</p>
         )}
-        {validation && !addMcp && (
+        {validation && !addMcp && tab !== "advanced" && (
           <div className="error-inline" role="alert">
             {localizeText(validation)}
           </div>
@@ -238,8 +267,18 @@ export function SettingsView({
           <>
             <div className="settings-group settings-defaults">
               <h2>{tab === "advanced" ? t("运行策略") : t("消息交付")}</h2>
-              <div className="settings-grid">
+              <div className="settings-grid flex flex-col">
                 {tab === "general" && <>
+                <SelectField
+                  label={t("运行中发送消息")}
+                  description={t("调整方向会在当前工具结束后交付；排队会在本轮任务结束后交付。此偏好在本应用中立即生效。")}
+                  name="message-mode"
+                  value={messageMode}
+                  onChange={onMessageMode}
+                >
+                  <option value="steer">{t("调整方向")}</option>
+                  <option value="followUp">{t("排队")}</option>
+                </SelectField>
                 <SelectField
                   label={t("执行中消息")}
                   description={t("任务执行期间，决定追加消息一次交付一条还是全部交付。")}
@@ -270,7 +309,7 @@ export function SettingsView({
         {tab === "advanced" && (
             <div className="settings-group">
               <h2>{t("上下文与重试")}</h2>
-              <div className="setting-row">
+              <div className="setting-row flex items-center justify-between gap-4">
                 <span>{t("自动压缩上下文")}</span>
                 <Switch
                   name="auto-compaction"
@@ -280,7 +319,7 @@ export function SettingsView({
                   }
                 />
               </div>
-              <div className="settings-grid">
+              <div className="settings-grid flex flex-col">
                 <label className="field">
                   <span>{t("回复预留 tokens")}</span>
                   <input
@@ -318,7 +357,7 @@ export function SettingsView({
                   />
                 </label>
               </div>
-              <div className="setting-row">
+              <div className="setting-row flex items-center justify-between gap-4">
                 <span>{t("自动重试")}</span>
                 <Switch
                   name="auto-retry"
@@ -328,7 +367,7 @@ export function SettingsView({
                   }
                 />
               </div>
-              <div className="settings-grid">
+              <div className="settings-grid flex flex-col">
                 <label className="field">
                   <span>{t("最多重试次数")}</span>
                   <input
@@ -357,6 +396,7 @@ export function SettingsView({
             </div>
         )}
         {tab === "appearance" && (
+          <>
             <div className="settings-group">
               <h2>{t("桌面外观")}</h2>
               <p className="setting-help">{t("更改后立即生效。对话视图也可以从会话菜单切换。")}</p>
@@ -364,7 +404,7 @@ export function SettingsView({
                 <option value="zh-CN">简体中文</option>
                 <option value="en">English</option>
               </SelectField>
-              <div className="setting-row">
+              <div className="setting-row flex items-center justify-between gap-4">
                 <span>{t("展开思考过程")}</span>
                 <Switch
                   name="show-thinking"
@@ -383,26 +423,30 @@ export function SettingsView({
                 <option value="system">{t("跟随系统")}</option>
               </SelectField>
             </div>
+            <FontSettings />
+          </>
         )}
         {tab === "project" && (
             <div className="settings-group">
               <h2>{t("工作区")}</h2>
+              {!snapshot.cwd && <p className="setting-help">{t("请先选择工作区")}</p>}
               <p className="setting-help">{t("信任状态立即生效；项目默认值只影响当前 workspace。")}</p>
-              <div className="setting-row">
+              <div className="setting-row flex items-center justify-between gap-4">
                 <span>{t("信任项目配置")}</span>
                 <Switch
                   name="trust"
+                  disabled={!snapshot.cwd}
                   checked={snapshot.trusted}
                   onChange={({ checked }) => {
                     void run("trust.set", { trusted: checked });
                   }}
                 />
               </div>
-              <dl className="settings-locations">
-                <div><dt>{t("当前工作区")}</dt><dd>{snapshot.cwd}</dd></div>
+              <dl className="settings-locations grid gap-4 text-[13px] leading-5">
+                <div><dt>{t("当前工作区")}</dt><dd>{snapshot.cwd || t("未选择工作区")}</dd></div>
                 <div><dt>{t("Pi 配置目录")}</dt><dd>{snapshot.agentDir}</dd></div>
               </dl>
-              <Button variant="outline" onClick={() => { setScope("project"); setTab("general"); }}>{t("编辑项目默认值")}</Button>
+              <Button variant="outline" disabled={!snapshot.cwd} onClick={() => { setScope("project"); setTab("general"); }}>{t("编辑项目默认值")}</Button>
             </div>
         )}
         {tab === "models" && (
@@ -427,6 +471,9 @@ export function SettingsView({
             </div>
             <div className="provider-section-header">
               <h2>{addProvider ? t("添加提供商") : t("已连接账号")}</h2>
+              <Button icon={addProvider ? undefined : Plus} attributes={{ "aria-expanded": addProvider }} onClick={() => { setAddProvider(!addProvider); setProviderEditor(undefined); }}>
+                {addProvider ? t("返回已连接账号") : t("添加提供商")}
+              </Button>
             </div>
             {!addProvider &&
               !search &&
@@ -435,7 +482,7 @@ export function SettingsView({
                   {t("还没有连接账号，添加提供商后即可选择模型。")}
                 </p>
               )}
-            <div className="provider-list">
+            <div className="provider-list flex flex-col">
               {snapshot.providers
                 .filter(
                   (p) =>
@@ -453,14 +500,13 @@ export function SettingsView({
                   <div className="provider-row" key={provider.id}>
                     <div className="provider-identity">
                       <strong><span className={`provider-dot ${provider.configured ? "connected" : ""}`} />{provider.name}</strong>
-                      <Hint text={provider.source ?? provider.id}>
-                        <span className="muted" tabIndex={0}>
-                          {provider.configured ? t("凭据已配置") : t("未配置")}
-                        </span>
-                      </Hint>
+                      <span className="muted">
+                        {provider.configured ? t("凭据已配置") : t("未配置")}
+                      </span>
                     </div>
                     <div className="row-actions">
-                      <Button variant="ghost"
+                      <Button
+                        endIcon={providerEditor === provider.id ? ChevronUp : ChevronDown}
                         attributes={{ "aria-expanded": providerEditor === provider.id }}
                         onClick={() => setProviderEditor(providerEditor === provider.id ? undefined : provider.id)}>
                         {provider.configured ? t("管理") : t("连接")}
@@ -480,7 +526,7 @@ export function SettingsView({
                       {provider.methods.map((method) => (
                         <Button
                           key={method}
-                          icon={LogIn}
+                          icon={method === "oauth" ? LogIn : KeyRound}
                           variant="outline"
                           onClick={() => {
                             void run("auth.login", {
@@ -496,21 +542,16 @@ export function SettingsView({
                   </div>
                 ))}
             </div>
-            <div className="provider-add">
-              <Button icon={Plus} attributes={{ "aria-expanded": addProvider }} onClick={() => { setAddProvider(!addProvider); setProviderEditor(undefined); }}>
-                {addProvider ? t("返回已连接账号") : t("添加提供商")}
-              </Button>
-            </div>
             <CustomProviders run={run} disabled={snapshot.busy || snapshot.changing} />
             <div className="settings-group settings-defaults">
               <div className="settings-section-heading">
               <h2>{t("默认模型")}</h2>
               <SelectField name={t("默认模型配置范围")} value={scope} onChange={setScope} appearance="embedded">
                 <option value="global">{t("全局默认值")}</option>
-                <option value="project">{t("当前项目默认值")}</option>
+                <option value="project" disabled={!snapshot.cwd}>{t("当前项目默认值")}</option>
               </SelectField>
               </div>
-              <div className="settings-grid">
+              <div className="settings-grid flex flex-col">
                 <SelectField
                   label={t("默认模型")} name={t("默认模型")}
                   description={t("用于新会话；当前会话的模型在输入区选择。")}
@@ -528,7 +569,7 @@ export function SettingsView({
                   value={String(settings.defaultThinkingLevel ?? "medium")}
                   onChange={v => set("defaultThinkingLevel", v)}>
                   {["off", "minimal", "low", "medium", "high", "xhigh", "max"].map(l => (
-                    <option key={l} value={l}>{({off: t("关闭思考"), minimal: t("最低"), low: t("较低"), medium: t("标准"), high: t("深入"), xhigh: t("更深入"), max: t("最高")} as Record<string, string>)[l]}</option>
+                    <option key={l} value={l}>{l}</option>
                   ))}
                 </SelectField>
               </div>
@@ -586,7 +627,7 @@ export function SettingsView({
               <Button
                 icon={RefreshCw}
                 variant="outline"
-                disabled={snapshot.busy || pending}
+                disabled={!snapshot.cwd || snapshot.busy || pending}
                 onClick={() => {
                   void refreshMcp();
                 }}
@@ -604,6 +645,7 @@ export function SettingsView({
                     <Server size={18} />
                     <div className="server-identity">
                       <strong>{name}</strong>
+                      <small className="server-address">{String(c.url ?? c.command ?? "")}</small>
                       <Hint text={String(c.url ?? c.command ?? "")}>
                         <span tabIndex={0}>{c.url ? "HTTP" : t("本地进程")}</span>
                       </Hint>
@@ -637,7 +679,7 @@ export function SettingsView({
                     <IconButton
                       icon={RefreshCw}
                       label={t("重新连接 {value1}", { value1: name })}
-                      disabled={snapshot.busy || pending}
+                      disabled={!snapshot.cwd || snapshot.busy || pending}
                       onClick={() => {
                         void run("mcp.command", {
                           operation: "reconnect",
@@ -650,7 +692,7 @@ export function SettingsView({
                         <IconButton
                           icon={LogIn}
                           label={t("登录 {value1}", { value1: name })}
-                          disabled={snapshot.busy || pending}
+                          disabled={!snapshot.cwd || snapshot.busy || pending}
                           onClick={() => {
                             void run("mcp.command", {
                               operation: "login",
@@ -661,7 +703,7 @@ export function SettingsView({
                         <IconButton
                           icon={LogOut}
                           label={t("退出 {value1}", { value1: name })}
-                          disabled={snapshot.busy || pending}
+                          disabled={!snapshot.cwd || snapshot.busy || pending}
                           onClick={() => {
                             void run("mcp.command", {
                               operation: "logout",
@@ -682,7 +724,7 @@ export function SettingsView({
               <Button variant="ghost" onClick={() => { setAddMcp(false); setValidation(""); formRoot.current?.querySelector<HTMLButtonElement>('[data-settings-add="mcp"]')?.focus(); }}>{t("取消添加")}</Button>
               </div>
               {validation && <div className="error-inline" role="alert">{localizeText(validation)}</div>}
-              <div className="settings-grid">
+              <div className="settings-grid flex flex-col">
                 <Field
                   label={t("名称")}
                   name="server-name"
@@ -704,6 +746,7 @@ export function SettingsView({
                 name="server-address"
                 value={serverAddress}
                 onChange={setServerAddress}
+                placeholder={serverType === "stdio" ? "npx" : "https://example.com/mcp"}
               />
               {serverType === "stdio" && (
                 <Field
@@ -714,6 +757,7 @@ export function SettingsView({
                   placeholder='["-y", "@modelcontextprotocol/server-filesystem", "C:/Code"]'
                 />
               )}
+              {serverType === "stdio" && <p className="setting-help">{t("程序与参数分开填写；每个参数是数组中的一个字符串。")}</p>}
               <div className="integration-form-actions">
               <Button
                 icon={Plus}
@@ -781,7 +825,7 @@ export function SettingsView({
               <Button
                 icon={RefreshCw}
                 variant="outline"
-                disabled={snapshot.busy || pending}
+                disabled={snapshot.busy || pending || packages.length === 0}
                 onClick={() => {
                   void changePackage("packages.update");
                 }}
@@ -830,7 +874,7 @@ export function SettingsView({
             {!addPackage && packages.length === 0 && (
               <Empty icon={Package} title={t("尚未安装扩展包")} />
             )}
-            {addPackage && <div className="integration-form" role="group" aria-label={t("添加扩展包")}>
+            {addPackage && <div className="integration-form rounded-xl bg-soft p-4" role="group" aria-label={t("添加扩展包")}>
               <div className="integration-form-heading">
                 <h2>{t("添加扩展包")}</h2>
                 <Button variant="ghost" onClick={() => { setAddPackage(false); setSource(""); formRoot.current?.querySelector<HTMLButtonElement>('[data-settings-add="package"]')?.focus(); }}>{t("取消添加")}</Button>
@@ -873,12 +917,14 @@ export function SettingsView({
           </>
         )}
         {tab === "advanced" && (
-          <>
+          <section className="settings-config-editor" aria-label={t("配置文件编辑器")}>
+            <h2>{t("配置文件编辑器")}</h2>
+            <p className="setting-help">{t("配置文件单独保存；下方“保存设置”仅保存运行策略。")}</p>
             <div className="settings-toolbar">
               <SelectField
                 name={t("配置文件")}
                 value={configName}
-                onChange={setConfigName}
+                onChange={(name) => { setConfigName(name); setConfigError(""); }}
               >
                 <option value="models.json">{t("模型端点 · models.json")}</option>
                 <option value="mcp.json">{t("MCP 配置 · mcp.json")}</option>
@@ -886,13 +932,20 @@ export function SettingsView({
               <Button
                 icon={Save}
                 color="primary"
-                disabled={snapshot.busy}
-                onClick={() => {
-                  void run("config.save", {
-                    name: configName,
-                    content: advanced,
-                    local: scope === "project",
-                  });
+                disabled={snapshot.busy || configSaving}
+                loading={configSaving}
+                onClick={async () => {
+                  setConfigError("");
+                  setConfigSaving(true);
+                  try {
+                    await run("config.save", {
+                      name: configName,
+                      content: advanced,
+                      local: scope === "project",
+                    }, setConfigError);
+                  } finally {
+                    setConfigSaving(false);
+                  }
                 }}
               >
                 {t("保存配置")}
@@ -903,16 +956,21 @@ export function SettingsView({
               aria-label={t("配置 JSON")}
               value={advanced}
               spellCheck={false}
-              onChange={(e) => setAdvanced(e.target.value)}
+              wrap="off"
+              onChange={(e) => { setAdvanced(e.target.value); setConfigError(""); }}
             />
+            {configError && <p ref={configErrorNode} className="error-inline config-file-error" role="alert">{localizeText(configError)}</p>}
             <details className="raw-settings">
               <summary>{t("完整设置")}</summary>
               <textarea
                 className="json-editor"
                 aria-label={t("完整设置 JSON")}
                 value={settingsJson}
-                onChange={(e) => setSettingsJson(e.target.value)}
+                spellCheck={false}
+                wrap="off"
+                onChange={(e) => { setSettingsJson(e.target.value); setValidation(""); }}
               />
+              {validation && <p className="error-inline" role="alert">{localizeText(validation)}</p>}
               <Button
                 icon={Save}
                 color="primary"
@@ -940,11 +998,11 @@ export function SettingsView({
                 <span>Pi {snapshot.version}</span>
               </Hint>
             </div>
-          </>
+          </section>
         )}
       </div>
-      {["general", "models", "advanced"].includes(tab) && <footer className="settings-save">
-        <span role="status">{pending ? t("正在保存…") : dirty ? t("有未保存的更改") : t("设置已保存")}</span>
+      {["general", "models", "advanced"].includes(tab) && <footer className="settings-save shrink-0 items-center justify-between gap-3 border-t border-line bg-canvas px-6 py-4">
+        <span role="status">{pending ? t("正在保存…") : dirty ? t("有未保存的更改") : tab === "advanced" ? t("运行策略已保存") : t("设置已保存")}</span>
         <Button icon={Save} color="primary" loading={pending} disabled={snapshot.busy || !dirty} onClick={() => { void save(); }}>{t("保存设置")}</Button>
       </footer>}
       </div>

@@ -80,7 +80,9 @@ export interface ChatMessage {
 export interface GenerationMetrics {
   outputTokens: number;
   durationMs?: number;
+  elapsedMs?: number;
   tokensPerSecond?: number;
+  estimatedTokensPerSecond?: number;
   completed: boolean;
 }
 export interface ModelItem {
@@ -169,6 +171,8 @@ export interface DesktopSnapshot {
   sessionId: string;
   sessionFile?: string;
   sessionName?: string;
+  /** Agent, compaction or shell work; excludes configuration updates. */
+  running: boolean;
   busy: boolean;
   changing: boolean;
   compacting: boolean;
@@ -251,7 +255,14 @@ export interface TerminalQuery {
   id: string;
   data: string;
 }
+export type DesktopSettingsSnapshot = Pick<DesktopSnapshot,
+  "version" | "agentDir" | "cwd" | "busy" | "changing" | "trusted" |
+  "settings" | "globalSettings" | "projectSettings" | "models" | "providers" |
+  "model" | "scopedModels" | "resources"
+>;
 export type DesktopEvent =
+  | { type: "shell_output"; terminalId: string; sequence: number; data: string }
+  | { type: "shell_exit"; terminalId: string; exitCode: number }
   | ({ type: "terminal_query" } & TerminalQuery)
   | { type: "terminal_output"; sequence: number; data: string }
   | { type: "terminal_exit"; exitCode: number }

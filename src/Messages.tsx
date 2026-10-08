@@ -1,6 +1,7 @@
 import { t, useLocale, getLocale } from "./i18n";
 import {
   Children,
+  Fragment,
   isValidElement,
   useEffect,
   useRef,
@@ -9,6 +10,16 @@ import {
   type ReactNode,
 } from "react";
 import { GenerationStatus } from "./GenerationStatus";
+import {
+  groupTranscriptRows,
+  replySummary,
+  isProcessRow,
+  type TranscriptRow,
+  type ReplyRow,
+  type ReplyGroup,
+} from "./transcript-turns";
+import { ImagePreview } from "./ImagePreview";
+import { MarkdownImage } from "./MarkdownImage";
 import ReactMarkdown, {
   defaultUrlTransform,
   type Components,
@@ -22,11 +33,14 @@ import {
   Brain,
   ArrowDown,
   FileCode2,
-  Pi,
   UserRound,
   LoaderCircle,
   Wrench,
-  Clock3,
+  FileText,
+  Search,
+  Terminal,
+  Pencil,
+  FolderOpen,
 } from "lucide-react";
 import type {
   ChatMessage,
@@ -34,8 +48,9 @@ import type {
   TranscriptMarkdown,
   ContentBlock,
 } from "../shared/types";
-import { Hint, IconButton } from "./ui";
+import { IconButton } from "./ui";
 import { CodeBlock } from "./CodeBlock";
+import { PiLogo } from "./PiLogo";
 import { DesktopLink } from "./DesktopLink";
 import { desktopFileTarget } from "./FileNavigation";
 import { StyledText } from "./StyledText";
@@ -43,25 +58,68 @@ import { ComponentMarkdown } from "./ComponentMarkdown";
 import { desktopExternalLink } from "../shared/links";
 import { DesktopSurfaceView } from "./DesktopExtensions";
 import type { Run } from "./Workspace";
-import type { DesktopNode, DesktopSurface, DesktopMarkdownText } from "../shared/desktop-ui";
+import type {
+  DesktopNode,
+  DesktopSurface,
+  DesktopMarkdownText,
+} from "../shared/desktop-ui";
 
 function interactiveNode(node: DesktopNode): boolean {
-  if (node.rendered?.control || ["terminal", "button", "input", "textarea", "select", "toggle", "number", "slider", "tabs"].includes(node.kind)) return true;
+  if (
+    node.rendered?.control ||
+    [
+      "terminal",
+      "button",
+      "input",
+      "textarea",
+      "select",
+      "toggle",
+      "number",
+      "slider",
+      "tabs",
+    ].includes(node.kind)
+  )
+    return true;
   if ("children" in node) return node.children.some(interactiveNode);
-  if (node.kind === "region") return !node.nativeControls || interactiveNode(node.child);
+  if (node.kind === "region")
+    return !node.nativeControls || interactiveNode(node.child);
   return false;
 }
 
 function toolStep(call: ContentBlock): string {
-  const args = call.arguments && typeof call.arguments === "object" ? call.arguments as Record<string, unknown> : {};
-  const labels: Record<string, string> = {read: t("读取"), write: t("写入"), edit: t("修改"), grep: t("搜索"), find: t("查找"), ls: t("列出"), bash: t("执行命令"), powershell: t("执行命令")};
+  const args =
+    call.arguments && typeof call.arguments === "object"
+      ? (call.arguments as Record<string, unknown>)
+      : {};
+  const labels: Record<string, string> = {
+    read: t("读取"),
+    write: t("写入"),
+    edit: t("修改"),
+    grep: t("搜索"),
+    find: t("查找"),
+    ls: t("列出"),
+    bash: t("执行命令"),
+    powershell: t("执行命令"),
+  };
   const target = args.path ?? args.file_path ?? args.command ?? args.pattern;
   return `${labels[call.name ?? ""] ?? call.name ?? t("工具")}${typeof target === "string" ? ` · ${target.replace(/\s+/g, " ").slice(0, 140)}` : ""}`;
 }
 
+const toolIcons = {
+  read: FileText,
+  write: Pencil,
+  edit: Pencil,
+  grep: Search,
+  find: Search,
+  ls: FolderOpen,
+  bash: Terminal,
+  powershell: Terminal,
+};
+
 // Preserve link state while snapshots or unrelated messages update the transcript.
 const markdownComponents: Components = {
   a: ({ href, children }) => <DesktopLink href={href}>{children}</DesktopLink>,
+  img: ({ src, alt }) => typeof src === "string" ? <MarkdownImage src={src} alt={alt ?? ""} /> : null,
   pre: ({ children }) => {
     const code = Children.toArray(children).find((child) =>
       isValidElement(child),
@@ -99,21 +157,25 @@ export function Markdown({ text }: { text: string }) {
 function ThinkingBlock({
   text,
   expanded,
+  streaming,
   label,
   presentation,
   onVisibility,
 }: {
   text: string;
   expanded: boolean;
+  streaming: boolean;
   label: DesktopMarkdownText;
   presentation?: TranscriptMarkdown;
   onVisibility: (visible: boolean) => void;
 }) {
   useLocale();
-  const [open, setOpen] = useState(presentation?.visible ?? expanded);
+  const [open, setOpen] = useState(
+    presentation?.visible ?? (streaming && expanded),
+  );
   useEffect(
-    () => setOpen(presentation?.visible ?? expanded),
-    [expanded, presentation?.visible],
+    () => setOpen(presentation?.visible ?? (streaming && expanded)),
+    [expanded, streaming, presentation?.visible],
   );
   return (
     <details
@@ -220,8 +282,12 @@ function ToolExecution({
     (active || !result ? "pending" : result.isError ? "error" : "success");
   const output = result?.content ?? active?.output ?? [];
   const toolExpanded = presentation?.expanded ?? expanded;
-  const interactive = [callSurface, resultSurface].some(surface => surface && interactiveNode(surface.view));
-  const detailsVisible = self || interactive || toolExpanded || state === "error";
+  const interactive = [callSurface, resultSurface].some(
+    (surface) => surface && interactiveNode(surface.view),
+  );
+  const detailsVisible =
+    self || interactive || toolExpanded;
+  const ToolIcon = toolIcons[call.name as keyof typeof toolIcons] ?? Wrench;
   if (call.desktopSurfaceId && !callSurface) return null;
   return (
     <div
@@ -230,11 +296,15 @@ function ToolExecution({
       data-tool-state={state}
       data-tool-expanded={presentation?.expanded ?? expanded}
       data-tool-details-visible={detailsVisible}
+      data-tool-interactive={interactive}
     >
       {!self && (
         <div className="tool-desktop-controls">
           <button
-            aria-label={t("{value1} {value2} 输出", { value1: toolExpanded ? t("收起") : t("展开"), value2: call.name ?? t("工具") })}
+            aria-label={t("{value1} {value2} 输出", {
+              value1: toolExpanded ? t("收起") : t("展开"),
+              value2: call.name ?? t("工具"),
+            })}
             aria-expanded={toolExpanded}
             onClick={() =>
               void run("transcript.tool", {
@@ -244,11 +314,13 @@ function ToolExecution({
               })
             }
           >
-            <Wrench size={13} />
-            <span className="tool-step-summary" title={toolStep(call)}>{toolStep(call)}</span>
+            <ToolIcon size={13} />
+            <span className="tool-step-summary" title={toolStep(call)}>
+              {toolStep(call)}
+            </span>
             <ChevronDown
               size={13}
-              className={toolExpanded ? "is-expanded" : ""}
+              className={`tool-chevron${toolExpanded ? " is-expanded" : ""}`}
             />
           </button>
           <span className={`tool-state-label ${state}`}>
@@ -290,21 +362,26 @@ function ToolExecution({
           />
         )}
       </div>
-      {detailsVisible && showImages && output.some((block) => block.type === "image") && (
-        <div className="tool-images">
-          <ToolOutput
-            content={output.filter((block) => block.type === "image")}
-            showImages
-            imageWidth={imageWidth}
-          />
-        </div>
-      )}
+      {detailsVisible &&
+        showImages &&
+        output.some((block) => block.type === "image") && (
+          <div className="tool-images">
+            <ToolOutput
+              content={output.filter((block) => block.type === "image")}
+              showImages
+              imageWidth={imageWidth}
+            />
+          </div>
+        )}
     </div>
   );
 }
 
 function Message({
   message,
+  embedded = false,
+  part,
+  streaming,
   onFork,
   showThinking,
   expanded,
@@ -316,6 +393,9 @@ function Message({
   imageWidth,
 }: {
   message: ChatMessage;
+  embedded?: boolean;
+  part?: "thinking" | "content";
+  streaming: boolean;
   onFork: (id: string) => void;
   showThinking: boolean;
   expanded: boolean;
@@ -344,106 +424,146 @@ function Message({
     message.completionNotice ||
     message.content.some(
       (block) =>
-        block.type !== "toolCall" &&
-        !!(block.text?.trim() || block.thinking?.trim()),
+        block.type === "image" ||
+        (block.type !== "toolCall" &&
+          !!(block.text?.trim() || block.thinking?.trim())),
     );
+  const body = (
+    <>
+      {message.content.map((block, index) => {
+        if (part === "thinking" && block.type !== "thinking") return null;
+        if (part === "content" && block.type === "thinking") return null;
+        const presentation = message.markdown?.find((item) =>
+          item.blockIndices.includes(index),
+        );
+        if (presentation && presentation.blockIndices[0] !== index) return null;
+        if (
+          block.type === "thinking" &&
+          presentation &&
+          !presentation.source.trim()
+        )
+          return null;
+        return block.type === "thinking" ? (
+          <ThinkingBlock
+            key={index}
+            expanded={showThinking}
+            streaming={streaming}
+            label={
+              hiddenThinkingPresentation ?? {
+                text: hiddenThinkingLabel ?? t("思考过程"),
+              }
+            }
+            text={block.thinking ?? ""}
+            presentation={presentation}
+            onVisibility={(visible) =>
+              void run("transcript.thinking", {
+                messageId: message.id,
+                blockIndex: index,
+                visible,
+              })
+            }
+          />
+        ) : block.type === "toolCall" ? null : block.type === "image" ? (
+          <ImagePreview
+            key={index}
+            className="message-image"
+            alt={t("消息附件")}
+            src={`data:${block.mimeType};base64,${block.data}`}
+          />
+        ) : (
+          <div
+            className={`markdown transcript-markdown-body${presentation ? " desktop-markdown" : ""}`}
+            key={index}
+          >
+            <span className="transcript-content-width" aria-hidden="true" />
+            {presentation ? (
+              <ComponentMarkdown blocks={presentation.blocks} />
+            ) : (
+              <Markdown text={block.text ?? ""} />
+            )}
+          </div>
+        );
+      })}
+      {part !== "thinking" &&
+        (message.role === "assistant"
+          ? message.completionNotice
+          : message.errorMessage) && (
+          <div className="inline-error" role="alert">
+            {message.role === "assistant" ? (
+              <StyledText {...message.completionNotice!} />
+            ) : (
+              message.errorMessage
+            )}
+          </div>
+        )}
+    </>
+  );
+  if (embedded) return hasBody ? body : null;
+  const timestamp = (
+    <time
+      className="message-timestamp"
+      dateTime={new Date(message.timestamp).toISOString()}
+      aria-label={t("消息时间")}
+    >
+      {new Date(message.timestamp).toLocaleString(getLocale(), {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      })}
+    </time>
+  );
   return (
     <>
       {hasBody && (
-        <article className={`message message-${message.role}`} data-message-id={message.id}
-          aria-label={message.role === "user" ? t("用户消息") : message.role === "assistant" ? t("Pi 回复") : t("会话记录")}>
+        <article
+          className={`message message-${message.role}`}
+          data-message-id={message.id}
+          aria-label={
+            message.role === "user"
+              ? t("用户消息")
+              : message.role === "assistant"
+                ? t("Pi 回复")
+                : t("会话记录")
+          }
+        >
           <div className="message-avatar">
             {message.role === "user" ? (
               <UserRound size={16} />
             ) : message.role === "assistant" ? (
-              <Pi size={17} />
+              <PiLogo size={16} />
             ) : (
               <FileCode2 size={16} />
             )}
           </div>
-          <div className="message-body">
-            {message.content.map((block, index) => {
-              const presentation = message.markdown?.find((item) =>
-                item.blockIndices.includes(index),
-              );
-              if (presentation && presentation.blockIndices[0] !== index)
-                return null;
-              if (
-                block.type === "thinking" &&
-                presentation &&
-                !presentation.source.trim()
-              )
-                return null;
-              return block.type === "thinking" ? (
-                <ThinkingBlock
-                  key={index}
-                  expanded={showThinking}
-                  label={
-                    hiddenThinkingPresentation ?? {
-                      text: hiddenThinkingLabel ?? t("思考过程"),
-                    }
-                  }
-                  text={block.thinking ?? ""}
-                  presentation={presentation}
-                  onVisibility={(visible) =>
-                    void run("transcript.thinking", {
-                      messageId: message.id,
-                      blockIndex: index,
-                      visible,
-                    })
-                  }
-                />
-              ) : block.type === "toolCall" ? null : block.type === "image" ? (
-                <img
-                  key={index}
-                  className="message-image"
-                  alt={t("消息附件")}
-                  src={`data:${block.mimeType};base64,${block.data}`}
-                />
-              ) : (
-                <div
-                  className={`markdown transcript-markdown-body${presentation ? " desktop-markdown" : ""}`}
-                  key={index}
-                >
-                  <span className="transcript-content-width" aria-hidden="true" />
-                  {presentation ? (
-                    <ComponentMarkdown blocks={presentation.blocks} />
-                  ) : (
-                    <Markdown text={block.text ?? ""} />
-                  )}
-                </div>
-              );
-            })}
-            {(message.role === "assistant"
-              ? message.completionNotice
-              : message.errorMessage) && (
-              <div className="inline-error" role="alert">
-                {message.role === "assistant" ? (
-                  <StyledText {...message.completionNotice!} />
-                ) : (
-                  message.errorMessage
-                )}
-              </div>
-            )}
-            {message.role === "assistant" && <GenerationStatus message={message} />}
-          </div>
+          {message.role === "assistant" && (
+            <div className="message-heading flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted tabular-nums">
+              <GenerationStatus message={message} />
+            </div>
+          )}
+          <div className="message-body">{body}</div>
           <div className="message-meta">
-            <Hint text={new Date(message.timestamp).toLocaleString(getLocale())}>
-              <time tabIndex={0} className="message-timestamp" aria-label={t("消息时间")}>
-                <Clock3 size={13} />
-              </time>
-            </Hint>
+            {timestamp}
             <div className="message-actions">
-              <IconButton icon={copied ? Check : Copy} label={t("复制消息")}
+              <IconButton
+                icon={copied ? Check : Copy}
+                label={t("复制消息")}
                 onClick={() => {
                   void navigator.clipboard.writeText(plain).then(() => {
                     setCopied(true);
                     setTimeout(() => setCopied(false), 1500);
                   });
-                }} />
+                }}
+              />
               {message.role === "user" && message.entryId && (
-                <IconButton icon={GitBranch} label={t("从此处分支")}
-                  onClick={() => onFork(message.entryId!)} />
+                <IconButton
+                  icon={GitBranch}
+                  label={t("从此处分支")}
+                  onClick={() => onFork(message.entryId!)}
+                />
               )}
             </div>
           </div>
@@ -452,6 +572,165 @@ function Message({
     </>
   );
 }
+function AssistantReply({
+  group,
+  renderRow,
+  running,
+}: {
+  group: ReplyGroup;
+  renderRow: (
+    row: TranscriptRow,
+    embedded?: boolean,
+    part?: "thinking" | "content",
+  ) => ReactNode;
+  running: boolean;
+}) {
+  useLocale();
+  const [copied, setCopied] = useState(false);
+  const summary = replySummary(group.rows);
+  const text = group.rows
+    .flatMap((row) =>
+      row.kind === "message"
+        ? row.message.content
+            .filter((block) => block.type === "text")
+            .map((block) => block.text ?? "")
+        : [],
+    )
+    .join("\n\n");
+  const segments: {
+    id: string;
+    process: boolean;
+    rows: { row: ReplyRow; part?: "thinking" | "content" }[];
+  }[] = [];
+  const addSegment = (
+    row: ReplyRow,
+    process: boolean,
+    part?: "thinking" | "content",
+  ) => {
+    const previous = segments.at(-1);
+    const id = `${row.kind === "message" ? row.message.id : `tool:${row.call.id}`}:${part ?? "all"}`;
+    if (process && previous?.process) previous.rows.push({ row, part });
+    else segments.push({ id, process, rows: [{ row, part }] });
+  };
+  for (const row of group.rows) {
+    if (
+      row.kind === "message" &&
+      !isProcessRow(row) &&
+      row.message.content.some((block) => block.type === "thinking")
+    ) {
+      addSegment(row, true, "thinking");
+      addSegment(row, false, "content");
+    } else addSegment(row, isProcessRow(row));
+  }
+  return (
+    <article
+      className="message message-assistant assistant-reply"
+      data-message-id={group.id}
+      aria-label={t("Pi 回复")}
+    >
+      {summary && (
+        <div className="message-heading flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted tabular-nums">
+          <GenerationStatus message={summary} />
+        </div>
+      )}
+      <div className="message-body">
+        {segments.map((segment) => {
+          const tools = segment.rows.flatMap(({ row }) =>
+            row.kind === "tool" ? [row] : [],
+          );
+          const contents = segment.rows.map(({ row, part }) => (
+            <Fragment
+              key={
+                row.kind === "message" ? row.message.id : `tool:${row.call.id}`
+              }
+            >
+              {renderRow(row, true, part)}
+            </Fragment>
+          ));
+          return segment.process && tools.length > 0 ? (
+            <ProcessSteps
+              key={segment.id}
+              count={tools.length}
+              running={running}
+            >
+              {contents}
+            </ProcessSteps>
+          ) : (
+            <Fragment key={segment.id}>{contents}</Fragment>
+          );
+        })}
+      </div>
+      {summary && !running && text.trim() && (
+        <div className="message-meta">
+          <time
+            className="message-timestamp"
+            dateTime={new Date(summary.timestamp).toISOString()}
+            aria-label={t("消息时间")}
+          >
+            {new Date(summary.timestamp).toLocaleString(getLocale(), {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false,
+            })}
+          </time>
+          <div className="message-actions">
+            <IconButton
+              icon={copied ? Check : Copy}
+              label={t("复制消息")}
+              onClick={() => {
+                void navigator.clipboard.writeText(text).then(() => {
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                });
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function ProcessSteps({
+  count,
+  running,
+  children,
+}: {
+  count: number;
+  running: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(running);
+  useEffect(() => {
+    if (!running) setOpen(false);
+  }, [running]);
+  return (
+    <details
+      className="process-group"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        {running ? (
+          <LoaderCircle size={13} className="spin" />
+        ) : (
+          <Wrench size={13} />
+        )}
+        <span>{t("执行过程")}</span>
+        <span className="process-count">
+          {t("{value1} 次工具调用", { value1: count })}
+        </span>
+        <ChevronDown size={13} />
+      </summary>
+      <div className="process-steps">{children}</div>
+    </details>
+  );
+}
+
 export function Messages({
   sessionId,
   messages,
@@ -508,19 +787,7 @@ export function Messages({
     ),
     active: new Map(activeTools.map((tool) => [tool.id, tool])),
   };
-  const rows: (
-    | { kind: "message"; message: ChatMessage }
-    | {
-        kind: "notice";
-        notice: NonNullable<DesktopSnapshot["conversationNotices"]>[number];
-      }
-    | {
-        kind: "tool";
-        call: ContentBlock;
-        result?: ChatMessage;
-        active?: DesktopSnapshot["activeTools"][number];
-      }
-  )[] = [];
+  const rows: TranscriptRow[] = [];
   const renderedTools = new Set<string>();
   const addNotices = (afterMessageId?: string) => {
     for (const notice of conversationNotices)
@@ -562,17 +829,21 @@ export function Messages({
     });
   const turns: { id: string; rows: typeof rows }[] = [];
   for (const row of rows) {
-    if (!turns.length || (row.kind === "message" && row.message.role === "user"))
-      turns.push({ id: row.kind === "message" ? row.message.id : `intro:${sessionId}`, rows: [] });
+    if (
+      !turns.length ||
+      (row.kind === "message" && row.message.role === "user")
+    )
+      turns.push({
+        id: row.kind === "message" ? row.message.id : `intro:${sessionId}`,
+        rows: [],
+      });
     turns[turns.length - 1].rows.push(row);
   }
   useEffect(() => {
-    if (follow.current && scroller.current)
-      scroller.current.scrollTop = scroller.current.scrollHeight;
-  }, [messages, streaming, conversationNotices]);
-  useEffect(() => {
     const element = scroller.current;
     if (!element) return;
+    // Editor/completion snapshots also recreate the message arrays. Follow only
+    // real content/viewport resizing, so those snapshots cannot move the reader.
     const observer = new ResizeObserver(() => {
       if (follow.current) element.scrollTop = element.scrollHeight;
     });
@@ -580,6 +851,50 @@ export function Messages({
     if (element.firstElementChild) observer.observe(element.firstElementChild);
     return () => observer.disconnect();
   }, []);
+  const renderRow = (
+    row: TranscriptRow,
+    embedded = false,
+    part?: "thinking" | "content",
+  ): ReactNode =>
+    row.kind === "notice" ? (
+      <div
+        className="conversation-notice"
+        data-conversation-notice={row.notice.id}
+        role="status"
+      >
+        <StyledText {...row.notice.presentation} />
+      </div>
+    ) : row.kind === "tool" ? (
+      <ToolExecution
+        sessionId={sessionId}
+        call={row.call}
+        result={row.result}
+        active={row.active}
+        expanded={expanded}
+        surfaces={surfaces}
+        run={run}
+        showImages={showImages}
+        imageWidth={imageWidth}
+      />
+    ) : (
+      <Message
+        message={row.message}
+        embedded={embedded}
+        part={part}
+        streaming={row.message.id === streaming?.id}
+        showThinking={showThinking}
+        expanded={expanded}
+        hiddenThinkingLabel={extensionUI.hiddenThinkingLabel}
+        hiddenThinkingPresentation={
+          extensionUI.textPresentation?.hiddenThinkingLabel
+        }
+        onFork={onFork}
+        surfaces={surfaces}
+        run={run}
+        showImages={showImages}
+        imageWidth={imageWidth}
+      />
+    );
   return (
     <div
       className="transcript-wrap"
@@ -596,49 +911,32 @@ export function Messages({
         }}
       >
         <div className="transcript-inner">
-          {turns.map((turn) => <section className="conversation-turn" key={turn.id}>
-          {turn.rows.map((row) =>
-            row.kind === "notice" ? (
-              <div
-                key={row.notice.id}
-                className="conversation-notice"
-                data-conversation-notice={row.notice.id}
-                role="status"
-              >
-                <StyledText {...row.notice.presentation} />
-              </div>
-            ) : row.kind === "tool" ? (
-              <ToolExecution
-                key={`tool:${row.call.id}`}
-                sessionId={sessionId}
-                call={row.call}
-                result={row.result}
-                active={row.active}
-                expanded={expanded}
-                surfaces={surfaces}
-                run={run}
-                showImages={showImages}
-                imageWidth={imageWidth}
-              />
-            ) : (
-              <Message
-                key={row.message.id}
-                message={row.message}
-                showThinking={showThinking}
-                expanded={expanded}
-                hiddenThinkingLabel={extensionUI.hiddenThinkingLabel}
-                hiddenThinkingPresentation={
-                  extensionUI.textPresentation?.hiddenThinkingLabel
-                }
-                onFork={onFork}
-                surfaces={surfaces}
-                run={run}
-                showImages={showImages}
-                imageWidth={imageWidth}
-              />
-            ),
-          )}
-          </section>)}
+          {turns.map((turn) => (
+            <section className="conversation-turn" key={turn.id}>
+              {groupTranscriptRows(turn.rows).map((row) =>
+                row.kind === "reply" ? (
+                  <AssistantReply
+                    key={row.id}
+                    group={row}
+                    renderRow={renderRow}
+                    running={busy && turn.id === turns.at(-1)?.id}
+                  />
+                ) : (
+                  <Fragment
+                    key={
+                      row.kind === "notice"
+                        ? row.notice.id
+                        : row.kind === "tool"
+                          ? `tool:${row.call.id}`
+                          : row.message.id
+                    }
+                  >
+                    {renderRow(row)}
+                  </Fragment>
+                ),
+              )}
+            </section>
+          ))}
           {busy && extensionUI.workingVisible && (
             <div className="run-indicator">
               <WorkingIndicator

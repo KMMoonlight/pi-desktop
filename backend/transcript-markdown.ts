@@ -101,7 +101,7 @@ export class TranscriptMarkdownRenderer {
     this.session = session;
     this.sessionId = session.sessionId;
     this.hideThinking = hideThinking;
-    // Pi keeps the same thinking component when a streamed message becomes final.
+    // Completed replies collapse once; subsequent manual expansion remains intact.
     const previous = this.previousStreaming;
     if (previous && previous.timestamp !== streaming?.timestamp) {
       const completed = [...messages]
@@ -112,11 +112,11 @@ export class TranscriptMarkdownRenderer {
             message.timestamp === previous.timestamp,
         );
       if (completed)
-        for (const [key, visible] of this.thinkingVisibility)
+        for (const key of this.thinkingVisibility.keys())
           if (key.startsWith(`${previous.id}:`))
             this.thinkingVisibility.set(
               `${completed.id}:${key.slice(previous.id.length + 1)}`,
-              visible,
+              false,
             );
     }
     this.previousStreaming = streaming;
@@ -146,7 +146,8 @@ export class TranscriptMarkdownRenderer {
         const key = `${message.id}:${blockIndices[0]}`;
         if (thinking) liveThinking.add(key);
         const visible =
-          !thinking || (this.thinkingVisibility.get(key) ?? !hideThinking);
+          !thinking ||
+          (this.thinkingVisibility.get(key) ?? (isStreaming && !hideThinking));
         const componentWidth = availableWidths
           ? (message.role === "user"
               ? (availableWidths.users?.[message.id] ??

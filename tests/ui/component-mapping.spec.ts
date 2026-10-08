@@ -12,7 +12,18 @@ import {
   verifyMappedComposition,
 } from "../component-workflows.ts";
 import { sdkAction } from "../editor-workflows.ts";
+import type { Page } from "@playwright/test";
 import type { DesktopSnapshot } from "../../shared/types.ts";
+
+// Pi uses ctrl+- on macOS/Linux; these workflows explicitly exercise ctrl+z.
+async function withUndoBinding(page: Page, workflow: () => Promise<void>) {
+  const { agentDir } = await sdkAction<DesktopSnapshot>(page, "snapshot");
+  const configure = (bindings: Record<string, string>) => sdkAction(page, "sdk.run", {
+    path: `${agentDir}/desktop/editor-action.mjs`, args: { action: "bindings", bindings },
+  });
+  await configure({ "tui.editor.undo": "ctrl+z" });
+  try { await workflow(); } finally { await configure({}); }
+}
 
 for (const width of [1440, 390]) {
   test(`independent touch pointers release rejected captures and retain surviving drags at ${width}px`, async ({
@@ -20,6 +31,9 @@ for (const width of [1440, 390]) {
   }) => {
     await page.setViewportSize({ width, height: 940 });
     await page.goto("/");
+    await expect
+      .poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).changing)
+      .toBe(false);
     await page.route("**/api/action", async (route) => {
       const request = route.request().postDataJSON();
       if (
@@ -73,10 +87,21 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("textbox", { name: "消息", exact: true }),
     ).toBeVisible();
-    await verifyMappedComposition(
-      page,
-      `.local/screenshots/mapped-composition-${width}.png`,
-    );
+    const { agentDir } = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    // This workflow uses Ctrl+Z; Pi's default undo binding varies by platform.
+    const configureUndo = (bindings: Record<string, string>) => sdkAction(page, "sdk.run", {
+      path: `${agentDir}/desktop/editor-action.mjs`,
+      args: { action: "bindings", bindings },
+    });
+    await configureUndo({ "tui.editor.undo": "ctrl+z" });
+    try {
+      await verifyMappedComposition(
+        page,
+        `.local/screenshots/mapped-composition-${width}.png`,
+      );
+    } finally {
+      await configureUndo({});
+    }
   });
 
   test(`mapped paste blocks retain native preview, selection and undo at ${width}px`, async ({
@@ -87,10 +112,10 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("textbox", { name: "消息", exact: true }),
     ).toBeVisible();
-    await verifyMappedPasteBlocks(
+    await withUndoBinding(page, () => verifyMappedPasteBlocks(
       page,
       `.local/screenshots/mapped-paste-blocks-${width}.png`,
-    );
+    ));
   });
 
   test(`completion clicks follow pending original editor input at ${width}px`, async ({
@@ -145,10 +170,10 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByRole("textbox", { name: "消息", exact: true }),
     ).toBeVisible();
-    await verifyMappedEditorTransactions(
+    await withUndoBinding(page, () => verifyMappedEditorTransactions(
       page,
       `.local/screenshots/mapped-editor-transactions-${width}.png`,
-    );
+    ));
   });
 
   test(`desktop hit paths route horizontal controls, shared components and clipped scroll rows at ${width}px`, async ({

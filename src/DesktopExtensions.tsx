@@ -6,7 +6,7 @@ import type {
   PointerEvent,
   WheelEvent,
 } from "react";
-import { Button, Modal, Switch } from "reshaped";
+import { Button, Modal, Switch } from "./primitives";
 import {
   Check,
   X,
@@ -819,8 +819,7 @@ function TextControl({
     if (!(editor instanceof HTMLTextAreaElement) || node.appearance !== "composer") return;
     const resize = () => {
       editor.style.height = "0px";
-      const empty = editor.closest(".chat-view")?.classList.contains("is-empty");
-      editor.style.height = `${Math.min(360, Math.max(empty ? 76 : 48, editor.scrollHeight))}px`;
+      editor.style.height = `${Math.min(360, Math.max(96, editor.scrollHeight))}px`;
     };
     resize();
     let width = editor.getBoundingClientRect().width;
@@ -1242,7 +1241,7 @@ function NodeView({
           focused.current = false;
       }}
       inert={node.inert}
-      className="desktop-component"
+      className={`desktop-component${node.appearance === "completion" && node.kind === "column" ? " desktop-completion-panel" : ""}`}
       style={{ minWidth: 0 }}
       data-component-key={node.component?.occurrence}
       data-component-action={node.component?.action}
@@ -1586,7 +1585,7 @@ function NodeContent({
       );
     case "toggle":
       return (
-        <label className="desktop-toggle">
+        <label className="desktop-toggle flex items-center justify-between gap-4">
           <span>
             <StyledText text={nodeLabel(node)} runs={node.labelRuns} />
           </span>

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { mkdir } from "node:fs/promises";
+import { mkdir, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { sdkAction } from "../editor-workflows.ts";
 import { selectField } from "../select-field.ts";
@@ -66,8 +66,9 @@ test("workspace disclosure, cancel, invalid path, registration and project new-s
   await dialog.getByRole("textbox", { name: "文件夹路径", exact: true }).fill("修正路径");
   await expect(dialog.getByRole("alert")).toHaveCount(0);
   await dialog.getByRole("button", { name: "取消", exact: true }).click();
-  const second = join(dirname(before.cwd), "桌面项目 pi-agent");
-  await mkdir(second, { recursive: true });
+  const secondPath = join(dirname(before.cwd), "桌面项目 pi-agent");
+  await mkdir(secondPath, { recursive: true });
+  const second = await realpath(secondPath);
   const add = async (path = second) => {
     await page
       .getByRole("button", { name: "添加工作区", exact: true })
@@ -129,9 +130,9 @@ test("dropdowns, output metrics and content-sized bubbles work across the agreed
     .pop()!;
   expect(assistant.outputTokens).toBe(12);
   expect(assistant.generation?.tokensPerSecond).toBeGreaterThan(0);
-  await expect(page.locator(".composer .generation-status")).toContainText(
-    "tok/s",
-  );
+  await expect(page.locator(".composer-usage .generation-status")).toHaveCount(0);
+  await expect(page.locator(".message-assistant .generation-status").last()).toContainText("用时");
+  await expect(page.locator(".transcript")).not.toContainText("tok/s");
   for (const width of [1440, 1024, 768, 390, 375]) {
     await page.setViewportSize({ width, height: 940 });
     const close = page.getByRole("button", { name: "收起侧边栏", exact: true });

@@ -206,6 +206,54 @@ test("owner disposal settles pending probes and suppresses late extension callba
   assert.equal(queries.requests.length, 0);
 });
 
+test("history replay suppresses device replies while live queries and keyboard input remain responsive", async () => {
+  let receive!: (data: string) => void;
+  let finish!: () => void;
+  const inputs: string[] = [];
+  const replies: string[][] = [];
+  const io = new TerminalIO(
+    {
+      onData(listener) {
+        receive = listener;
+        return { dispose() {} };
+      },
+      write(_data, callback) {
+        finish = callback!;
+      },
+    },
+    (data) => inputs.push(data),
+    (_id, data) => replies.push(data),
+  );
+  const tick = () => new Promise((resolve) => setImmediate(resolve));
+  try {
+    io.replay("old device queries");
+    io.write("live device query");
+    io.query({ id: "probe", data: "pending color probe" });
+    await tick();
+    for (const reply of [
+      "\x1b[?1;2c",
+      "\x1b[>0;276;0c",
+      "\x1b[12;30R",
+      "\x1b]10;rgb:11/22/33\x07",
+    ])
+      receive(reply);
+    receive("q");
+    receive("\x1b[A");
+    finish();
+    await tick();
+    receive("\x1b[?1;2c");
+    finish();
+    await tick();
+    receive("\x1b]10;rgb:11/22/33\x07");
+    receive("\x1b[?1;2c");
+    finish();
+    assert.deepEqual(inputs, ["q", "\x1b[A", "\x1b[?1;2c"]);
+    assert.deepEqual(replies, [["\x1b]10;rgb:11/22/33\x07", "\x1b[?1;2c"]]);
+  } finally {
+    io.dispose();
+  }
+});
+
 test("terminal I/O serializes probes with PTY replies and preserves keyboard input", async () => {
   let receive!: (data: string) => void;
   let finish!: () => void;

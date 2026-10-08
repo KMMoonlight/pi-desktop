@@ -11,6 +11,9 @@ export async function createFixture(
     officialQuestions?: boolean;
     officialWorkflows?: ("todo" | "qna" | "message-renderer")[];
     extractionDelayMs?: number;
+    titleDelayMs?: number;
+    titleResponses?: string[];
+    titleFailures?: number;
     officialEditor?: boolean;
     componentLibrary?: boolean;
     terminalSupport?: boolean;
@@ -95,6 +98,7 @@ export async function createFixture(
   }
   await writeFile(join(cwd, "test-note.txt"), "Real file attachment content.");
   const requests: Record<string, any>[] = [];
+  const titleRequests: Record<string, any>[] = [];
   const abortedRequests: Record<string, any>[] = [];
   const server = createServer(async (req, res) => {
     if (req.url !== "/v1/chat/completions") {
@@ -105,6 +109,31 @@ export async function createFixture(
     let body = "";
     for await (const part of req) body += part;
     const payload = JSON.parse(body);
+    const titleRequest = payload.messages.some(
+      (message: any) => message.role === "system" &&
+        JSON.stringify(message.content).includes("You generate concise conversation titles."),
+    );
+    if (titleRequest) {
+      titleRequests.push(payload);
+      if (options.titleDelayMs)
+        await new Promise(resolve => setTimeout(resolve, options.titleDelayMs));
+      if (res.destroyed) return;
+      if (titleRequests.length <= (options.titleFailures ?? 0)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: { message: "Title unavailable" } }));
+        return;
+      }
+      res.writeHead(200, { "Content-Type": "text/event-stream" });
+      const title = options.titleResponses?.[titleRequests.length - 1] ?? "Desktop verification";
+      res.end(`data: ${JSON.stringify({
+        id: "chatcmpl-title",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "desktop-test",
+        choices: [{ index: 0, delta: { role: "assistant", content: title }, finish_reason: "stop" }],
+      })}\n\ndata: [DONE]\n\n`);
+      return;
+    }
     requests.push(payload);
     let finished = false;
     res.once("close", () => {
@@ -145,6 +174,29 @@ export async function createFixture(
           resolve();
         });
       });
+    if (prompt.includes("activity-loop-probe")) {
+      const completedTools = messages.slice(lastUser + 1).filter(m => m.role === "tool").length;
+      emit({ reasoning_content: completedTools === 0 ? "先读取项目中的说明，检查已有内容。" : completedTools < 3 ? "继续检查路径，并确认异常情况。" : "检查完成，整理结果并说明缺失的文件。" });
+      await delay(900);
+      if (res.destroyed) return;
+      if (completedTools < 3) {
+        const paths = completedTools === 0 ? ["test-note.txt", "test-note.txt"] : ["missing-note.txt"];
+        emit({ tool_calls: paths.map((path, index) => ({
+          index,
+          id: `activity-read-${completedTools + index}`,
+          type: "function",
+          function: { name: "read", arguments: JSON.stringify({ path }) },
+        })) });
+        emit({}, "tool_calls");
+      } else {
+        emit({ content: "### 已完成检查。\n\n读取了项目说明；另外一个文件不存在，可确认路径后重试。\n\n---\n\n可以继续检查其他文件。" });
+        emit({}, "stop");
+      }
+      res.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 80, completion_tokens: completedTools === 0 ? 20 : completedTools < 3 ? 30 : 50 } })}\n\n`);
+      res.end("data: [DONE]\n\n");
+      finished = true;
+      return;
+    }
     if (prompt.includes("application-status-gate")) {
       // Keep this workflow's real SDK response active until explicit abort,
       // independently of browser/native transport and editor mount duration.
@@ -308,6 +360,31 @@ export async function createFixture(
         ],
       });
       emit({}, "tool_calls");
+    } else if (prompt.includes("reply-polish-probe")) {
+      emit({ reasoning_content: "The user is asking for a clear desktop interface. I should keep the reasoning readable and align it with the response.\n\n先确认任务，再组织回答，避免重复的装饰和多余缩进。" });
+      await delay(1000);
+      if (res.destroyed) return;
+      emit({ content: "你好！有什么可以帮你的吗？\n\n我可以协助你审查界面、调整布局，或继续完善这个桌面应用。" });
+      emit({}, "stop");
+    } else if (prompt.includes("streaming-final-usage-probe")) {
+      emit({ reasoning_content: "Check the response before answering. " });
+      await delay(150);
+      emit({ reasoning_content: "Keep the live rate visible without intermediate usage. " });
+      await delay(150);
+      emit({ content: "Streaming without intermediate token counts. " });
+      await delay(1800);
+      if (res.destroyed) return;
+      emit({ content: "Complete." });
+      emit({}, "stop");
+    } else if (prompt.includes("streaming-metrics-probe")) {
+      emit({ content: "Streaming " });
+      await delay(100);
+      res.write(`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 80, completion_tokens: 6, total_tokens: 86 } })}\n\n`);
+      emit({ content: "metrics " });
+      await delay(1800);
+      if (res.destroyed) return;
+      emit({ content: "complete." });
+      emit({}, "stop");
     } else if (prompt.includes("presentation-code-probe")) {
       emit({
         content:
@@ -361,8 +438,11 @@ export async function createFixture(
       }
       emit({}, "stop");
     }
+    const usage = prompt.includes("reply-polish-probe")
+      ? { prompt_tokens: 1500, completion_tokens: 2800, total_tokens: 4300, prompt_tokens_details: { cached_tokens: 400 } }
+      : { prompt_tokens: 80, completion_tokens: 12, total_tokens: 92 };
     res.write(
-      `data: ${JSON.stringify({ id: "chatcmpl-desktop", object: "chat.completion.chunk", choices: [], usage: { prompt_tokens: 80, completion_tokens: 12, total_tokens: 92 } })}\n\n`,
+      `data: ${JSON.stringify({ id: "chatcmpl-desktop", object: "chat.completion.chunk", choices: [], usage })}\n\n`,
     );
     finished = true;
     res.end("data: [DONE]\n\n");
@@ -622,6 +702,7 @@ export async function createFixture(
     cwd,
     agentDir,
     requests,
+    titleRequests,
     abortedRequests,
     async close() {
       server.closeAllConnections();

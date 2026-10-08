@@ -166,7 +166,7 @@ export async function verifyTerminalPresentation(page: Page) {
   const hostColors = await page.evaluate(() => {
     const styles = getComputedStyle(document.documentElement);
     const colors = { foreground: { r: 0, g: 0, b: 0 }, background: { r: 0, g: 0, b: 0 } };
-    for (const [key, property] of [["foreground", "--ui-ink"], ["background", "--ui-canvas"]] as const) {
+    for (const [key, property] of [["foreground", "--ui-terminal-foreground"], ["background", "--ui-terminal-background"]] as const) {
       const sample = document.createElement("span");
       sample.style.color = styles.getPropertyValue(property);
       document.body.append(sample);
@@ -194,8 +194,9 @@ export async function verifyTerminalPresentation(page: Page) {
   }
   if (!(await panel.isVisible()))
     await page.getByRole("button", { name: "终端", exact: true }).click();
+  await panel.getByRole("button", { name: "Pi 扩展", exact: true }).click();
   await sdkAction(page, "prompt", { message: "/terminal-colors-change" });
-  await expect(panel.locator(".xterm-rows")).toContainText(
+  await expect(panel.locator('[data-terminal-source="pi"] .xterm-rows')).toContainText(
     "COLOR_THEME_CHANGED",
   );
   await sdkAction(page, "prompt", { message: "/terminal-colors-probe" });
@@ -245,7 +246,7 @@ export async function verifyTerminal(page: Page) {
   await page.getByRole("textbox", { name: "消息", exact: true }).waitFor();
   const running = sdkAction(page, "prompt", { message: "/terminal-probe" });
   const panel = page.getByRole("region", { name: "Pi 终端", exact: true });
-  await expect(panel.locator(".xterm-screen")).toBeVisible();
+  await expect(panel.locator('[data-terminal-source="pi"] .xterm-screen')).toBeVisible();
   await expect
     .poll(async () => {
       const value = await sdkAction<{ chunks: { data: string }[] }>(
@@ -255,7 +256,7 @@ export async function verifyTerminal(page: Page) {
       return value.chunks.map((chunk) => chunk.data).join("");
     })
     .toContain("PTY_READY:");
-  await panel.locator(".xterm-screen").click({ position: { x: 20, y: 20 } });
+  await panel.locator('[data-terminal-source="pi"] .xterm-screen').click({ position: { x: 20, y: 20 } });
   await page.keyboard.press("q");
   await running;
   await expect
@@ -298,8 +299,8 @@ export async function verifyTerminal(page: Page) {
     )
     .toBe("x");
   await sdkAction(page, "prompt", { message: "/raw-terminal-probe" });
-  await expect(panel.locator(".xterm-screen")).toBeVisible();
-  await panel.locator(".xterm-screen").click({ position: { x: 20, y: 20 } });
+  await expect(panel.locator('[data-terminal-source="pi"] .xterm-screen')).toBeVisible();
+  await panel.locator('[data-terminal-source="pi"] .xterm-screen').click({ position: { x: 20, y: 20 } });
   await page.keyboard.press("z");
   await expect
     .poll(

@@ -2,6 +2,7 @@ import { mkdir, cp, readFile, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
+import { prepareNative } from "./prepare-native.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const directory = join(root, "runtime");
 const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
@@ -40,6 +41,7 @@ const result = spawnSync(
 );
 if (result.status !== 0)
   throw new Error("Runtime dependency installation failed");
+await prepareNative(directory);
 await cp(
   join(root, "dist-backend", "server.mjs"),
   join(directory, "server.mjs"),

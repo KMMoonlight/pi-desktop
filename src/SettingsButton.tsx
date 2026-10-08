@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { Button } from "reshaped";
+import { Button } from "./primitives";
 
 /** Body actions share geometry; their variant conveys the action's priority. */
 export function SettingsButton({

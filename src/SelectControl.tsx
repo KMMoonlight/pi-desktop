@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
@@ -58,24 +59,42 @@ export function SelectControl({
   onChange,
   children,
   disabled,
+  pending,
   labelledBy,
   describedBy,
+  searchable = false,
+  searchPlaceholder,
+  emptyText,
 }: {
   name: string;
   value: string;
   onChange: (value: string) => void;
   children: ReactNode;
   disabled?: boolean;
+  pending?: boolean;
   labelledBy?: string;
   describedBy?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  emptyText?: string;
 }) {
   useLocale();
   const id = useId();
-  const trigger = useRef<HTMLButtonElement>(null);
+  const trigger = useRef<HTMLButtonElement | HTMLInputElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const typeahead = useRef({ text: "", at: 0 });
-  const options = optionsFrom(children);
+  const [query, setQuery] = useState("");
+  const allOptions = optionsFrom(children);
+  const options =
+    searchable && query.trim()
+      ? allOptions.filter((option) =>
+          option.text
+            .toLocaleLowerCase()
+            .includes(query.trim().toLocaleLowerCase()),
+        )
+      : allOptions;
   const selected = options.findIndex((option) => option.value === value);
+  const selectedOption = allOptions.find((option) => option.value === value);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(selected);
   const [position, setPosition] = useState({
@@ -84,8 +103,12 @@ export function SelectControl({
     width: 0,
     maxHeight: 300,
   });
-  const close = () => setOpen(false);
+  const close = () => {
+    setOpen(false);
+    setQuery("");
+  };
   const choose = (index: number) => {
+    if (disabled || pending) return;
     const option = options[index];
     if (!option || option.disabled) return;
     onChange(option.value);
@@ -103,6 +126,8 @@ export function SelectControl({
     }
   };
   const reveal = () => {
+    if (disabled || pending) return;
+    setQuery("");
     setActive(
       selected >= 0 && !options[selected].disabled
         ? selected
@@ -117,24 +142,35 @@ export function SelectControl({
       const scroller = trigger.current!.closest(".settings-content");
       if (scroller) {
         const bounds = scroller.getBoundingClientRect();
-        if (box.top < bounds.top || box.bottom > bounds.bottom) { close(); return; }
+        if (box.top < bounds.top || box.bottom > bounds.bottom) {
+          close();
+          return;
+        }
       }
-      const above = box.top - 12,
-        below = innerHeight - box.bottom - 12;
+      const gap = 6;
+      const above = Math.max(0, box.top - 12 - gap),
+        below = Math.max(0, innerHeight - box.bottom - 12 - gap);
       const maxHeight = Math.min(360, Math.max(above, below));
-      const width = Math.min(innerWidth - 24, 420, Math.max(box.width, 240));
-      // Measure wrapped labels at the final width before placing above/below.
+      const maxWidth = Math.min(innerWidth - 24, 420);
+      const minWidth = Math.min(maxWidth, Math.max(box.width, 160));
+      // Size to the labels, then measure the final border box before placing it.
       if (list.current) {
-        list.current.style.width = `${width}px`;
+        list.current.style.width = "max-content";
+        list.current.style.minWidth = `${minWidth}px`;
+        list.current.style.maxWidth = `${maxWidth}px`;
         list.current.style.maxHeight = `${maxHeight}px`;
       }
-      const height = Math.min(maxHeight, list.current?.scrollHeight ?? options.length * 34 + 8);
+      const width = Math.ceil(
+        list.current?.getBoundingClientRect().width ?? minWidth,
+      );
+      if (list.current) list.current.style.width = `${width}px`;
+      const height = list.current?.getBoundingClientRect().height ?? 0;
+      const preferAbove = !!trigger.current!.closest(".composer");
+      const placeAbove =
+        (preferAbove && above >= height) || (below < height && above > below);
       setPosition({
         left: Math.max(12, Math.min(box.left, innerWidth - width - 12)),
-        top:
-          below >= height || below >= above
-            ? box.bottom + 6
-            : Math.max(6, box.top - height - 6),
+        top: placeAbove ? box.top - height - gap : box.bottom + gap,
         width,
         maxHeight,
       });
@@ -158,7 +194,7 @@ export function SelectControl({
       window.removeEventListener("resize", update);
       document.removeEventListener("scroll", scroll, true);
     };
-  }, [open, options.length]);
+  }, [open, options.map((option) => option.text).join("\n")]);
   useLayoutEffect(() => {
     if (open)
       list.current
@@ -166,82 +202,148 @@ export function SelectControl({
         ?.scrollIntoView({ block: "nearest" });
   }, [open, active]);
   useEffect(() => {
-    if (disabled) close();
-  }, [disabled]);
+    if (disabled || pending) close();
+  }, [disabled, pending]);
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (pending || event.nativeEvent.isComposing) return;
+    if (
+      ["ArrowDown", "ArrowUp"].includes(event.key) ||
+      (!searchable && ["Home", "End"].includes(event.key))
+    ) {
+      event.preventDefault();
+      if (!open) reveal();
+      else if (event.key === "Home")
+        setActive(options.findIndex((option) => !option.disabled));
+      else if (event.key === "End")
+        setActive(
+          options
+            .map((option, index) => (option.disabled ? -1 : index))
+            .filter((index) => index >= 0)
+            .pop() ?? -1,
+        );
+      else move(event.key === "ArrowDown" ? 1 : -1);
+    } else if (event.key === "Enter" || (!searchable && event.key === " ")) {
+      event.preventDefault();
+      open ? choose(active) : reveal();
+    } else if (event.key === "Escape" && open) {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+    } else if (event.key === "Tab") close();
+    else if (
+      !searchable &&
+      event.key.length === 1 &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      event.preventDefault();
+      const now = Date.now();
+      const text =
+        now - typeahead.current.at < 700
+          ? typeahead.current.text + event.key
+          : event.key;
+      typeahead.current = { text, at: now };
+      const index = options.findIndex(
+        (option) =>
+          !option.disabled &&
+          option.text.toLowerCase().startsWith(text.toLowerCase()),
+      );
+      if (index >= 0) {
+        setActive(index);
+        setOpen(true);
+      }
+    }
+  };
   return (
     <>
-      <button
-        ref={trigger}
-        type="button"
-        className="select-trigger"
-        data-desktop-native-input
-        role="combobox"
-        aria-label={name}
-        aria-labelledby={labelledBy}
-        aria-describedby={describedBy}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? id : undefined}
-        aria-activedescendant={
-          open && active >= 0 ? `${id}-${active}` : undefined
-        }
-        data-value={value}
-        name={name}
-        value={value}
-        disabled={disabled}
-        title={options[selected]?.text}
-        onClick={() => (open ? close() : reveal())}
-        onBlur={close}
-        onKeyDown={(event) => {
-          if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
-            event.preventDefault();
-            if (!open) reveal();
-            else if (event.key === "Home")
-              setActive(options.findIndex((option) => !option.disabled));
-            else if (event.key === "End")
-              setActive(
-                options
-                  .map((option, index) => (option.disabled ? -1 : index))
-                  .filter((index) => index >= 0)
-                  .pop() ?? -1,
-              );
-            else move(event.key === "ArrowDown" ? 1 : -1);
-          } else if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            open ? choose(active) : reveal();
-          } else if (event.key === "Escape" && open) {
-            event.preventDefault();
-            event.stopPropagation();
-            close();
-          } else if (event.key === "Tab") close();
-          else if (
-            event.key.length === 1 &&
-            !event.ctrlKey &&
-            !event.metaKey &&
-            !event.altKey
-          ) {
-            event.preventDefault();
-            const now = Date.now();
-            const query =
-              now - typeahead.current.at < 700
-                ? typeahead.current.text + event.key
-                : event.key;
-            typeahead.current = { text: query, at: now };
-            const index = options.findIndex(
-              (option) =>
-                !option.disabled &&
-                option.text.toLowerCase().startsWith(query.toLowerCase()),
-            );
-            if (index >= 0) {
-              setActive(index);
-              setOpen(true);
+      {searchable ? (
+        <div className="relative min-w-0">
+          <input
+            ref={(node) => {
+              trigger.current = node;
+            }}
+            className="select-trigger w-full appearance-none rounded-lg border border-line bg-canvas px-3 py-1.5 pr-9 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-coral/40"
+            data-desktop-native-input
+            role="combobox"
+            aria-label={name}
+            aria-labelledby={labelledBy}
+            aria-describedby={describedBy}
+            aria-autocomplete="list"
+            aria-haspopup="listbox"
+            aria-expanded={open}
+            aria-controls={open ? id : undefined}
+            aria-activedescendant={
+              open && active >= 0 && options[active]
+                ? `${id}-${active}`
+                : undefined
             }
+            aria-busy={pending || undefined}
+            disabled={disabled}
+            name={name}
+            data-value={value}
+            autoComplete="off"
+            value={open ? query : (selectedOption?.text ?? value)}
+            placeholder={open ? searchPlaceholder : undefined}
+            onClick={() => {
+              if (!open) reveal();
+            }}
+            onChange={(event) => {
+              if (pending) return;
+              const next = event.target.value;
+              setQuery(next);
+              setActive(
+                allOptions
+                  .filter((option) =>
+                    option.text
+                      .toLocaleLowerCase()
+                      .includes(next.trim().toLocaleLowerCase()),
+                  )
+                  .findIndex((option) => !option.disabled),
+              );
+              setOpen(true);
+            }}
+            onBlur={close}
+            onKeyDown={handleKeyDown}
+          />
+          <ChevronDown
+            size={14}
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted"
+          />
+        </div>
+      ) : (
+        <button
+          ref={(node) => {
+            trigger.current = node;
+          }}
+          type="button"
+          className="select-trigger appearance-none flex min-w-0 items-center justify-between gap-2 rounded-lg border border-line bg-canvas px-3 py-1.5 text-sm text-ink outline-none focus-visible:ring-2 focus-visible:ring-coral/40"
+          data-desktop-native-input
+          role="combobox"
+          aria-label={name}
+          aria-labelledby={labelledBy}
+          aria-describedby={describedBy}
+          aria-haspopup="listbox"
+          aria-busy={pending || undefined}
+          aria-disabled={disabled || pending || undefined}
+          aria-expanded={open}
+          aria-controls={open ? id : undefined}
+          aria-activedescendant={
+            open && active >= 0 ? `${id}-${active}` : undefined
           }
-        }}
-      >
-        <span>{options[selected]?.label ?? t("请选择")}</span>
-        <ChevronDown size={14} />
-      </button>
+          data-value={value}
+          name={name}
+          value={value}
+          disabled={disabled}
+          title={options[selected]?.text}
+          onClick={() => (open ? close() : reveal())}
+          onBlur={close}
+          onKeyDown={handleKeyDown}
+        >
+          <span>{options[selected]?.label ?? t("请选择")}</span>
+          <ChevronDown size={14} />
+        </button>
+      )}
       {open &&
         createPortal(
           <div
@@ -249,11 +351,16 @@ export function SelectControl({
             id={id}
             role="listbox"
             aria-label={name}
-            className="select-popover"
+            className="select-popover fixed z-[10000] overflow-auto rounded-xl border border-line bg-canvas p-1 text-ink shadow-sm"
             data-desktop-native-input
             style={position}
             onPointerDown={(event) => event.preventDefault()}
           >
+            {options.length === 0 && (
+              <p className="px-3 py-2 text-xs text-muted">
+                {emptyText ?? t("没有匹配项")}
+              </p>
+            )}
             {options.map((option, index) => (
               <button
                 type="button"

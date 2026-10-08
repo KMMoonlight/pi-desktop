@@ -27,8 +27,49 @@
   padding: 5px 8px;
   cursor: pointer;
 }
-.terminal-panel header button:last-child:not(:first-child) {
+.terminal-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
   margin-left: auto;
+}
+.terminal-actions > button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--ui-secondary);
+}
+.terminal-actions > button:hover {
+  background: var(--ui-hover);
+  color: var(--ui-ink);
+}
+.terminal-actions svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.75;
+}
+.terminal-sources {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.terminal-sources > button {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--ui-muted);
+}
+.terminal-sources > button[aria-pressed="true"] {
+  color: var(--ui-ink);
+  background: var(--ui-hover);
+}
+.terminal-viewport[hidden] {
+  display: none;
 }
 .terminal-panel p {
   padding: 0 12px;

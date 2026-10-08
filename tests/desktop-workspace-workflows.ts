@@ -13,7 +13,7 @@ export async function verifyNativeDesktopWorkspace(page: Page, desktopProcessId:
   await editor.waitFor();
   await sdkAction(page, "session.new");
   await sdkAction(page, "prompt", { message: "run-tool" });
-  await expect(page.locator(".composer .generation-status")).toContainText("tok/s");
+  await expect(page.locator(".composer-usage .generation-status")).toContainText("tok/s");
   const beforePicker = await sdkAction<DesktopSnapshot>(page, "snapshot");
   await page.getByRole("button", { name: "添加工作区", exact: true }).click();
   const cancellation = await promisify(execFile)("powershell.exe", [
@@ -75,7 +75,7 @@ export async function verifyNativeDesktopWorkspace(page: Page, desktopProcessId:
     .click();
   await page.getByRole("button", { name: "添加到消息", exact: true }).click();
   await expect(page.locator(".attachment-list")).toContainText("test-note.txt");
-  await page.getByRole("button", { name: "关闭文件面板", exact: true }).click();
+  await expect(page.getByRole("button", { name: "对话", exact: true })).toHaveAttribute("aria-current", "page");
   await page.getByRole("button", { name: "添加上下文", exact: true }).click();
   await menu
     .getByRole("textbox", { name: "搜索技能与命令" })

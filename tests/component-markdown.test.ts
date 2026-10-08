@@ -243,3 +243,172 @@ test("Markdown retains source options, strict strikethrough, ANSI, weak token ca
   result = componentMarkdown(component, 14, api);
   assert.deepEqual(result, { text: "", blocks: [] });
 });
+
+test("all heading levels and nested inline syntax retain semantics without terminal punctuation", async () => {
+  const api = (await loadComponentRuntime()).text;
+  const component = await markdown(
+    [
+      ...Array.from(
+        { length: 6 },
+        (_, i) => `${"#".repeat(i + 1)} Level ${i + 1} \`code\``,
+      ),
+      "",
+      "Setext",
+      "======",
+      "",
+      "Subtitle",
+      "------",
+      "",
+      "**bold *nested* and `inline`** ~~deleted~~ \\*literal\\*",
+    ].join("\n"),
+    {
+      bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
+      italic: (text: string) => `\x1b[3m${text}\x1b[23m`,
+      strikethrough: (text: string) => `\x1b[9m${text}\x1b[29m`,
+    },
+  );
+  const blocks = componentMarkdown(component, 80, api).blocks;
+  const headings = blocks.filter(
+    (
+      block,
+    ): block is Extract<
+      DesktopMarkdownBlock,
+      { kind: "paragraph" | "heading" }
+    > => block.kind === "heading",
+  );
+  assert.deepEqual(
+    headings.map((block) => block.depth),
+    [1, 2, 3, 4, 5, 6, 1, 2],
+  );
+  assert.ok(headings.every((block) => !block.text.startsWith("#")));
+  assert.ok(
+    headings[2].runs?.some(
+      (run) =>
+        run.code && run.text === "code" && run.style?.fontWeight === "bold",
+    ),
+  );
+  const last = blocks.at(-1)!;
+  assert.ok(last.kind === "paragraph");
+  assert.equal(last.text, "bold nested and inline deleted *literal*");
+  assert.ok(
+    last.runs?.some(
+      (run) =>
+        run.text === "nested" &&
+        run.style?.fontWeight === "bold" &&
+        run.style.fontStyle === "italic",
+    ),
+  );
+  assert.ok(
+    last.runs?.some(
+      (run) =>
+        run.text === "deleted" &&
+        run.style?.textDecorationLine === "line-through",
+    ),
+  );
+});
+
+test("nested mixed lists and task states survive block mapping", async () => {
+  const api = (await loadComponentRuntime()).text;
+  const source =
+    "9. Parent\n   - Child\n     - [x] Done **task**\n     - [ ] Pending\n10. Next\n\n+ Other\n* Last";
+  const result = componentMarkdown(await markdown(source), 80, api);
+  const lists = flatten(result.blocks).filter((block) => block.kind === "list");
+  assert.deepEqual(
+    lists.map((block) => block.ordered),
+    [true, false, false, false, false],
+  );
+  assert.equal(lists[0].start, 9);
+  assert.equal(lists[0].items[1].marker.text, "10. ");
+  const tasks = lists
+    .flatMap((list) => list.items)
+    .filter((item) => item.checked !== undefined);
+  assert.deepEqual(
+    tasks.map((item) => item.checked),
+    [true, false],
+  );
+  assert.ok(tasks.every((item) => !item.marker.text.includes("[")));
+  assert.equal(result.text, source);
+});
+
+test("entities decode once in text and destinations while escapes and code remain literal", async () => {
+  const api = (await loadComponentRuntime()).text;
+  const source =
+    "&amp; &lt;b&gt; &#35; &#x1F600; &amp;amp; &unknown;\n\n`&amp; **literal**` \\&amp;\n\n[Docs](https://example.com/?a=1&amp;b=2)\n\n~~~txt\n&amp; **literal**\n~~~";
+  const result = componentMarkdown(await markdown(source), 80, api);
+  assert.equal(
+    result.blocks[0].kind === "paragraph" && result.blocks[0].text,
+    "& <b> # 😀 &amp; &unknown;",
+  );
+  const inline = result.blocks[1];
+  assert.ok(inline.kind === "paragraph");
+  assert.equal(inline.text, "&amp; **literal** &amp;");
+  assert.ok(
+    inline.runs?.some((run) => run.code && run.text === "&amp; **literal**"),
+  );
+  const link = result.blocks[2];
+  assert.ok(link.kind === "paragraph");
+  assert.equal(link.text, "Docs");
+  assert.equal(link.runs?.[0].href, "https://example.com/?a=1&b=2");
+  const code = result.blocks[3];
+  assert.ok(code.kind === "code");
+  assert.equal(code.copyText, "&amp; **literal**");
+  assert.equal(result.text, source);
+});
+
+test("reference links, images, hard breaks and inline formatting in tables retain desktop metadata", async () => {
+  const api = (await loadComponentRuntime()).text;
+  const source =
+    "[**Doc `name`**][doc]  \nnext\\\nline ![Preview](https://example.com/image.png) ![](https://example.com/empty.png)\n\n[doc]: https://example.com/docs\n\n| Left | Center | Right |\n| :--- | :---: | ---: |\n| a\\|b | `code` | ~~gone~~ |";
+  const blocks = componentMarkdown(await markdown(source), 80, api).blocks;
+  const paragraph = blocks[0];
+  assert.ok(paragraph.kind === "paragraph");
+  assert.equal(paragraph.text, "Doc name\nnext\nline Preview ");
+  assert.ok(
+    paragraph.runs?.some(
+      (run) => run.code && run.href === "https://example.com/docs",
+    ),
+  );
+  assert.deepEqual(
+    paragraph.runs?.filter((run) => run.image).map((run) => run.image),
+    [
+      { src: "https://example.com/image.png", alt: "Preview" },
+      { src: "https://example.com/empty.png", alt: "" },
+    ],
+  );
+  const table = blocks.at(-1)!;
+  assert.ok(table.kind === "table");
+  assert.deepEqual(table.align, ["left", "center", "right"]);
+  assert.equal(table.rows[0][0].text, "a|b");
+  assert.ok(table.rows[0][1].runs?.some((run) => run.code));
+});
+
+test("extension ANSI styles cross inline token boundaries and reset before following text", async () => {
+  const api = (await loadComponentRuntime()).text;
+  const result = componentMarkdown(
+    await markdown(
+      "\x1b[38;2;12;34;56mColor **bold** and `code`\x1b[39m plain",
+      {
+        bold: (text: string) => `\x1b[1m${text}\x1b[22m`,
+      },
+    ),
+    80,
+    api,
+  ).blocks[0];
+  assert.ok(result.kind === "paragraph");
+  assert.ok(
+    result.runs?.some(
+      (run) =>
+        run.text === "bold" &&
+        run.style?.color === "rgb(12, 34, 56)" &&
+        run.style.fontWeight === "bold",
+    ),
+  );
+  assert.ok(
+    result.runs?.some(
+      (run) => run.code && run.style?.color === "rgb(12, 34, 56)",
+    ),
+  );
+  assert.ok(
+    result.runs?.some((run) => run.text === " plain" && !run.style?.color),
+  );
+});

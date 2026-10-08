@@ -1,10 +1,18 @@
 # Pi Desktop
 
-A graphical Pi Agent workspace built with Tauri 2, React 19, Reshaped 4.2 and the official Pi SDK. The application uses `@earendil-works/pi-coding-agent@1.0.0`; it does not contain a fork of Pi. Standard components map to desktop controls; xterm.js and a real PTY support terminal-dependent extensions. Resource reload and session changes retain the original shared TUI, default editor/history and direct registrations; see [the lifecycle contract](docs/runtime-lifecycle.md). Original regular/fullscreen renderers now supply native redraw, viewport and lifecycle state through a desktop drawing backend; see [renderer modes and terminal ownership](docs/renderer-modes.md).
+A graphical Pi Agent workspace built with Tauri 2, React 19, Tailwind CSS 4 and the official Pi SDK. The application uses `@earendil-works/pi-coding-agent@1.0.0`; it does not contain a fork of Pi. Standard components map to desktop controls; xterm.js and a real PTY support terminal-dependent extensions. Resource reload and session changes retain the original shared TUI, default editor/history and direct registrations; see [the lifecycle contract](docs/runtime-lifecycle.md). Original regular/fullscreen renderers now supply native redraw, viewport and lifecycle state through a desktop drawing backend; see [renderer modes and terminal ownership](docs/renderer-modes.md).
 
 Native cache-warming/cache-miss, summary billing and dropped-thinking notices use Pi's original policies and components; see [the notice contract](docs/conversation-notices.md). The pinned SDK integration is complete within [the agreed acceptance scope](docs/sdk-acceptance.md); evidence and explicit compatibility boundaries are in [the completion review](docs/sdk-completion-review.md).
 
 Original builtin header, resource grouping/diagnostics, pending queue hints and bounded string widgets now populate the shared native tree; mixed factory/string widgets retain Pi order. See [native application content](docs/application-content.md).
+
+The desktop interface follows [Design.md](Design.md): warm cream surfaces, coral
+primary actions, serif display headings, and dark code/terminal surfaces. Native
+React controls in `src/primitives.tsx` provide buttons, switches, tooltips, and
+focus-managed dialogs without a component framework. `src/tailwind.css` owns the
+Tailwind entry point and shared tokens; feature styles are in the components layer
+so utility classes remain authoritative. SDK colors and original input handlers
+remain separate from application chrome.
 
 ## Run
 
@@ -15,6 +23,11 @@ npm ci
 npm run dev
 ```
 
+On macOS, the postinstall step restores executable permissions on node-pty's
+`spawn-helper`. If dependencies were installed with lifecycle scripts disabled,
+run `npm run postinstall` before starting the app. Runtime staging applies the
+same repair to packaged dependencies.
+
 Open http://127.0.0.1:1420. This preview uses the real SDK through a local HTTP/SSE host. For the native window, stop the preview and run:
 
 ```sh
@@ -22,6 +35,23 @@ npm run desktop:dev
 ```
 
 `desktop:dev` starts Vite and a separate SDK process through the Rust host. It does not start the preview HTTP server.
+It applies `src-tauri/tauri.dev.conf.json` to omit bundled runtime resources:
+development uses the local Node installation and backend source, so no `runtime/`
+directory or `runtime:stage` step is required. Release builds still stage and
+bundle the runtime through `beforeBuildCommand`.
+
+Starting the service does not select its working directory as a workspace.
+The app restores the last explicitly selected workspace and its last opened session,
+or shows the open-workspace screen on first launch. If no last-opened record exists,
+it continues the most recent session in that workspace. Without history, it shows
+an empty workspace without adding a session. A session is saved only after the
+user explicitly creates one or sends a message. `PI_DESKTOP_CWD` can explicitly select an initial workspace.
+Legacy automatic workspace selections are not restored.
+Global settings, provider credentials, model defaults, MCP configuration and
+package management are available before opening a workspace. Project settings
+and live MCP connection operations become available after a workspace is selected.
+The sidebar groups only explicitly registered workspaces; older automatic entries
+and unrelated session history do not add workspace groups. Session files are retained.
 
 ```sh
 npm run desktop:build
@@ -29,20 +59,26 @@ npm run desktop:build
 
 The Windows installer is written to `src-tauri/target/release/bundle/nsis/`. The build stages Node and the SDK dependency tree into `runtime/` and includes them in the installer. Installed users do not need a global Pi or Node installation. Windows still needs the WebView2 runtime; the Tauri installer uses its standard WebView2 bootstrap flow if necessary. Other platform builds have not been verified.
 
+App icons use the Pi Agent mark on a rounded, transparent canvas. Edit
+`src-tauri/app-icon.svg`, then run `npm run icons` to regenerate the desktop PNG,
+Windows ICO and macOS ICNS assets. Rebuild the desktop app to apply icon changes.
+
 Features that launch external programs still require those programs: Git for diffs and Git packages, npm (or Pi's configured package manager) for npm package installation, and the shells or executables named by tools and MCP server configuration. The installer does not include these external tools.
 
 ## Workflows
 
-- Workspace groups in the sidebar, with conversation search, local pins and a separate new-session action per project. Adding a directory registers it and opens a new session; cancellation keeps the current session and draft.
+- Workspace groups in the sidebar, with conversation search, local pins and a separate new-session action per project. A delete button beside the pin removes a conversation after confirmation; deleting the active conversation opens the most recent one in the same workspace, or an unsaved empty state if none remain. Adding a directory registers it and opens the workspace; cancellation keeps the current session and draft.
 - Streamed Markdown, thinking, tool calls, tool output, images, stop, steering and follow-up queues.
 - Conversation tree navigation, branch summaries, labels, forks, cloning, renaming, HTML/JSONL export and JSONL import.
-- Workspace file browsing, image/text preview, file attachments and staged/unstaged Git diffs.
+- Workspace file browsing, image/text preview, file attachments and staged/unstaged Git diffs. Files & changes and the conversation tree each fill the central workspace; opening a message's file link selects Files & changes, and returning to chat preserves the composer draft.
 - Models, thinking levels, tool selection, context usage, compaction and usage costs in the conversation inspector.
 - Provider API key/OAuth login, model scope, global/project settings, MCP configuration and package management in settings.
-- Extension commands, skills, prompt templates, resource diagnostics and reload in the resources view.
+- Extension commands, skills, prompt templates, resource diagnostics and reload in Settings → Extensions & skills.
 - Standard extension dialogs, notifications, text widgets, status entries and editor updates mapped to desktop UI.
 
-Replies and the composer show output tokens and average output speed when timing is available. Token counts come from Pi's usage; speed measures the time from first nonempty output to completion, including reported thinking/tool-call tokens. Older responses without timing show token counts only. “运行 Shell 命令…” runs one command in the current workspace and records its output in the conversation for subsequent model context; the docked terminal provides interactive shell access.
+Consecutive model responses and tool calls in a turn share one assistant reply, one elapsed-time/token summary and one copy action. Tool activity is presented as compact, expandable steps; the group and standard tool details collapse when the reply settles, including failed outputs, and can then be reopened manually. Custom interactive tool renderers keep their controls. Elapsed time includes time spent in tools and is restored from Pi’s assistant start/completion timestamps when loading history. A single composer action shows Stop while running with no input and Send when text or attachments are present. The running-message preference (steer or queue) lives in Settings → General and is stored locally for this app.
+
+Message timestamps appear before the copy button when hovering the message content (or focusing its controls with the keyboard). Thinking blocks collapse automatically when a streamed reply completes and remain manually expandable. Context usage, live output speed and cumulative input/output tokens appear in a separate row below the composer. Output speed appears only during generation. Token counts come from Pi's usage; speed measures the time from first nonempty output, including reported thinking/tool-call tokens. When a provider reports usage only on completion, the live speed uses Pi's content-based estimate and displays ≈; this estimate never changes cumulative token counts. Responses without valid start/completion timestamps show token counts only. “运行 Shell 命令…” runs one command in the current workspace and records its output in the conversation for subsequent model context; the docked terminal opens an interactive shell in the selected workspace (the configured user shell on Unix, PowerShell on Windows). Closing the panel preserves the shell; switching workspaces creates a new shell on next use. The “Pi 扩展” terminal remains available for inherited extension subprocesses and is selected automatically when an extension requests terminal input.
 
 See [the feature mapping](docs/feature-mapping.md) for the integration boundaries.
 
@@ -53,6 +89,14 @@ under **Settings → Appearance → Interface language**; it applies immediately
 is saved locally without changing Pi configuration. Conversations, user-defined
 names, paths and original extension content retain their source text. See
 [interface localization and UI verification](docs/interface-localization.md).
+
+Under **Settings → Appearance → Fonts**, search fonts installed on this device and
+choose separate interface and code/terminal fonts, or enter a family name manually.
+Each font selector also accepts text to filter its own list. Changes preview immediately, update
+open terminals and are saved on this device across restarts. Choose **App default
+font** to restore the original font stack. Missing fonts or glyphs use fallbacks.
+Font discovery uses macOS System Profiler, Windows' system font collection, or
+Fontconfig (`fc-list`) on Linux, and works before selecting a workspace.
 
 The application uses Pi's normal agent directory, credentials, settings and session format. On Windows, the default agent directory is `%USERPROFILE%/.pi/agent`. Project resources are loaded after project trust is granted. The configured `sessionDir` is honored. Back up existing data before sharing it with a different Pi version; compatibility with every historical Pi/extension release is not guaranteed.
 
@@ -65,7 +109,7 @@ Optional environment variables:
 | `PI_DESKTOP_CWD`       | Initial workspace when no saved workspace is selected                             |
 | `PI_DESKTOP_PORT`      | Preview backend port, default `4319`                                              |
 
-Global and project settings are shared with Pi. Appearance, conversation pins and input drafts are stored locally by the frontend. Recent workspaces are stored in `desktop.json` in the agent directory. Node inherits the application's environment; credentials that only exist in another shell are unavailable until supplied to this process or stored through Pi.
+Global and project settings are shared with Pi. Appearance, conversation pins and input drafts are stored locally by the frontend. Recent workspaces are stored in `desktop.json` in the agent directory; the last opened session for each workspace is stored in `desktop/active-sessions.json`. Node inherits the application's environment; credentials that only exist in another shell are unavailable until supplied to this process or stored through Pi.
 
 ## Extension Compatibility
 
@@ -89,7 +133,9 @@ Factories' `tui.terminal.setTitle()` and `setProgress()` map to the native windo
 
 Theme settings, native SDK helpers and desktop CSS tokens share the active theme. System themes and automatic light/dark pairs follow desktop appearance changes; fixed themes and direct instances retain their selection. Named custom themes watch their source files, survive atomic replacement and retain the last valid colors during invalid edits. Reload, replacement and disposal release old watchers. The appearance selector uses the same SDK theme API.
 
-Standard `Text` and `TruncatedText` retain ANSI colors and compound decorations as structured desktop spans. Pi supplies palette conversion and OSC 8 link parsing; HTTP/HTTPS links open through the desktop's existing link handler. `Text` and `Box` background callbacks cover their native content/padding areas. Markdown reuses Pi's parsed tokens, source options, original theme functions and code highlighting to produce desktop headings, lists, quotes, tables and code blocks. Defaults and inline ANSI retain their styling/reset behavior. Component updates retain their original callbacks. Cursor/title/image escape instructions in text are discarded, and literal HTML stays text.
+Standard `Text` and `TruncatedText` retain ANSI colors and compound decorations as structured desktop spans. Pi supplies palette conversion and OSC 8 link parsing; HTTP/HTTPS links open through the desktop's existing link handler. `Text` and `Box` background callbacks cover their native content/padding areas. Markdown reuses Pi's parsed tokens, source options, original theme functions and code highlighting to produce desktop headings, lists, quotes, tables and code blocks. Terminal-only heading prefixes are omitted in DOM headings, and dividers use the desktop theme’s subtle border color. Defaults and inline ANSI retain their styling/reset behavior. Component updates retain their original callbacks. Cursor/title/image escape instructions in text are discarded, and literal HTML stays text.
+
+Desktop Markdown also retains inline code, reference/autolinks, hard breaks, strikethrough, nested mixed lists and GFM task states. Unordered lists use muted round bullets; ordered list columns align across different digit counts. Character references decode once in text and link destinations without reparsing source or changing code/copy contents. Markdown images support HTTP(S), raster data URLs and files within the current workspace (through the existing size/path-bounded file reader), with the same fit-to-image preview as pasted attachments. Unsupported image sources fall back to their label or file link. Pi’s existing math/Mermaid transforms remain in place; footnotes and arbitrary HTML execution are not added.
 
 Input prompts and placeholder transformations, editor/border colors, selection themes and settings label/value/description themes use the same component bridge. Display labels are separate from the original option values; selection/change/cancel callbacks keep those original values. Unstyled options retain their own default color when selection changes. Loaders retain message styles, custom indicators and cancellation. Status text, working messages and string widgets share structured text styles and links while retaining their raw SDK values. Mixed option/placeholder styles and links use structured desktop controls; portalled menus retain the original component's keyboard and pointer routing.
 

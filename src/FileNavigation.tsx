@@ -6,3 +6,4 @@ export type FileTarget = { path: string; line?: number; preview?: FilePreview };
 export const FileNavigation = createContext<
   ((target: FileTarget) => Promise<void>) | undefined
 >(undefined);
+export const FileWorkspace = createContext<string | undefined>(undefined);

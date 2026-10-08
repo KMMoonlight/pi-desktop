@@ -24,5 +24,18 @@ for (const width of [1440, 390])
     ).not.toBe(
       await notice.evaluate((element) => getComputedStyle(element).color),
     );
+    const bounds = await notice.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.y).toBeGreaterThanOrEqual(80);
+    expect(bounds!.y).toBeLessThan(100);
+    await expect.poll(async () => {
+      const current = (await notice.boundingBox())!;
+      return width - current.x - current.width;
+    }).toBeGreaterThanOrEqual(16);
+    expect(width - bounds!.x - bounds!.width).toBeLessThan(24);
+    expect(bounds!.width).toBeLessThanOrEqual(400);
+    expect(bounds!.x).toBeGreaterThanOrEqual(16);
     await page.screenshot({ path: `.local/screenshots/notices-${width}.png` });
+    await notice.getByRole("button", { name: "关闭通知", exact: true }).click();
+    await expect(notice).toHaveCount(0);
   });

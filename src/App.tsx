@@ -6,9 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Modal, Switch, Tooltip, useTheme } from "reshaped";
+import { createPortal } from "react-dom";
+import { Button, Modal, Switch, Tooltip } from "./primitives";
 import {
-  Pi,
   Plus,
   Search,
   Settings2,
@@ -16,7 +16,6 @@ import {
   MessageSquare,
   GitBranch,
   Files,
-  Blocks,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -24,6 +23,8 @@ import {
   MoreHorizontal,
   PencilLine,
   CopyPlus,
+  Copy,
+  CircleCheck,
   Upload,
   Download,
   Minimize2,
@@ -59,7 +60,9 @@ import {
   Hint,
 } from "./ui";
 import { Messages } from "./Messages";
-import { GenerationStatus } from "./GenerationStatus";
+import { PiLogo } from "./PiLogo";
+import { GenerationStatus, SessionTokenUsage } from "./GenerationStatus";
+import { ImagePreview } from "./ImagePreview";
 import { TranscriptLayout, syncTranscriptLayout } from "./TranscriptLayout";
 import { TerminalPanel } from "./TerminalPanel";
 import { StyledText } from "./StyledText";
@@ -76,12 +79,13 @@ import { useTextSelection } from "./useTextSelection";
 import { closeDesktop } from "./client";
 import { useExtensionInput } from "./ExtensionInput";
 import { enqueueExtensionEvent } from "./extensionEvents";
-import { FilesView, TreeView, ResourcesView, type Run } from "./Workspace";
+import { FilesView, TreeView, type Run } from "./Workspace";
 import { SettingsView } from "./Settings";
 import { useSessionDraft } from "./draft";
 import type {
   DesktopEvent,
   DesktopSnapshot,
+  DesktopSettingsSnapshot,
   DialogRequest,
   SessionItem,
   FilePreview,
@@ -93,13 +97,13 @@ import { WorkspacePicker } from "./WorkspacePicker";
 import { FolderPicker } from "./FolderPicker";
 import { menuKeyboard } from "./menuKeyboard";
 import { ContextUsage } from "./ContextUsage";
-import { FileNavigation, type FileTarget } from "./FileNavigation";
-import "./workspace-layout.css";
+import { FileNavigation, FileWorkspace, type FileTarget } from "./FileNavigation";
 
 type LocalDialog = {
-  kind: "name" | "label" | "compact" | "import" | "export" | "bash";
+  kind: "name" | "label" | "compact" | "import" | "export" | "bash" | "delete";
   value: string;
   id?: string;
+  path?: string;
   format?: string;
   error?: string;
 };
@@ -116,7 +120,6 @@ const tabs = [
   { id: "chat", name: t("对话"), icon: MessageSquare },
   { id: "files", name: t("文件与更改"), icon: Files },
   { id: "tree", name: t("会话树"), icon: GitBranch },
-  { id: "resources", name: t("资源"), icon: Blocks },
 ];
 const labels: Record<string, string> = {
   workspace: t("添加工作区"),
@@ -126,18 +129,12 @@ const labels: Record<string, string> = {
   import: t("导入会话"),
   export: t("导出会话"),
   bash: t("运行 Shell 命令"),
-};
-const thinkingLabels: Record<string, string> = {
-  off: t("关闭思考"),
-  minimal: t("最低"),
-  low: t("较低"),
-  medium: t("标准"),
-  high: t("深入"),
-  xhigh: t("更深入"),
+  delete: t("删除会话"),
 };
 
   const shutdownRequested = useRef(false);
   const [snapshot, storeSnapshot] = useState<DesktopSnapshot>();
+  const [globalSettings, setGlobalSettings] = useState<DesktopSettingsSnapshot>();
   const setSnapshot = useCallback((next: DesktopSnapshot) => {
     if (shutdownRequested.current) return;
     storeSnapshot((previous) =>
@@ -149,14 +146,23 @@ const thinkingLabels: Record<string, string> = {
   }, []);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [tab, setTab] = useState("chat");
-  const [text, setText] = useSessionDraft(snapshot?.sessionId);
+  const draftKey = snapshot
+    ? snapshot.sessionFile
+      ? snapshot.sessionId
+      : `workspace:${snapshot.cwd}`
+    : undefined;
+  const [text, setText] = useSessionDraft(draftKey);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [images, setImages] = useState<
     { name: string; data: string; mimeType: string }[]
   >([]);
-  const [queueMode, setQueueMode] = useState("steer");
+  const [queueMode, setQueueMode] = useState(() =>
+    localStorage.getItem("pi.messageMode") === "followUp" ? "followUp" : "steer",
+  );
+  useEffect(() => {
+    localStorage.setItem("pi.messageMode", queueMode);
+  }, [queueMode]);
   const [search, setSearch] = useState("");
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
   const [fileTarget, setFileTarget] = useState<FileTarget>();
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -251,7 +257,6 @@ const thinkingLabels: Record<string, string> = {
   currentSnapshot.current = snapshot;
   const draftSession = useRef<string | undefined>(undefined);
   const workspaceIdentity = useRef<string | undefined>(undefined);
-  const { setColorMode: setReshapedColorMode } = useTheme();
 
   const notify = useCallback(
     (
@@ -298,6 +303,22 @@ const thinkingLabels: Record<string, string> = {
     },
     [notify, setSnapshot],
   );
+  const runSettings: Run = useCallback(async <T,>(name: string, args?: Record<string, unknown>, onError?: (message: string) => void) => {
+    const result = await run<T>(name, args, onError);
+    if (result !== undefined && name !== "settings.snapshot" && !currentSnapshot.current) {
+      const next = await run<DesktopSettingsSnapshot>("settings.snapshot");
+      if (next) setGlobalSettings(next);
+    }
+    return result;
+  }, [run]);
+  useEffect(() => {
+    if (!connected || snapshot) return;
+    let active = true;
+    void run<DesktopSettingsSnapshot>("settings.snapshot").then(next => {
+      if (active && next) setGlobalSettings(next);
+    });
+    return () => { active = false; };
+  }, [connected, !!snapshot, settingsOpen, run]);
   const workspaceReady =
     connected && !booting && !!snapshot && !snapshot.changing;
   useExtensionInput(connected ? snapshot : undefined, run);
@@ -321,16 +342,16 @@ const thinkingLabels: Record<string, string> = {
       const epoch = connectionEpoch.current;
       started.current = true;
       setBooting(true);
-      void run<DesktopSnapshot>("initialize", {
+      void run<DesktopSnapshot | null>("initialize", {
         resumeExisting: true,
-        cwd: localStorage.getItem("pi.workspace") || undefined,
+        cwd: localStorage.getItem("pi.workspace.userSelection") || undefined,
         appearance: matchMedia("(prefers-color-scheme: dark)").matches
           ? "dark"
           : "light",
       })
         .then((data) => {
           if (!mounted.current || id !== initialization) return;
-          started.current = !!data;
+          started.current = data !== undefined;
           if (data) setSnapshot(data);
         })
         .finally(() => {
@@ -503,7 +524,6 @@ const thinkingLabels: Record<string, string> = {
   ]);
   useEffect(() => {
     if (!workspaceReady) return;
-    localStorage.setItem("pi.workspace", snapshot.cwd);
     const identity = `${snapshot.backendId}/${snapshot.sessionId}`;
     if (workspaceIdentity.current !== identity) {
       workspaceIdentity.current = identity;
@@ -515,7 +535,7 @@ const thinkingLabels: Record<string, string> = {
     if (!workspaceReady) return;
     if (draftSession.current !== snapshot.sessionId) {
       draftSession.current = snapshot.sessionId;
-      const cached = localStorage.getItem(`pi.draft.${snapshot.sessionId}`);
+      const cached = localStorage.getItem(`pi.draft.${draftKey}`);
       if (cached && !snapshot.editor.text) {
         void run("editor.restore", {
           sessionId: snapshot.sessionId,
@@ -528,6 +548,7 @@ const thinkingLabels: Record<string, string> = {
     setText(snapshot.editor.text);
   }, [
     snapshot?.sessionId,
+    draftKey,
     snapshot?.editor.text,
     snapshot?.editor.revision,
     workspaceReady,
@@ -596,7 +617,6 @@ const thinkingLabels: Record<string, string> = {
       const dark =
         colorMode === "dark" || (colorMode === "system" && media.matches);
       document.documentElement.dataset.theme = dark ? "dark" : "light";
-      setReshapedColorMode(dark ? "dark" : "light");
     };
     update();
     media.addEventListener("change", update);
@@ -660,7 +680,6 @@ const thinkingLabels: Record<string, string> = {
     return () => window.removeEventListener("keydown", keydown);
   }, [snapshot?.busy, run, shutdown]);
   useEffect(() => {
-    setEvidenceOpen(false);
     setFileTarget(undefined);
   }, [snapshot?.cwd]);
   const startWorkspaceSession = async (
@@ -668,9 +687,11 @@ const thinkingLabels: Record<string, string> = {
     onError?: (message: string) => void,
   ) => {
     const data = snapshot
-      ? await run("session.new", { cwd }, onError)
-      : await run("initialize", { cwd }, onError);
+      ? await run<DesktopSnapshot>("session.new", { cwd }, onError)
+      : await run<DesktopSnapshot>("initialize", { cwd }, onError);
     if (data) {
+      // Persist only an explicit user selection, never an arriving snapshot.
+      localStorage.setItem("pi.workspace.userSelection", data.cwd);
       setTab("chat");
       if (innerWidth < 1024) setSidebar(false);
     }
@@ -705,21 +726,26 @@ const thinkingLabels: Record<string, string> = {
   const attach = (path: string) => {
     setAttachments((previous) => [...new Set([...previous, path])]);
     setTab("chat");
-    if (innerWidth < 1100) setEvidenceOpen(false);
-    composerRef.current?.focus();
-    if (snapshot?.desktopSurfaces.some((surface) => surface.slot === "editor"))
-      void run("desktop.focus", { id: "editor" });
+    requestAnimationFrame(() => {
+      composerRef.current?.focus();
+      if (snapshot?.desktopSurfaces.some((surface) => surface.slot === "editor"))
+        void run("desktop.focus", { id: "editor" });
+    });
   };
   const commandName = /^\/([^\s]+)/.exec(text)?.[1];
   const extensionCommand = snapshot?.commands.some(
     (command) => command.name === commandName,
   );
+  const hasComposerContent = Boolean(
+    text.trim() || attachments.length || images.length,
+  );
+  const stopButton = Boolean(snapshot?.running && !hasComposerContent);
   const canSend = Boolean(
-    !snapshot?.changing &&
-    (text.trim() || attachments.length || images.length) &&
+    hasComposerContent &&
     (snapshot?.model || extensionCommand),
   );
   const send = async (editorText?: string, mode?: string) => {
+    if (snapshot?.changing) return;
     const editor = document.querySelector<HTMLTextAreaElement>(
       '[data-surface-id="editor"] textarea',
     );
@@ -775,6 +801,15 @@ const thinkingLabels: Record<string, string> = {
         result = await run("session.import", { path: d.value }, onError);
       if (d.kind === "bash")
         result = await run("bash", { command: d.value }, onError);
+      if (d.kind === "delete") {
+        result = await run("session.delete", { id: d.id, path: d.path }, onError);
+        if (result !== undefined) {
+          setPins((previous) => previous.filter((id) => id !== d.id));
+          localStorage.removeItem(`pi.draft.${d.id}`);
+          setSessions((previous) => previous.filter((item) => item.id !== d.id));
+          await loadSessions();
+        }
+      }
       if (d.kind === "export") {
         const path = await exportPath(d.format ?? "html");
         if (path === null) {
@@ -837,14 +872,7 @@ const thinkingLabels: Record<string, string> = {
     );
   const currentDialog = dialogs[0];
   const navigate = (destination: string) => {
-    if (destination === "files") {
-      setTab("chat");
-      setEvidenceOpen((open) => !open);
-      setInspector(false);
-    } else {
-      setTab(destination);
-      setEvidenceOpen(false);
-    }
+    setTab(destination);
     if (innerWidth < 800) setSidebar(false);
   };
   const openFile = async (target: FileTarget) => {
@@ -852,9 +880,7 @@ const thinkingLabels: Record<string, string> = {
       path: target.path,
     });
     setFileTarget({ ...target, preview });
-    setTab("chat");
-    setEvidenceOpen(true);
-    setInspector(false);
+    setTab("files");
   };
   const applyComposerText = (value: string) => {
     setText(value);
@@ -870,12 +896,6 @@ const thinkingLabels: Record<string, string> = {
     snapshot.messages.length === 0 &&
     !snapshot.streaming &&
     !snapshot.conversationNotices?.length;
-  const latestOutput =
-    snapshot?.streaming ??
-    snapshot?.messages
-      .slice()
-      .reverse()
-      .find((message) => message.role === "assistant");
   const customEditor = snapshot?.desktopSurfaces.some(
     (surface) => surface.slot === "editor",
   );
@@ -884,7 +904,7 @@ const thinkingLabels: Record<string, string> = {
     if (!editor || customEditor) return;
     const resize = () => {
       editor.style.height = "0px";
-      editor.style.height = `${Math.min(360, Math.max(emptyConversation ? 76 : 48, editor.scrollHeight))}px`;
+      editor.style.height = `${Math.min(360, Math.max(96, editor.scrollHeight))}px`;
     };
     resize();
     let width = editor.getBoundingClientRect().width;
@@ -907,7 +927,7 @@ const thinkingLabels: Record<string, string> = {
     );
   const feedback =
     notices.length > 0 ? (
-      <div className="notice-list">
+      <div className="notice-list" aria-label={t("通知")}>
         {notices.map((notice) => (
           <div
             className={`notice notice-${notice.level}`}
@@ -938,15 +958,15 @@ const thinkingLabels: Record<string, string> = {
     ) : undefined;
   return (
     <FileNavigation.Provider value={openFile}>
+    <FileWorkspace.Provider value={snapshot?.cwd}>
       <div
         className={`app-shell ${sidebar ? "" : "sidebar-hidden"} ${inspector && !settingsOpen ? "" : "inspector-hidden"}`}
       >
-        <aside className={`sidebar ${sidebar ? "" : "collapsed"}`}>
-          <div className="brand">
-            <span className="brand-mark">
-              <Pi size={22} strokeWidth={2.5} />
+        <aside className={`sidebar min-h-0 flex-col border-r border-line bg-soft ${sidebar ? "flex" : "hidden collapsed"}`}>
+          <div className="brand flex h-11 min-h-11 shrink-0 items-center gap-3 border-b border-transparent px-4 py-1">
+            <span className="brand-mark mr-auto" role="img" aria-label="Pi Agent">
+              <PiLogo size={24} />
             </span>
-            <strong>Pi Desktop</strong>
             <IconButton
               icon={PanelLeftClose}
               label={t("收起侧边栏")}
@@ -957,8 +977,10 @@ const thinkingLabels: Record<string, string> = {
             <Button
               icon={Plus}
               fullWidth
-              variant="ghost"
-              disabled={!snapshot || snapshot.busy}
+              align="start"
+              variant="outline"
+              disabled={!snapshot || snapshot.running}
+              pending={snapshot?.changing}
               onClick={() => {
                 void run("session.new");
                 setTab("chat");
@@ -967,7 +989,7 @@ const thinkingLabels: Record<string, string> = {
               {t("新建会话")}
             </Button>
           </div>
-          <section className="workspace-navigation" aria-label={t("工作区会话")}>
+          <section className="workspace-navigation flex min-h-0 flex-1 flex-col" aria-label={t("工作区会话")}>
             <header className="workspace-section-header">
               {!searchOpen && <h2>{t("工作区")}</h2>}
               {searchOpen ? (
@@ -1028,9 +1050,10 @@ const thinkingLabels: Record<string, string> = {
                   className="workspace-add"
                   aria-label={t("添加工作区")}
                   onClick={() => {
-                    void openWorkspace();
+                    if (!snapshot?.changing) void openWorkspace();
                   }}
-                  disabled={snapshot?.busy || choosingWorkspace || !connected}
+                  disabled={snapshot?.running || choosingWorkspace || !connected}
+                  aria-disabled={snapshot?.changing || undefined}
                 >
                   <Plus size={16} />
                 </button>
@@ -1040,16 +1063,20 @@ const thinkingLabels: Record<string, string> = {
               sessions={sessionMatches}
               workspaces={snapshot?.recentWorkspaces ?? []}
               pins={pins}
-              currentId={snapshot?.sessionId}
+              currentId={snapshot?.sessionFile ? snapshot.sessionId : undefined}
               cwd={snapshot?.cwd}
               currentName={snapshot?.sessionName}
               search={search}
-              busy={snapshot?.busy ?? false}
+              busy={snapshot?.running ?? false}
+              pending={snapshot?.changing}
               newSession={(cwd) => {
                 void startWorkspaceSession(cwd);
               }}
               select={(session) => {
-                if (session) void run("session.switch", { path: session.path });
+                if (session)
+                  void run<DesktopSnapshot>("session.switch", { path: session.path }).then((data) => {
+                    if (data) localStorage.setItem("pi.workspace.userSelection", data.cwd);
+                  });
                 setTab("chat");
                 if (innerWidth < 1024) setSidebar(false);
               }}
@@ -1060,6 +1087,12 @@ const thinkingLabels: Record<string, string> = {
                     : [...previous, id],
                 )
               }
+              remove={(session) => setLocalDialog({
+                kind: "delete",
+                id: session.id,
+                path: session.path,
+                value: session.name || (session.messageCount > 0 && session.firstMessage) || t("新会话"),
+              })}
             />
           </section>
           <div className="sidebar-footer">
@@ -1084,8 +1117,8 @@ const thinkingLabels: Record<string, string> = {
           />
         )}
         <main className="main-area">
-          <header className="workspace-header">
-            <div className="header-title">
+          <header className="workspace-header flex h-11 min-h-11 items-center justify-between gap-4 border-b border-line px-6">
+            <div className="header-title flex min-w-0 items-center gap-2">
               {!sidebar && (
                 <IconButton
                   icon={PanelLeftOpen}
@@ -1093,23 +1126,30 @@ const thinkingLabels: Record<string, string> = {
                   onClick={() => setSidebar(true)}
                 />
               )}
-              <div>
+              <div className="group/session-title flex min-w-0 items-center gap-1">
                 <Hint text={snapshot?.cwd ?? "Pi Desktop"}>
-                  <h1 tabIndex={0}>{snapshot?.sessionName ?? t("新会话")}</h1>
+                  <h1 tabIndex={0}>
+                    {snapshot?.sessionFile
+                      ? snapshot.sessionName ?? t("新会话")
+                      : t("开始对话")}
+                  </h1>
                 </Hint>
+                {snapshot?.sessionFile && tab === "chat" && (
+                  <IconButton
+                    icon={PencilLine}
+                    label={t("重命名会话")}
+                    attributes={{
+                      className: "pointer-events-none opacity-0 group-hover/session-title:pointer-events-auto group-hover/session-title:opacity-100 group-focus-within/session-title:pointer-events-auto group-focus-within/session-title:opacity-100 [&>svg]:size-3.5",
+                    }}
+                    onClick={() =>
+                      setLocalDialog({
+                        kind: "name",
+                        value: snapshot.sessionName ?? "",
+                      })
+                    }
+                  />
+                )}
               </div>
-              {snapshot && tab === "chat" && (
-                <IconButton
-                  icon={PencilLine}
-                  label={t("重命名会话")}
-                  onClick={() =>
-                    setLocalDialog({
-                      kind: "name",
-                      value: snapshot.sessionName ?? "",
-                    })
-                  }
-                />
-              )}
             </div>
             <div className="header-tools">
               {snapshot && !settingsOpen && (
@@ -1126,7 +1166,7 @@ const thinkingLabels: Record<string, string> = {
                   />
                 </>
               )}
-              {snapshot?.busy ? (
+              {snapshot?.running ? (
                 <span className="status-tag running">
                   <span />
                   {snapshot.compacting
@@ -1140,11 +1180,11 @@ const thinkingLabels: Record<string, string> = {
                   {t("连接断开")}
                 </span>
               ) : null}
-              {!settingsOpen && (
+              {snapshot && !inspector && !settingsOpen && (
                 <IconButton
-                  icon={inspector ? PanelRightClose : PanelRightOpen}
-                  label={inspector ? t("收起检查器") : t("打开检查器")}
-                  onClick={() => setInspector(!inspector)}
+                  icon={PanelRightOpen}
+                  label={t("打开检查器")}
+                  onClick={() => setInspector(true)}
                 />
               )}
               {!settingsOpen && (
@@ -1287,13 +1327,15 @@ const thinkingLabels: Record<string, string> = {
               )}
             </div>
           </header>
-          {!settingsOpen && feedback}
           {!snapshot ? (
             <div className="startup-state">
-              <Pi size={40} strokeWidth={1.5} />
+              <PiLogo size={32} />
               <h2>Pi Desktop</h2>
+              <p className="startup-help" role={booting ? "status" : undefined}>
+                {booting ? t("正在打开工作区…") : t("选择项目文件夹，开始新会话或继续之前的任务。")}
+              </p>
               {booting ? (
-                <LoaderCircle className="spin" size={20} />
+                <LoaderCircle className="spin" size={20} aria-hidden="true" />
               ) : (
                 <Button
                   icon={FolderOpen}
@@ -1312,40 +1354,17 @@ const thinkingLabels: Record<string, string> = {
                   {tabs.map((t) => (
                     <button
                       key={t.id}
-                      className={
-                        (
-                          t.id === "files"
-                            ? evidenceOpen
-                            : tab === t.id && !evidenceOpen
-                        )
-                          ? "selected"
-                          : ""
-                      }
-                      aria-current={
-                        (
-                          t.id === "files"
-                            ? evidenceOpen
-                            : tab === t.id && !evidenceOpen
-                        )
-                          ? "page"
-                          : undefined
-                      }
+                      className={tab === t.id ? "selected" : ""}
+                      aria-current={tab === t.id ? "page" : undefined}
                       onClick={() => navigate(t.id)}
                     >
                       <t.icon size={15} />
                       {t.name}
-                      {t.id === "resources" && (
-                        <span aria-hidden="true">
-                          {snapshot.resources.length}
-                        </span>
-                      )}
                     </button>
                   ))}
                 </nav>
               }
-              <div
-                className={`workspace-content ${evidenceOpen && tab === "chat" ? "with-evidence" : ""}`}
-              >
+              <div className="workspace-content">
                 <div className="view-content">
                   {tab === "chat" && (
                     <div
@@ -1369,7 +1388,7 @@ const thinkingLabels: Record<string, string> = {
                       {emptyConversation ? (
                         <div className="conversation-empty">
                           <div className="empty-brand">
-                            <Pi size={30} strokeWidth={1.7} />
+                            <PiLogo size={28} />
                           </div>
                           <h2>{t("今天，想完成什么？")}</h2>
                           {!snapshot.model && (
@@ -1389,7 +1408,7 @@ const thinkingLabels: Record<string, string> = {
                             messages={snapshot.messages}
                             conversationNotices={snapshot.conversationNotices}
                             streaming={snapshot.streaming}
-                            busy={snapshot.busy}
+                            busy={snapshot.running}
                             showThinking={showThinking}
                             expanded={expanded}
                             activeTools={snapshot.activeTools}
@@ -1455,7 +1474,7 @@ const thinkingLabels: Record<string, string> = {
                           }
                         />
                         <div
-                          className="composer"
+                          className="composer rounded-2xl border border-line bg-canvas shadow-sm"
                           onPaste={(event) => {
                             if (event.clipboardData.files.length) {
                               event.preventDefault();
@@ -1482,11 +1501,10 @@ const thinkingLabels: Record<string, string> = {
                             ))}
                             {images.map((image, index) => (
                               <span key={`${index}-${image.name}`}>
-                                <img
+                                <ImagePreview
                                   src={`data:${image.mimeType};base64,${image.data}`}
                                   alt={image.name}
                                 />
-                                {image.name}
                                 <button
                                   aria-label={t("移除 {value1}", { value1: image.name })}
                                   onClick={() =>
@@ -1514,7 +1532,7 @@ const thinkingLabels: Record<string, string> = {
                               aria-label={t("消息")}
                               data-message-composer
                               placeholder={
-                                snapshot.busy ? t("追加消息…") : t("描述你的任务…")
+                                snapshot.running ? t("追加消息…") : t("描述你的任务…")
                               }
                               value={text}
                               onChange={(e) => setText(e.target.value)}
@@ -1522,6 +1540,7 @@ const thinkingLabels: Record<string, string> = {
                                 if (
                                   e.key === "Enter" &&
                                   !e.shiftKey &&
+                                  e.nativeEvent.keyCode !== 229 &&
                                   !e.nativeEvent.isComposing
                                 ) {
                                   e.preventDefault();
@@ -1530,17 +1549,17 @@ const thinkingLabels: Record<string, string> = {
                               }}
                             />
                           )}
-                          <div className="composer-toolbar">
+                          <div className="composer-toolbar grid items-center gap-2 px-3 pb-3">
                             <div className="composer-options">
                               {emptyConversation && (
                                 <WorkspacePicker
                                   cwd={snapshot.cwd}
                                   workspaces={snapshot.recentWorkspaces}
                                   disabled={
-                                    snapshot.busy ||
-                                    snapshot.changing ||
+                                    snapshot.running ||
                                     choosingWorkspace
                                   }
+                                  pending={snapshot.changing}
                                   choose={(cwd) => {
                                     void startWorkspaceSession(cwd);
                                   }}
@@ -1552,10 +1571,7 @@ const thinkingLabels: Record<string, string> = {
                               <ContextMenu
                                 snapshot={snapshot}
                                 images={() => uploadRef.current?.click()}
-                                files={() => {
-                                  setEvidenceOpen(true);
-                                  setInspector(false);
-                                }}
+                                files={() => navigate("files")}
                                 useCommand={(command) => {
                                   applyComposerText(command);
                                   composerRef.current?.focus();
@@ -1578,19 +1594,9 @@ const thinkingLabels: Record<string, string> = {
                                   e.target.value = "";
                                 }}
                               />
-                              {latestOutput && (
-                                <GenerationStatus
-                                  message={latestOutput}
-                                  compact
-                                />
-                              )}
-                              <ContextUsage
-                                snapshot={snapshot}
-                                inspect={() => setInspector(true)}
-                              />
                             </div>
                             <div className="send-controls">
-                              <div className="composer-models">
+                              <div className="composer-models flex min-w-0 items-center gap-1">
                                 <SelectField
                                   name={t("模型")}
                                   appearance="embedded"
@@ -1599,7 +1605,8 @@ const thinkingLabels: Record<string, string> = {
                                       ? `${snapshot.model.provider}/${snapshot.model.id}`
                                       : ""
                                   }
-                                  disabled={snapshot.busy}
+                                  disabled={snapshot.running}
+                                  pending={snapshot.changing}
                                   onChange={(value) => {
                                     const model = snapshot.models.find(
                                       (m) => `${m.provider}/${m.id}` === value,
@@ -1635,56 +1642,60 @@ const thinkingLabels: Record<string, string> = {
                                   name={t("思考等级")}
                                   appearance="embedded"
                                   value={snapshot.thinking}
+                                  pending={snapshot.changing}
                                   onChange={(level) => {
                                     void run("thinking.set", { level });
                                   }}
                                 >
                                   {snapshot.thinkingLevels.map((level) => (
                                     <option key={level} value={level}>
-                                      {thinkingLabels[level] ?? level}
+                                      {level}
                                     </option>
                                   ))}
                                 </SelectField>
                               </div>
-                              {snapshot.busy && (
-                                <SelectField
-                                  name={t("消息交付方式")}
-                                  appearance="embedded"
-                                  value={queueMode}
-                                  onChange={setQueueMode}
-                                >
-                                  <option value="steer">{t("调整方向")}</option>
-                                  <option value="followUp">{t("任务结束后")}</option>
-                                </SelectField>
-                              )}
-                              {snapshot.busy && (
-                                <IconButton
-                                  icon={Square}
-                                  label={t("停止任务")}
-                                  onClick={() => {
-                                    void run("abort");
-                                  }}
-                                />
-                              )}
-                              <Tooltip text={t("Enter 发送 · Shift + Enter 换行 · / 命令 · @ 文件")}>
+                              <Tooltip
+                                text={stopButton
+                                  ? t("停止任务")
+                                  : t("Enter 发送 · Shift + Enter 换行 · / 命令 · @ 文件")}
+                              >
                                 {(attributes) => (
                                   <Button
-                                    icon={ArrowUp}
+                                    icon={stopButton ? Square : ArrowUp}
+                                    className="size-9 min-h-9 min-w-9 shrink-0 rounded-full p-0"
                                     color="primary"
-                                    disabled={!canSend || !connected}
-                                    loading={submitting}
+                                    disabled={(!stopButton && !canSend) || !connected}
+                                    pending={snapshot.changing}
+                                    loading={!stopButton && submitting}
                                     onClick={() => {
-                                      void send();
+                                      if (stopButton) void run("abort");
+                                      else void send();
                                     }}
                                     attributes={{
                                       ...attributes,
-                                      "aria-label": t("发送消息"),
+                                      "aria-label": stopButton
+                                        ? t("停止任务")
+                                        : t("发送消息"),
+                                      "data-composer-action": stopButton ? "stop" : "send",
                                     }}
                                   />
                                 )}
                               </Tooltip>
                             </div>
                           </div>
+                        </div>
+                        <div className="composer-usage mt-2 flex min-h-6 flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-muted">
+                          <ContextUsage
+                            snapshot={snapshot}
+                            inspect={() => setInspector(true)}
+                          />
+                          {snapshot.streaming && (
+                            <GenerationStatus
+                              message={snapshot.streaming}
+                              compact
+                            />
+                          )}
+                          <SessionTokenUsage tokens={snapshot.stats.tokens} />
                         </div>
                         <div className="composer-footnote">
                           <span>
@@ -1700,30 +1711,6 @@ const thinkingLabels: Record<string, string> = {
                             ) : null}
                           </span>
                         </div>
-                        {emptyConversation && (
-                          <div className="empty-task-actions">
-                            <button
-                              onClick={() =>
-                                applyComposerText(
-                                  t("审查当前 Git 更改，找出可能的错误。"),
-                                )
-                              }
-                            >
-                              <GitBranch size={15} />
-                              {t("审查更改")}
-                            </button>
-                            <button
-                              onClick={() =>
-                                applyComposerText(
-                                  t("分析这个项目的目录结构和主要模块。"),
-                                )
-                              }
-                            >
-                              <Files size={15} />
-                              {t("分析项目")}
-                            </button>
-                          </div>
-                        )}
                       </div>
                       <NativeWidgets
                         snapshot={snapshot}
@@ -1736,6 +1723,16 @@ const thinkingLabels: Record<string, string> = {
                         run={run}
                       />
                     </div>
+                  )}
+                  {tab === "files" && (
+                    <FilesView
+                      key={snapshot.cwd}
+                      snapshot={snapshot}
+                      run={run}
+                      attach={attach}
+                      target={fileTarget}
+                      close={() => navigate("chat")}
+                    />
                   )}
                   {tab === "tree" && (
                     <TreeView
@@ -1750,40 +1747,7 @@ const thinkingLabels: Record<string, string> = {
                       }
                     />
                   )}
-                  {tab === "resources" && (
-                    <ResourcesView
-                      snapshot={snapshot}
-                      run={run}
-                      useCommand={(command) => {
-                        applyComposerText(command);
-                        setTab("chat");
-                        composerRef.current?.focus();
-                      }}
-                    />
-                  )}
                 </div>
-                {evidenceOpen && tab === "chat" && (
-                  <>
-                    <button
-                      className="evidence-backdrop"
-                      aria-label={t("关闭文件面板遮罩")}
-                      onClick={() => setEvidenceOpen(false)}
-                    />
-                    <aside
-                      className="evidence-pane"
-                      aria-label={t("文件与更改面板")}
-                    >
-                      <FilesView
-                        key={snapshot.cwd}
-                        snapshot={snapshot}
-                        run={run}
-                        attach={attach}
-                        target={fileTarget}
-                        close={() => setEvidenceOpen(false)}
-                      />
-                    </aside>
-                  </>
-                )}
               </div>
             </>
           )}
@@ -1792,7 +1756,7 @@ const thinkingLabels: Record<string, string> = {
             data-workspace-terminal-dock
           />
         </main>
-        <TerminalPanel open={terminalOpen} onOpenChange={setTerminalOpen} />
+        <TerminalPanel open={terminalOpen} onOpenChange={setTerminalOpen} cwd={snapshot?.cwd} />
         {snapshot && inspector && !settingsOpen && (
           <>
             <button
@@ -1801,7 +1765,7 @@ const thinkingLabels: Record<string, string> = {
               onClick={() => setInspector(false)}
             />
             <aside className="inspector">
-              <header>
+              <header className="flex h-11 min-h-11 shrink-0 items-center justify-between border-b border-line px-4 py-1">
                 <strong>{t("会话检查器")}</strong>
                 <IconButton
                   icon={PanelRightClose}
@@ -1934,57 +1898,69 @@ const thinkingLabels: Record<string, string> = {
                       key={key}
                       data-extension-status={key}
                     >
-                      <Hint text={key}>
-                        <p tabIndex={0}>
-                          <StyledText
-                            {...(snapshot.extensionUI.textPresentation
-                              ?.statuses[key] ?? { text: value })}
-                          />
-                        </p>
-                      </Hint>
+                      <p>
+                        <StyledText
+                          {...(snapshot.extensionUI.textPresentation
+                            ?.statuses[key] ?? { text: value })}
+                        />
+                      </p>
                     </div>
                   ))}
                 </section>
               )}
-              <footer>
+              <footer className="inspector-footer">
+                <Hint text={snapshot.sessionFile || snapshot.sessionId}>
+                  <span className="inspector-save-status" tabIndex={0}>
+                    {snapshot.sessionFile ? <CircleCheck size={14} aria-hidden="true" /> : <Clock3 size={14} aria-hidden="true" />}
+                    {snapshot.sessionFile ? t("已保存到本机") : t("新会话")}
+                  </span>
+                </Hint>
                 <IconButton
-                  icon={CopyPlus}
+                  icon={Copy}
                   label={t("复制会话 ID")}
                   onClick={() => {
                     void navigator.clipboard.writeText(snapshot.sessionId);
                   }}
                 />
-                <Hint text={snapshot.sessionFile || snapshot.sessionId}>
-                  <span tabIndex={0}>
-                    {snapshot.sessionFile ? t("已保存到本机") : t("新会话")}
-                  </span>
-                </Hint>
               </footer>
             </aside>
           </>
         )}
-        {snapshot && (
+        {(snapshot || globalSettings) && (
           <SettingsView
-            snapshot={snapshot}
-            run={run}
+            snapshot={(snapshot ?? globalSettings)!}
+            resourceSnapshot={snapshot}
+            useCommand={(command) => {
+              applyComposerText(command);
+              setTab("chat");
+              setSettingsOpen(false);
+              requestAnimationFrame(() => {
+                document.querySelector<HTMLTextAreaElement>('.composer textarea')?.focus();
+                if (snapshot?.desktopSurfaces.some(surface => surface.slot === "editor"))
+                  void run("desktop.focus", { id: "editor" });
+              });
+            }}
+            run={runSettings}
             open={settingsOpen}
             onClose={() => setSettingsOpen(false)}
-            feedback={feedback}
+            messageMode={queueMode}
+            onMessageMode={setQueueMode}
             showThinking={showThinking}
             onShowThinking={(visible) => {
               setShowThinking(visible);
-              void run("display.thinking", { visible });
+              void runSettings("display.thinking", { visible });
             }}
             colorMode={
-              snapshot.extensionUI.theme?.followsSystem ? "system" : colorMode
+              snapshot?.extensionUI.theme?.followsSystem ? "system" : colorMode
             }
             onColorMode={(theme) => {
-              void run("theme.set", { theme });
+              if (!snapshot) setColorMode(theme);
+              void runSettings("theme.set", { theme });
             }}
           />
         )}
         <Modal
-          key={localDialog?.kind ?? "closed"}
+          key={`local:${localDialog?.kind ?? "closed"}`}
           active={!!localDialog && !currentDialog}
           attributes={{ "data-desktop-native-input": "" }}
           onClose={() => {
@@ -1996,11 +1972,25 @@ const thinkingLabels: Record<string, string> = {
             {localDialog ? labels[localDialog.kind] : ""}
           </Modal.Title>
           {localDialog && (
-            <div className="modal-body">
+            <div className="modal-body flex min-w-0 flex-col gap-4">
+              {localDialog.kind === "delete" && (
+                <p className="dialog-help break-words text-[13px] leading-relaxed text-muted">
+                  {t("确定删除「{value1}」吗？会话及其消息将被永久删除。", { value1: localDialog.value })}
+                </p>
+              )}
               {localDialog.kind === "bash" && (
-                <p className="dialog-help">
+                <p className="dialog-help text-[13px] leading-relaxed text-muted">
                   {t("在当前 workspace 中运行一次 Shell 命令。命令和输出会记录到对话，供后续模型读取。")}
                 </p>
+              )}
+              {localDialog.kind === "export" && (
+                <p className="dialog-help text-[13px] leading-relaxed text-muted">{t("HTML 用于阅读和分享，JSONL 可重新导入。导出时选择保存位置。")}</p>
+              )}
+              {localDialog.kind === "import" && (
+                <p className="dialog-help text-[13px] leading-relaxed text-muted">{t("填写 Pi 会话 JSONL 文件的路径。导入后会打开该会话。")}</p>
+              )}
+              {localDialog.kind === "compact" && (
+                <p className="dialog-help text-[13px] leading-relaxed text-muted">{t("将较早的对话整理为摘要，为后续任务释放上下文空间。")}</p>
               )}
               {localDialog.kind === "export" && (
                 <SelectField
@@ -2015,7 +2005,7 @@ const thinkingLabels: Record<string, string> = {
                   <option value="jsonl">JSONL</option>
                 </SelectField>
               )}
-              <Field
+              {localDialog.kind !== "delete" && <Field
                 label={
                   localDialog.kind === "compact"
                     ? t("摘要重点（可选）")
@@ -2036,7 +2026,7 @@ const thinkingLabels: Record<string, string> = {
                 onChange={(value) =>
                   setLocalDialog({ ...localDialog, value, error: undefined })
                 }
-              />
+              />}
               {localDialog.error && (
                 <p className="error-inline" role="alert">
                   {localizeText(localDialog.error)}
@@ -2051,13 +2041,20 @@ const thinkingLabels: Record<string, string> = {
                   {t("取消")}
                 </Button>
                 <Button
-                  color="primary"
+                  color={localDialog.kind === "delete" ? "critical" : "primary"}
                   loading={submitting}
+                  disabled={["import", "bash"].includes(localDialog.kind) && !localDialog.value.trim()}
                   onClick={() => {
                     void confirmLocal();
                   }}
                 >
-                  {localDialog.kind === "bash" ? t("运行命令") : t("确定")}
+                  {localDialog.kind === "delete" ? t("删除会话")
+                    : localDialog.kind === "bash" ? t("运行命令")
+                    : localDialog.kind === "import" ? t("导入会话")
+                    : localDialog.kind === "export" ? t("导出会话")
+                    : localDialog.kind === "compact" ? t("开始压缩")
+                    : localDialog.kind === "label" ? t("保存标签")
+                    : t("保存名称")}
                 </Button>
               </div>
             </div>
@@ -2073,7 +2070,7 @@ const thinkingLabels: Record<string, string> = {
           />
         )}
         <Modal
-          key={currentDialog?.id ?? "closed"}
+          key={`sdk:${currentDialog?.id ?? "closed"}`}
           active={!!currentDialog}
           disableCloseOnOutsideClick
           onClose={() => {
@@ -2093,7 +2090,7 @@ const thinkingLabels: Record<string, string> = {
           </Modal.Title>
           {currentDialog && (
             <div
-              className="modal-body"
+              className="modal-body flex min-w-0 flex-col gap-4"
               ref={focusSdkDialog}
               data-dialog-id={currentDialog.id}
             >
@@ -2243,6 +2240,8 @@ const thinkingLabels: Record<string, string> = {
           </div>
         )}
       </div>
+      {feedback && createPortal(feedback, document.body)}
+    </FileWorkspace.Provider>
     </FileNavigation.Provider>
   );
 }

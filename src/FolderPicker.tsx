@@ -1,6 +1,6 @@
 import { t, useLocale, localizeText } from "./i18n";
 import { useEffect, useRef, useState } from "react";
-import { Button, Modal } from "reshaped";
+import { Button, Modal } from "./primitives";
 import {
   ArrowUp,
   Check,
@@ -15,7 +15,6 @@ import { action } from "./client";
 import { baseName, IconButton } from "./ui";
 import type { DirectoryEntry, DirectoryListing } from "../shared/types";
 import { menuKeyboard } from "./menuKeyboard";
-import "./folder-picker.css";
 
 export function FolderPicker({
   cwd,

@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { formatNumber } from "./i18n";
-import { Button, Tooltip } from "reshaped";
+import { Button, Tooltip } from "./primitives";
 import { SelectControl } from "./SelectControl";
 import {
   cloneElement,
@@ -47,7 +47,9 @@ export function IconButton({
   disabled?: boolean;
   active?: boolean;
   color?: "critical";
-  attributes?: HTMLAttributes<HTMLButtonElement>;
+  attributes?: HTMLAttributes<HTMLButtonElement> & {
+    [name: `data-${string}`]: string | number | boolean | undefined;
+  };
 }) {
   return (
     <Tooltip
@@ -61,6 +63,7 @@ export function IconButton({
           icon={icon}
           variant="ghost"
           size="small"
+          className="size-8 min-h-8 rounded-full"
           disabled={disabled}
           color={color}
           highlighted={active}
@@ -102,6 +105,7 @@ export function Field({
     <label className={`field field-${appearance}`}>
       {label && <span>{label}</span>}
       <input
+        className="min-h-9 w-full rounded-lg border border-line bg-canvas px-3 py-1.5 text-sm text-ink outline-none focus:border-coral focus:ring-[3px] focus:ring-coral/15"
         name={name}
         autoFocus={autoFocus}
         readOnly={readOnly}
@@ -124,6 +128,7 @@ export function SelectField({
   children,
   disabled,
   inputAttributes,
+  pending,
   appearance = "outlined",
 }: {
   label?: string;
@@ -134,6 +139,7 @@ export function SelectField({
   onChange: (value: string) => void;
   children: ReactNode;
   disabled?: boolean;
+  pending?: boolean;
   appearance?: "outlined" | "embedded";
   inputAttributes?: SelectHTMLAttributes<HTMLSelectElement> & {
     "data-desktop-action"?: string;
@@ -156,6 +162,7 @@ export function SelectField({
           value={value}
           onChange={onChange}
           disabled={disabled}
+          pending={pending}
           labelledBy={label ? labelId : undefined}
           describedBy={description ? `${labelId}-description` : undefined}
         >
@@ -171,7 +178,7 @@ export function SelectField({
         name={name}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        disabled={disabled}
+        disabled={disabled || pending}
         aria-label={inputAttributes?.["aria-label"] ?? label ?? name}
       >
         {children}
@@ -189,7 +196,7 @@ export function Empty({
   children?: ReactNode;
 }) {
   return (
-    <div className="empty-state">
+    <div className="empty-state flex min-w-0 flex-col items-center justify-center gap-3 text-center text-muted">
       <Icon size={30} strokeWidth={1.4} />
       <h2>{title}</h2>
       {children}

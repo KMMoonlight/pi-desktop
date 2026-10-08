@@ -1,19 +1,13 @@
 import { t, useLocale, getLocale } from "./i18n";
 import { useEffect, useRef, useState } from "react";
-import { Button, Switch } from "reshaped";
+import { Button } from "./primitives";
 import {
-  ChevronRight,
   Folder,
   File,
   RefreshCw,
   Paperclip,
   GitCompareArrows,
-  GitBranch,
-  Tag,
   FileSearch,
-  Blocks,
-  Wrench,
-  RotateCcw,
   Search,
   Copy,
   X,
@@ -23,7 +17,8 @@ import { action } from "./client";
 import { Empty, Field, Hint, IconButton, baseName } from "./ui";
 import { FileTree } from "./FileTree";
 import type { FileTarget } from "./FileNavigation";
-import type { DesktopSnapshot, FilePreview, TreeItem } from "../shared/types";
+export { TreeView } from "./SessionTree";
+import type { DesktopSnapshot, FilePreview } from "../shared/types";
 
 export type Run = <T = unknown>(
   name: string,
@@ -50,9 +45,11 @@ export function FilesView({
   const [changes, setChanges] = useState<{ status: string; diff: string }>();
   const [mode, setMode] = useState("files");
   const [previewError, setPreviewError] = useState(false);
+  const [previewMessage, setPreviewMessage] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewPath, setPreviewPath] = useState("");
   const [changesError, setChangesError] = useState(false);
+  const [changesMessage, setChangesMessage] = useState("");
   const [line, setLine] = useState<number>();
   const previewNode = useRef<HTMLDivElement>(null);
   const request = useRef(0);
@@ -61,8 +58,11 @@ export function FilesView({
     setLine(selectedLine);
     setPreviewPath(file);
     setPreviewError(false);
+    setPreviewMessage("");
     setPreviewLoading(true);
-    const result = await run<FilePreview>("files.read", { path: file });
+    const result = await run<FilePreview>("files.read", { path: file }, (message) => {
+      if (id === request.current) setPreviewMessage(message);
+    });
     if (id === request.current) {
       setPreview(result);
       setPreviewError(!result);
@@ -91,12 +91,17 @@ export function FilesView({
   const refreshChanges = async () => {
     setChanges(undefined);
     setChangesError(false);
-    const data = await run<{ status: string; diff: string }>("git.changes");
+    setChangesMessage("");
+    const data = await run<{ status: string; diff: string }>(
+      "git.changes",
+      undefined,
+      setChangesMessage,
+    );
     setChanges(data);
     setChangesError(!data);
   };
   return (
-    <section className="files-view">
+    <section className="files-view" aria-label={t("文件与更改")}>
       <div className="section-toolbar">
         <div className="mode-switch">
           <button
@@ -135,7 +140,7 @@ export function FilesView({
         {close && <IconButton icon={X} label={t("关闭文件面板")} onClick={close} />}
       </div>
       {mode === "changes" ? (
-        <div className="diff-view">
+        <div className="diff-view min-h-0 overflow-auto p-3">
           {changes ? (
             <>
               {changes.status && (
@@ -156,12 +161,27 @@ export function FilesView({
                 }}
               />
             </>
+          ) : changesError && /not a git repository/i.test(changesMessage) ? (
+            <Empty icon={GitCompareArrows} title={t("当前工作区未启用 Git")}>
+              <p>{t("选择包含 Git 仓库的工作区以查看更改。")}</p>
+            </Empty>
           ) : (
             <div
               className="loading-row"
               role={changesError ? "alert" : "status"}
             >
               {changesError ? t("更改读取失败") : t("正在读取更改")}
+              {changesError && (
+                <button className="file-retry" onClick={() => { void refreshChanges(); }}>
+                  {t("重试")}
+                </button>
+              )}
+              {changesError && changesMessage && (
+                <details className="file-error-details">
+                  <summary>{t("错误详情")}</summary>
+                  <pre>{changesMessage}</pre>
+                </details>
+              )}
             </div>
           )}
         </div>
@@ -177,21 +197,17 @@ export function FilesView({
               void openPreview(file);
             }}
           />
-          <div className="file-preview" ref={previewNode}>
+          <div className="file-preview flex min-h-0 min-w-0 flex-col overflow-hidden" ref={previewNode}>
             {previewLoading ? (
               <div className="loading-row" role="status">
                 {t("正在读取文件")}
               </div>
             ) : preview ? (
               <>
-                <div className="preview-header">
+                <div className="preview-header flex h-10 shrink-0 items-center gap-2 border-b border-line bg-soft px-3">
                   <Hint text={preview.path}>
                     <span tabIndex={0}>
-                      {preview.path.startsWith(snapshot.cwd)
-                        ? preview.path
-                            .slice(snapshot.cwd.length)
-                            .replace(/^[\\/]/, "")
-                        : preview.path}
+                      {baseName(preview.path)}
                     </span>
                   </Hint>
                   {!preview.image && (
@@ -244,6 +260,7 @@ export function FilesView({
                 icon={FileSearch}
                 title={previewError ? t("文件读取失败") : t("选择文件")}
               >
+                {previewError && previewMessage && <p>{previewMessage}</p>}
                 {previewError && (
                   <Button
                     size="small"
@@ -411,324 +428,5 @@ export function Diff({
         );
       })}
     </div>
-  );
-}
-export function TreeView({
-  snapshot,
-  run,
-  editLabel,
-}: {
-  snapshot: DesktopSnapshot;
-  run: Run;
-  editLabel: (node: TreeItem) => void;
-}) {
-  useLocale();
-  const [summarize, setSummarize] = useState(true);
-  const [filter, setFilter] = useState("");
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    setCollapsed(new Set());
-  }, [snapshot.sessionId]);
-  const nodeTypeLabels: Record<string, string> = {
-    model_change: t("切换模型"),
-    thinking_level_change: t("调整思考等级"),
-    compaction: t("压缩上下文"),
-    branch_summary: t("分支摘要"),
-  };
-  const nodes = new Map(snapshot.tree.map((n) => [n.id, n]));
-  function depth(node: TreeItem) {
-    let d = 0;
-    let p = node.parentId;
-    const seen = new Set<string>();
-    while (p && nodes.has(p) && !seen.has(p)) {
-      seen.add(p);
-      d++;
-      p = nodes.get(p)!.parentId;
-    }
-    return d;
-  }
-  const children = new Map<string, TreeItem[]>();
-  for (const node of snapshot.tree) {
-    const parent =
-      node.parentId && nodes.has(node.parentId) ? node.parentId : "";
-    children.set(parent, [...(children.get(parent) ?? []), node]);
-  }
-  const matches = new Set(
-    snapshot.tree
-      .filter((node) =>
-        `${node.text} ${node.label ?? ""}`
-          .toLowerCase()
-          .includes(filter.toLowerCase()),
-      )
-      .map((node) => node.id),
-  );
-  if (filter)
-    for (const id of [...matches]) {
-      let parent = nodes.get(id)?.parentId;
-      const seen = new Set<string>([id]);
-      while (parent && nodes.has(parent) && !seen.has(parent)) {
-        seen.add(parent);
-        matches.add(parent);
-        parent = nodes.get(parent)?.parentId;
-      }
-    }
-  const visible: TreeItem[] = [];
-  const visited = new Set<string>();
-  const append = (node: TreeItem) => {
-    if (visited.has(node.id)) return;
-    visited.add(node.id);
-    if (!filter || matches.has(node.id)) visible.push(node);
-    if (filter || !collapsed.has(node.id))
-      for (const child of children.get(node.id) ?? []) append(child);
-  };
-  for (const node of children.get("") ?? []) append(node);
-  const toggle = (id: string) =>
-    setCollapsed((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  const branch = new Set<string>();
-  let pointer = snapshot.leafId;
-  while (pointer && nodes.has(pointer) && !branch.has(pointer)) {
-    branch.add(pointer);
-    pointer = nodes.get(pointer)!.parentId;
-  }
-  return (
-    <section className="workspace-section">
-      <div className="section-toolbar">
-        <Field
-          name={t("搜索会话树")}
-          value={filter}
-          onChange={setFilter}
-          placeholder={t("搜索节点")}
-        />
-        <Switch
-          name="branch-summary"
-          checked={summarize}
-          onChange={({ checked }) => setSummarize(checked)}
-        >
-          {t("生成分支摘要")}
-        </Switch>
-        <Button
-          size="small"
-          variant="ghost"
-          onClick={() => setCollapsed(new Set())}
-        >
-          {t("展开全部")}
-        </Button>
-        <Button
-          size="small"
-          variant="ghost"
-          disabled={!!filter}
-          onClick={() => setCollapsed(new Set(children.keys()))}
-        >
-          {t("折叠全部")}
-        </Button>
-      </div>
-      {snapshot.tree.length === 0 ? (
-        <Empty icon={GitBranch} title={t("会话树为空")} />
-      ) : (
-        <div className="tree-list" role="tree" aria-label={t("会话分支")}>
-          {visible.map((node) => (
-            <div
-              className={`tree-row ${branch.has(node.id) ? "in-branch" : ""} ${node.id === snapshot.leafId ? "current" : ""}`}
-              key={node.id}
-              style={{ paddingLeft: 16 + depth(node) * 15 }}
-              role="treeitem"
-              aria-level={depth(node) + 1}
-              aria-current={node.id === snapshot.leafId ? "true" : undefined}
-              aria-expanded={
-                children.has(node.id)
-                  ? !!filter || !collapsed.has(node.id)
-                  : undefined
-              }
-            >
-              {children.has(node.id) ? (
-                <button
-                  type="button"
-                  className="tree-toggle"
-                  aria-label={t("{value1}节点", { value1: collapsed.has(node.id) && !filter ? t("展开") : t("折叠") })}
-                  disabled={!!filter}
-                  onClick={() => toggle(node.id)}
-                >
-                  <ChevronRight size={14} />
-                </button>
-              ) : (
-                <span className="tree-toggle-spacer" />
-              )}
-              <div className="tree-node-dot" />
-              <button
-                className="tree-content"
-                disabled={snapshot.busy}
-                onClick={() => {
-                  void run("session.navigate", { id: node.id, summarize });
-                }}
-              >
-                <Hint text={node.type}>
-                  <span className="tree-role" tabIndex={0}>
-                    {node.role === "user"
-                      ? t("你")
-                      : node.role === "assistant"
-                        ? "Pi"
-                        : node.role === "toolResult"
-                          ? t("工具")
-                          : t("事件")}
-                  </span>
-                </Hint>
-                <span>
-                  {node.label ||
-                    (node.text === node.type
-                      ? (nodeTypeLabels[node.type] ?? node.text)
-                      : node.text) ||
-                    t("空消息")}
-                </span>
-                <Hint text={new Date(node.timestamp).toLocaleString(getLocale())}>
-                  <time tabIndex={0}>
-                    {new Date(node.timestamp).toLocaleTimeString(getLocale(), {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </time>
-                </Hint>
-              </button>
-              <IconButton
-                icon={Tag}
-                label={t("编辑节点标签")}
-                onClick={() => editLabel(node)}
-              />
-            </div>
-          ))}
-          {!visible.length && <p className="muted small-pad">{t("没有匹配的节点")}</p>}
-        </div>
-      )}
-    </section>
-  );
-}
-export function ResourcesView({
-  snapshot,
-  run,
-  useCommand,
-}: {
-  snapshot: DesktopSnapshot;
-  run: Run;
-  useCommand: (command: string) => void;
-}) {
-  useLocale();
-  const [kind, setKind] = useState("all");
-  const [search, setSearch] = useState("");
-  const titles: Record<string, string> = {
-    extension: t("扩展"),
-    skill: "Skills",
-    prompt: t("提示词模板"),
-    context: t("上下文"),
-  };
-  const resources = snapshot.resources.filter(
-    (r) =>
-      (kind === "all" || r.kind === kind) &&
-      `${r.name} ${r.path}`.toLowerCase().includes(search.toLowerCase()),
-  );
-  return (
-    <section className="workspace-section">
-      <div className="section-toolbar">
-        <Field
-          name={t("搜索资源")}
-          value={search}
-          onChange={setSearch}
-          placeholder={t("搜索资源")}
-        />
-        <Button
-          icon={RotateCcw}
-          variant="outline"
-          size="small"
-          disabled={snapshot.busy}
-          onClick={() => {
-            void run("resources.reload");
-          }}
-        >
-          {t("重新加载")}
-        </Button>
-      </div>
-      <div className="filter-tabs">
-        {["all", "extension", "skill", "prompt", "context"].map((k) => (
-          <button
-            key={k}
-            className={kind === k ? "selected" : ""}
-            onClick={() => setKind(k)}
-          >
-            {k === "all" ? t("全部") : titles[k]}
-            <span>
-              {
-                snapshot.resources.filter((r) => k === "all" || r.kind === k)
-                  .length
-              }
-            </span>
-          </button>
-        ))}
-      </div>
-      <div className="resource-list">
-        {resources.map((resource) => (
-          <div
-            className="resource-row"
-            key={`${resource.kind}-${resource.path}`}
-          >
-            <Blocks size={18} />
-            <div>
-              <Hint text={resource.path}>
-                <strong tabIndex={0}>{resource.name}</strong>
-              </Hint>
-              {resource.description && <p>{resource.description}</p>}
-            </div>
-            <span className="type-label">{titles[resource.kind]}</span>
-            {["skill", "prompt"].includes(resource.kind) && (
-              <Button
-                size="small"
-                variant="ghost"
-                onClick={() =>
-                  useCommand(
-                    resource.kind === "skill"
-                      ? `/skill:${resource.name} `
-                      : `/${resource.name} `,
-                  )
-                }
-              >
-                {t("使用")}
-              </Button>
-            )}
-          </div>
-        ))}
-        {resources.length === 0 && (
-          <Empty icon={Blocks} title={t("没有匹配的资源")} />
-        )}
-      </div>
-      {snapshot.commands.length > 0 && (
-        <>
-          <h3 className="section-title">{t("扩展操作")}</h3>
-          <div className="command-list">
-            {snapshot.commands.map((command) => (
-              <Button
-                key={command.name}
-                icon={Wrench}
-                variant="outline"
-                size="small"
-                onClick={() => useCommand(`/${command.name} `)}
-                attributes={{ title: command.description }}
-              >
-                {command.name}
-              </Button>
-            ))}
-          </div>
-        </>
-      )}
-      {snapshot.diagnostics.length > 0 && (
-        <div className="diagnostics">
-          <h3>{t("加载诊断")}</h3>
-          {snapshot.diagnostics.map((diagnostic, i) => (
-            <p key={i}>{diagnostic}</p>
-          ))}
-        </div>
-      )}
-    </section>
   );
 }

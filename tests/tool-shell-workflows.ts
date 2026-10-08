@@ -16,11 +16,17 @@ export async function verifyToolShell(page: Page, screenshot: string) {
     sdkAction(page, "prompt", { message: `/${name}` });
   const self = (id: string) =>
     page.locator(`.tool-self[data-tool-call-id="shell-${id}"]`);
+  const openProcess = async () => {
+    for (const summary of await page.locator(".process-group:not([open]) > summary").all())
+      await summary.click();
+  };
   try {
     const image = (await readFile("src-tauri/icons/128x128.png")).toString(
       "base64",
     );
     await run({ mode: "seed", image, expanded: false });
+    await expect(page.locator(".process-group")).toHaveCount(1);
+    await openProcess();
     await expect(page.locator(".tool-result:not(.tool-running)")).toHaveCount(
       1,
     );
@@ -93,6 +99,8 @@ export async function verifyToolShell(page: Page, screenshot: string) {
     });
     await run({ mode: "clearPartial" });
     await page.reload();
+    await self("self_control").waitFor({ state: "attached" });
+    await openProcess();
     await expect(self("self_missing")).toContainText("line 14");
     await expect(
       self("self_control").getByRole("textbox", {
@@ -102,6 +110,7 @@ export async function verifyToolShell(page: Page, screenshot: string) {
     ).toHaveValue("Desktop tool input");
     const saved = await sdkAction<DesktopSnapshot>(page, "snapshot");
     await sdkAction(page, "resources.reload");
+    await openProcess();
     await expect(self("self_failure")).toContainText("line 14");
     await expect(
       self("self_control").getByRole("textbox", {
@@ -111,6 +120,7 @@ export async function verifyToolShell(page: Page, screenshot: string) {
     ).toHaveValue("Editable tool result");
     await sdkAction(page, "session.new");
     await sdkAction(page, "session.switch", { path: saved.sessionFile });
+    await openProcess();
     await expect(self("self_missing")).toContainText("line 14");
     const overflow = await page
       .locator(".transcript")
