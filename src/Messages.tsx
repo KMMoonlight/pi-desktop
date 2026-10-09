@@ -957,6 +957,19 @@ function MessagesView({
         data-follow-output={!away}
         onScroll={() => {
           const el = scroller.current!;
+          const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+          // Reaching the bottom is authoritative even if scrollHeight changed
+          // without a ResizeObserver delivery (for example positioned output).
+          if (nearBottom) {
+            follow.current = true;
+            setAway(false);
+            scrollSize.current = {
+              height: el.scrollHeight,
+              viewport: el.clientHeight,
+              top: el.scrollTop,
+            };
+            return;
+          }
           // Resizing can emit scroll before ResizeObserver runs. It is not a
           // reader scrolling away, so keep the prior follow state until resize.
           const previous = scrollSize.current;
@@ -966,9 +979,8 @@ function MessagesView({
             el.scrollHeight - el.clientHeight - el.scrollTop <= 1;
           if (resized && (el.scrollTop >= previous.top || clamped)) return;
           previous.top = el.scrollTop;
-          follow.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-          setAway(!follow.current);
+          follow.current = false;
+          setAway(true);
         }}
       >
         <div className="transcript-inner">

@@ -53,6 +53,42 @@ async function setup(page: Page, width: number) {
 }
 
 for (const width of [1440, 760]) {
+  test(`bottom button clears when overflow changes without resizing the transcript at ${width}px`, async ({
+    page,
+  }) => {
+    const { transcript, bottom, up } = await setup(page, width);
+    await bottom();
+    await up();
+    // Positioned extension content can change scrollHeight without changing
+    // either box observed by ResizeObserver.
+    await transcript.evaluate((node) => {
+      const inner = node.querySelector<HTMLElement>(".transcript-inner")!;
+      inner.style.position = "relative";
+      const overflow = document.createElement("div");
+      overflow.dataset.scrollOverflowProbe = "";
+      Object.assign(overflow.style, {
+        position: "absolute",
+        top: "100%",
+        height: "200px",
+        width: "1px",
+      });
+      inner.append(overflow);
+      node.scrollTop = node.scrollHeight;
+    });
+    await bottom();
+    await expect(
+      page.getByRole("button", { name: "回到最新消息", exact: true }),
+    ).toBeHidden();
+    await transcript.evaluate((node) => {
+      node.querySelector("[data-scroll-overflow-probe]")?.remove();
+    });
+    await bottom();
+    await expect(
+      page.getByRole("button", { name: "回到最新消息", exact: true }),
+    ).toBeHidden();
+    await up();
+  });
+
   test(`returning to live output keeps following growth and shrinkage at ${width}px`, async ({
     page,
   }) => {
