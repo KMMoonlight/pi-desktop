@@ -41,7 +41,6 @@ Pi Desktop 是 [Pi](https://github.com/earendil-works/pi) 的图形化桌面应�
 | --- | --- |
 | Windows x64 | [Windows 安装器（.exe）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.1/Pi-Desktop_0.1.1_windows-x64-setup.exe) |
 | Mac Apple Silicon（M 系列芯片） | [Apple Silicon 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.1/Pi-Desktop_0.1.1_macos-arm64.dmg) |
-| Mac Intel | [Intel 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.1/Pi-Desktop_0.1.1_macos-x64.dmg) |
 
 Windows 按安装器提示完成安装；macOS 打开 `.dmg`，将 Pi Desktop 拖入「应用程序」。无需另外安装 Node.js 或 Pi。
 

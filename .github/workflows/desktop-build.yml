@@ -22,8 +22,6 @@ jobs:
             runner: windows-latest
           - platform: macos-arm64
             runner: macos-15
-          - platform: macos-x64
-            runner: macos-15-intel
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4

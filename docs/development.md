@@ -67,7 +67,6 @@ Build on the target platform with its native Node and Rust toolchains:
 | -------- | --------------------------------------------- |
 | Windows x64 | `nsis/Pi Desktop_*_x64-setup.exe` |
 | macOS Apple Silicon | `macos/Pi Desktop.app` and `dmg/Pi Desktop_*_aarch64.dmg` |
-| macOS Intel | `macos/Pi Desktop.app` and `dmg/Pi Desktop_*_x64.dmg` |
 
 The build stages Node and the SDK dependency tree into `runtime/` and includes
 them in the installer. Installed users do not need a global Pi or Node
@@ -85,9 +84,8 @@ runtime copied into a macOS app, run:
 npm run runtime:verify -- 'src-tauri/target/release/bundle/macos/Pi Desktop.app/Contents/Resources/runtime'
 ```
 
-The **Desktop installers** GitHub Actions workflow builds Windows x64, macOS
-Apple Silicon and macOS Intel separately and uploads installer
-packages as artifacts retained for 14 days. Trigger it manually on a branch containing
+The **Desktop installers** GitHub Actions workflow builds Windows x64 and macOS
+Apple Silicon separately and uploads installer packages as artifacts retained for 14 days. Trigger it manually on a branch containing
 the workflow, push a `codex/package-*` branch, or push a `v*` version tag. These are test packages without
 configured distribution signing or Apple notarization; production signing must
 be configured before public distribution.
