@@ -372,10 +372,17 @@ export function useExtensionInput(
   const current = useRef(snapshot);
   current.current = snapshot;
   useEffect(() => {
+    const pointerSelections = new WeakMap<HTMLElement, number>();
+    const recordPointerSelection = (event: PointerEvent) => {
+      if (event.target instanceof HTMLElement && isText(event.target))
+        pointerSelections.set(event.target, (pointerSelections.get(event.target) ?? 0) + 1);
+    };
+    document.addEventListener("pointerdown", recordPointerSelection, true);
     const sendInput = async <T extends DesktopInputResult>(
       target: HTMLElement,
       args: Record<string, unknown>,
     ): Promise<T> => {
+      const pointerRevision = pointerSelections.get(target) ?? 0;
       const owner = componentControlOwner(target);
       const surface = owner.closest<HTMLElement>("[data-surface-id]");
       await syncComponentScrollLayouts(owner, (controlAction, value) =>
@@ -386,7 +393,20 @@ export function useExtensionInput(
           value,
         }),
       );
-      return action<T>("desktop.input", args);
+      const result = await action<T>("desktop.input", args);
+      // The user may place the caret while this keyboard request is in flight.
+      // Keep that newer selection when the response has no text change.
+      if (
+        result.editor && isText(target) &&
+        (pointerSelections.get(target) ?? 0) !== pointerRevision &&
+        result.editor.text === target.value
+      ) {
+        return { ...result, editor: { ...result.editor, selection: {
+          start: target.selectionStart ?? 0,
+          end: target.selectionEnd ?? 0,
+        } } };
+      }
+      return result;
     };
     const compositions = new WeakMap<TextControl, Composition>();
     const pendingCompositions = new WeakMap<TextControl, Composition>();
@@ -923,6 +943,7 @@ export function useExtensionInput(
       window.removeEventListener("compositionstart", compositionstart, true);
       window.removeEventListener("compositionupdate", compositionupdate, true);
       window.removeEventListener("compositionend", compositionend, true);
+      document.removeEventListener("pointerdown", recordPointerSelection, true);
     };
   }, [run]);
 }
