@@ -309,6 +309,9 @@ const labels: Record<string, string> = {
     },
     [notify, setSnapshot],
   );
+  const forkMessage = useCallback((id: string) => {
+    if (!currentSnapshot.current?.busy) void run("session.fork", { id });
+  }, [run]);
   const runSettings: Run = useCallback(async <T,>(name: string, args?: Record<string, unknown>, onError?: (message: string) => void) => {
     const result = await run<T>(name, args, onError);
     if (result !== undefined && name !== "settings.snapshot" && !currentSnapshot.current) {
@@ -1448,10 +1451,7 @@ const labels: Record<string, string> = {
                             imageWidth={
                               (snapshot.toolImages?.widthCells ?? 60) * 8
                             }
-                            onFork={(id) => {
-                              if (!snapshot.busy)
-                                void run("session.fork", { id });
-                            }}
+                            onFork={forkMessage}
                           />
                         </>
                       )}

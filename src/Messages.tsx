@@ -3,6 +3,7 @@ import {
   Children,
   Fragment,
   isValidElement,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -53,6 +54,11 @@ import type {
 import { IconButton } from "./ui";
 import { CodeBlock } from "./CodeBlock";
 import { EditReview } from "./EditReview";
+import {
+  sameTranscriptValue,
+  transcriptSurfaces,
+  transcriptExtensionUI,
+} from "./transcript-equality";
 import { PiLogo } from "./PiLogo";
 import { DesktopLink } from "./DesktopLink";
 import { desktopFileTarget } from "./FileNavigation";
@@ -744,7 +750,7 @@ function ProcessSteps({
   );
 }
 
-export function Messages({
+function MessagesView({
   sessionId,
   messages,
   conversationNotices = [],
@@ -1019,6 +1025,16 @@ export function Messages({
     </div>
   );
 }
+
+export const Messages = memo(MessagesView, (previous, next) => {
+  const { surfaces: oldSurfaces, extensionUI: oldUI, ...oldProps } = previous;
+  const { surfaces: newSurfaces, extensionUI: newUI, ...newProps } = next;
+  return (
+    sameTranscriptValue(oldProps, newProps) &&
+    sameTranscriptValue(transcriptExtensionUI(oldUI), transcriptExtensionUI(newUI)) &&
+    sameTranscriptValue(transcriptSurfaces(oldSurfaces), transcriptSurfaces(newSurfaces))
+  );
+});
 
 function WorkingIndicator({
   options,
