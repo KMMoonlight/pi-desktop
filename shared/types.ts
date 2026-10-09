@@ -32,6 +32,7 @@ export interface StartupSnapshot {
 export interface ToolPresentation {
   sessionId: string;
   shell: "default" | "self" | "generic";
+  review?: "edit";
   expanded: boolean;
   state: "pending" | "success" | "error";
   hasResult: boolean;

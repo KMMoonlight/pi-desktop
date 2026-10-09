@@ -1,4 +1,7 @@
-import type { AgentSession } from "@earendil-works/pi-coding-agent";
+import {
+  createEditToolDefinition,
+  type AgentSession,
+} from "@earendil-works/pi-coding-agent";
 import type {
   ChatMessage,
   ContentBlock,
@@ -6,6 +9,9 @@ import type {
 } from "../shared/types.ts";
 import type { DesktopUIRegistry, DesktopRenderSource } from "./desktop-ui.ts";
 import { defaultToolRenderer } from "./tool-rendering.ts";
+
+// Renderer identity keeps extension-provided edit tools on their own presentation.
+const nativeEdit = createEditToolDefinition(".");
 
 export interface ToolRenderPhase {
   argsComplete: boolean;
@@ -30,6 +36,11 @@ export function describeTool(
   return {
     sessionId: session.sessionId,
     shell: definition ? (definition.renderShell ?? "default") : "generic",
+    ...(name === "edit" &&
+      definition?.renderCall === nativeEdit.renderCall &&
+      definition?.renderResult === nativeEdit.renderResult
+      ? { review: "edit" as const }
+      : {}),
     expanded,
     state: phase.isPartial ? "pending" : phase.isError ? "error" : "success",
     hasResult,

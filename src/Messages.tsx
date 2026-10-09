@@ -50,6 +50,7 @@ import type {
 } from "../shared/types";
 import { IconButton } from "./ui";
 import { CodeBlock } from "./CodeBlock";
+import { EditReview } from "./EditReview";
 import { PiLogo } from "./PiLogo";
 import { DesktopLink } from "./DesktopLink";
 import { desktopFileTarget } from "./FileNavigation";
@@ -289,6 +290,16 @@ function ToolExecution({
     self || interactive || toolExpanded;
   const ToolIcon = toolIcons[call.name as keyof typeof toolIcons] ?? Wrench;
   if (call.desktopSurfaceId && !callSurface) return null;
+  if (presentation?.review === "edit")
+    return (
+      <EditReview
+        call={call}
+        result={result}
+        surface={callSurface}
+        state={state}
+        expanded={toolExpanded}
+      />
+    );
   return (
     <div
       className={`${self ? "tool-self" : "tool-result"} tool-execution${state === "pending" ? " tool-running" : ""}${state === "error" ? " tool-error" : ""}${presentation?.shell === "generic" ? " tool-generic" : ""}`}
