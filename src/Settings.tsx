@@ -24,6 +24,7 @@ import type { Run } from "./Workspace";
 import { ResourcesView } from "./Resources";
 import { CustomProviders } from "./CustomProviders";
 import { FontSettings } from "./FontSettings";
+import { AppUpdates } from "./AppUpdates";
 
 const object = (v: unknown): RecordValue =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as RecordValue) : {};
@@ -40,6 +41,7 @@ export function SettingsView({
   onMessageMode,
   open,
   onClose,
+  updateRequest = 0,
 }: {
   snapshot: DesktopSettingsSnapshot;
   resourceSnapshot?: DesktopSnapshot;
@@ -53,9 +55,11 @@ export function SettingsView({
   onMessageMode: (value: string) => void;
   open: boolean;
   onClose: () => void;
+  updateRequest?: number;
 }) {
   const { locale, setLocale } = useI18n();
   const [tab, setTab] = useState("general");
+  useEffect(() => { if (updateRequest) setTab("updates"); }, [updateRequest]);
   const [scope, setScope] = useState("global");
   useEffect(() => { if (!snapshot.cwd) setScope("global"); }, [snapshot.cwd]);
   const [draft, setDraft] = useState<RecordValue>(snapshot.globalSettings);
@@ -192,8 +196,9 @@ export function SettingsView({
     ["resources", t("扩展与技能"), t("当前工作区加载的扩展、技能、提示词和上下文")],
     ["packages", t("扩展包"), t("管理已安装的 Pi 扩展")],
     ["advanced", t("高级"), t("上下文、重试和完整配置")],
+    ["updates", t("应用更新"), t("检查和安装 Pi Desktop 的新版本")],
   ];
-  const categoryIcons = [Settings2, Palette, Bot, Folder, Server, Blocks, Package, SlidersHorizontal];
+  const categoryIcons = [Settings2, Palette, Bot, Folder, Server, Blocks, Package, SlidersHorizontal, RefreshCw];
   async function saveMcp(value: RecordValue) {
     setPending(true);
     try {
@@ -255,6 +260,7 @@ export function SettingsView({
         </header>
       <div className="settings-content min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-6 pb-6" ref={contentRoot}>
         {tab === "resources" && <ResourcesView snapshot={resourceSnapshot} run={run} useCommand={useCommand} />}
+        {tab === "updates" && <AppUpdates />}
         {scope === "project" && ["general", "advanced", "models"].includes(tab) && (
           <p className="settings-scope-note">{t("当前项目的覆盖项；未设置的值继承全局配置。")}</p>
         )}

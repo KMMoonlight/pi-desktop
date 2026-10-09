@@ -9,6 +9,9 @@
     "core:window:allow-set-progress-bar",
     "dialog:allow-open",
     "dialog:allow-save",
+    "dialog:allow-message",
+    "updater:default",
+    "process:allow-restart",
     "opener:allow-open-url",
     "opener:allow-default-urls",
     { "identifier": "opener:allow-open-path", "allow": [{ "path": "**" }] }

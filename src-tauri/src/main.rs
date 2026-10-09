@@ -373,16 +373,26 @@ fn authenticate_channel(mut stream: TcpStream, token: &str) -> std::io::Result<O
         Ok(None)
     }
 }
+#[tauri::command]
+fn updater_configured(app: tauri::AppHandle) -> bool {
+    app.config().plugins.0.get("updater")
+        .and_then(|config| config.get("pubkey"))
+        .and_then(|key| key.as_str())
+        .is_some_and(|key| !key.trim().is_empty())
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let backend = launch(app.handle())?;
             app.manage(backend);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![sdk_action, open_external_protocol])
+        .invoke_handler(tauri::generate_handler![sdk_action, open_external_protocol, updater_configured])
         .build(tauri::generate_context!())
         .expect("Failed to start Pi Desktop");
     app.run(|app, event| {

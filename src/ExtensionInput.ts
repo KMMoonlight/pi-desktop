@@ -413,17 +413,22 @@ export function useExtensionInput(
     const pendingInsertions = new WeakMap<TextControl, Composition>();
     const endingInputs = new WeakMap<TextControl, Composition>();
     const externalDialogs = new WeakSet<TextControl>();
+    // Navigation/deletion must settle before another optimistic insertion
+    // captures its selection. Key releases do not change that selection.
+    let pendingKeys = 0;
     const enqueue = (task: () => Promise<void>) => {
-      void enqueueExtensionEvent(task).catch((error) => console.error(error));
+      return enqueueExtensionEvent(task).catch((error) => console.error(error));
     };
     const insertText = (
       target: TextControl,
       data: string,
       sessionId: string,
+      event?: DesktopKeyEvent,
     ) => {
       if (
         target.dataset.desktopAction?.startsWith("component:") &&
         !isRaw(target) &&
+        pendingKeys === 0 &&
         !pendingCompositions.has(target)
       ) {
         const context = inputContext(target);
@@ -461,7 +466,7 @@ export function useExtensionInput(
             insertion.previous = undefined;
             const result = await sendInput<DesktopInputResult>(target, {
               sessionId,
-              data: encodeDesktopText(data),
+              ...(event ? { event } : { data: encodeDesktopText(data) }),
               ...actual,
             });
             const value = actual.controlText ?? "";
@@ -589,7 +594,26 @@ export function useExtensionInput(
       if (!captures) return;
       native.preventDefault();
       native.stopImmediatePropagation();
-      enqueue(async () => {
+      // Display ordinary typing immediately, using the same reconciliation as
+      // beforeinput. Keep the original key event for SDK listeners/shortcuts.
+      if (
+        event.type === "press" &&
+        [...event.key].length === 1 &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        isText(target) &&
+        target.dataset.desktopAction?.startsWith("component:") &&
+        !isRaw(target) &&
+        pendingKeys === 0 &&
+        !pendingCompositions.has(target)
+      ) {
+        insertText(target, event.key, state.sessionId, event);
+        return;
+      }
+      const changesEditor = event.type !== "release";
+      if (changesEditor) pendingKeys++;
+      void enqueue(async () => {
         if (
           !target.isConnected ||
           current.current?.sessionId !== state.sessionId
@@ -622,7 +646,14 @@ export function useExtensionInput(
           current.current?.sessionId !== state.sessionId
         )
           return;
-        applyEditorResult(target, result);
+        // Key releases may acknowledge an older editor value while later
+        // printable keys are already displayed optimistically.
+        if (!(
+          event.type === "release" &&
+          isText(target) &&
+          pendingInsertions.has(target)
+        ))
+          applyEditorResult(target, result);
         if (
           result.dialogExternal &&
           isText(target) &&
@@ -687,6 +718,8 @@ export function useExtensionInput(
           if (!target.dispatchEvent(dom)) return;
         }
         await nativeDefault(target, replay, inserted);
+      }).finally(() => {
+        if (changesEditor) pendingKeys--;
       });
     };
     const paste = (event: ClipboardEvent) => {

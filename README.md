@@ -6,7 +6,7 @@ Pi Desktop 是 [Pi](https://github.com/earendil-works/pi) 的图形化桌面应�
 
 支持 **Windows 和 macOS**，提供 **简体中文 / English** 界面。
 
-[下载安装](https://github.com/KMMoonlight/pi-desktop/releases/tag/v0.1.2) · [反馈问题](https://github.com/KMMoonlight/pi-desktop/issues)
+[下载安装](https://github.com/KMMoonlight/pi-desktop/releases/tag/v0.1.3) · [反馈问题](https://github.com/KMMoonlight/pi-desktop/issues)
 
 ![Pi Desktop 对话界面：项目会话、Markdown 回复与消息输入框](docs/images/conversation.png)
 
@@ -39,12 +39,12 @@ Pi Desktop 是 [Pi](https://github.com/earendil-works/pi) 的图形化桌面应�
 
 | 设备 | 下载 |
 | --- | --- |
-| Windows x64 | [Windows 安装器（.exe）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.2/Pi-Desktop_0.1.2_windows-x64-setup.exe) |
-| Mac Apple Silicon（M 系列芯片） | [Apple Silicon 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.2/Pi-Desktop_0.1.2_macos-arm64.dmg) |
+| Windows x64 | [Windows 安装器（.exe）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.3/Pi-Desktop_0.1.3_windows-x64-setup.exe) |
+| Mac Apple Silicon（M 系列芯片） | [Apple Silicon 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.3/Pi-Desktop_0.1.3_macos-arm64.dmg) |
 
 Windows 按安装器提示完成安装；macOS 打开 `.dmg`，将 Pi Desktop 拖入「应用程序」。无需另外安装 Node.js 或 Pi。
 
-当前为 **v0.1.2 测试预发布版**，尚未配置正式代码签名和 Apple 公证，系统可能显示安全提示。
+当前为 **v0.1.3**，尚未配置正式代码签名和 Apple 公证，系统可能显示安全提示。
 
 ## 开始使用
 
@@ -58,6 +58,10 @@ Windows 按安装器提示完成安装；macOS 打开 `.dmg`，将 Pi Desktop �
 > 帮我梳理这个项目的结构，说明启动方式，再列出值得优先改进的三个地方。
 
 会话会保存在本地，重新打开工作区即可继续。模型请求由你配置的服务提供，费用以该服务为准；Git 和其他外部工具需要在设备上另行安装。
+
+## 应用更新
+
+正式版本支持在「设置 → 应用更新」检查更新、自动下载，并在确认后安装重启。首次发布需配置签名密钥和公钥，详见 [更新发布配置](docs/app-updates.md)。
 
 ## 更多信息
 

@@ -1,6 +1,39 @@
 import { test, expect } from "@playwright/test";
 import { sdkAction, verifyDefaultEditor } from "../editor-workflows.ts";
 
+test("typing is visible before backend acknowledgement and queued editing stays ordered", async ({ page }) => {
+  await page.goto("/");
+  const composer = page.getByRole("textbox", { name: "消息", exact: true });
+  await expect(composer).toBeVisible();
+  await sdkAction(page, "session.new");
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  let held = false;
+  await page.route("**/api/action", async (route) => {
+    const request = route.request().postDataJSON();
+    if (request.action === "desktop.input" && request.args?.event?.key === "a") {
+      held = true;
+      await pending;
+    }
+    await route.continue();
+  });
+  try {
+    await composer.pressSequentially("abc XYZ");
+    await expect.poll(() => held).toBe(true);
+    // The backend has not received even the first character yet.
+    await expect(composer).toHaveValue("abc XYZ", { timeout: 1000 });
+    await composer.press("Backspace");
+    release();
+    await expect(composer).toHaveValue("abc XY");
+    await composer.press("ArrowLeft");
+    await composer.pressSequentially("!");
+    await expect(composer).toHaveValue("abc X!Y");
+  } finally {
+    release();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});
+
 function textAction(
   request: {
     action?: string;

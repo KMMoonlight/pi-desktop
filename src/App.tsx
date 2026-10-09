@@ -82,6 +82,8 @@ import { useExtensionInput } from "./ExtensionInput";
 import { enqueueExtensionEvent } from "./extensionEvents";
 import { FilesView, TreeView, type Run } from "./Workspace";
 import { SettingsView } from "./Settings";
+import { UpdateNotice } from "./AppUpdates";
+import { startUpdateChecks } from "./updates";
 import { useSessionDraft } from "./draft";
 import { useSessionActivity } from "./useSessionActivity";
 import type {
@@ -118,6 +120,8 @@ type Notice = {
 };
 export function App() {
   useLocale();
+  useEffect(startUpdateChecks, []);
+  const [updateRequest, setUpdateRequest] = useState(0);
 const tabs = [
   { id: "chat", name: t("对话"), icon: MessageSquare },
   { id: "files", name: t("文件与更改"), icon: Files },
@@ -1992,6 +1996,7 @@ const labels: Record<string, string> = {
             }}
             run={runSettings}
             open={settingsOpen}
+            updateRequest={updateRequest}
             onClose={() => setSettingsOpen(false)}
             messageMode={queueMode}
             onMessageMode={setQueueMode}
@@ -2297,6 +2302,7 @@ const labels: Record<string, string> = {
           </div>
         )}
       </div>
+      {!settingsOpen && <UpdateNotice onOpen={() => { setUpdateRequest(value => value + 1); setSettingsOpen(true); }} />}
       {feedback && createPortal(feedback, document.body)}
     </FileWorkspace.Provider>
     </FileNavigation.Provider>
