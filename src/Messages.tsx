@@ -60,6 +60,7 @@ import {
   transcriptExtensionUI,
 } from "./transcript-equality";
 import { PiLogo } from "./PiLogo";
+import { PiLoading } from "./PiLoading";
 import { DesktopLink } from "./DesktopLink";
 import { desktopFileTarget } from "./FileNavigation";
 import { StyledText } from "./StyledText";
@@ -1070,7 +1071,7 @@ function WorkingIndicator({
     );
     return () => clearInterval(timer);
   }, [frameKey, options?.intervalMs]);
-  if (!frames) return <LoaderCircle size={14} className="spin" />;
+  if (!frames) return <PiLoading />;
   if (!frames.length) return null;
   const index = frame % frames.length;
   return (

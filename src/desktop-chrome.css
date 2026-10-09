@@ -242,6 +242,29 @@
 .assistant-reply .process-steps > .thinking-block > summary { padding-block: 2px; }
 .assistant-reply .process-steps > .thinking-block :is(summary, .transcript-markdown-body) { padding-inline: 0; }
 .run-indicator { padding-left: 8px; }
+.pi-loading { display: block; flex: 0 0 20px; overflow: hidden; }
+.pi-loading > path { animation-duration: 2.4s; animation-iteration-count: infinite; animation-timing-function: steps(5, end); }
+.pi-loading-left { animation-name: pi-block-left; }
+.pi-loading-top { animation-name: pi-block-top; }
+.pi-loading-right { animation-name: pi-block-right; }
+@keyframes pi-block-left {
+  0% { transform: translateY(-24px); opacity: 1; }
+  20%, 85% { transform: translateY(0); opacity: 1; }
+  95%, 100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes pi-block-top {
+  0%, 20% { transform: translateY(-24px); opacity: 1; }
+  40%, 85% { transform: translateY(0); opacity: 1; }
+  95%, 100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes pi-block-right {
+  0%, 40% { transform: translateY(-24px); opacity: 1; }
+  60%, 85% { transform: translateY(0); opacity: 1; }
+  95%, 100% { transform: translateY(0); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pi-loading > path { animation: none; transform: none; opacity: 1; }
+}
 .scroll-bottom { left: 50%; right: auto; transform: translateX(-50%); bottom: 10px; border-radius: 50%; }
 .scroll-bottom > button { width: 30px; height: 30px; min-width: 30px; min-height: 30px; }
 .code-block { border: .5px solid var(--ui-line); border-radius: 12px; }
