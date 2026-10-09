@@ -4,6 +4,58 @@ import { join } from "node:path";
 import { sdkAction } from "../editor-workflows.ts";
 import type { DesktopSnapshot, SessionItem } from "../../shared/types.ts";
 
+for (const theme of ["light", "dark"]) {
+  test(`session deletion stays hidden while reasoning and returns on hover when idle (${theme})`, async ({ page }) => {
+    await page.goto("/");
+    const editor = page.getByRole("textbox", { name: "消息", exact: true });
+    await expect(editor).toBeVisible();
+    await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).changing).toBe(false);
+    const initial = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    const cwd = join(initial.agentDir, `session-running-delete-${theme}`);
+    await mkdir(cwd, { recursive: true });
+    await sdkAction(page, "theme.set", { theme });
+    await sdkAction(page, "session.new", { cwd });
+    await sdkAction(page, "session.name", { name: "保留的会话" });
+    const previous = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    await sdkAction(page, "session.new");
+    await sdkAction(page, "session.name", { name: "思考中的会话" });
+    const current = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    const rows = [previous, current].map(snapshot => page.locator(`.session-row[data-session-id="${snapshot.sessionId}"]`));
+    const deletion = (row: typeof rows[number]) => row.locator('[data-session-action="delete"]');
+    try {
+      await page.mouse.move(800, 20);
+      for (const row of rows) await expect(deletion(row)).toHaveCSS("opacity", "0");
+      await rows[1].hover();
+      await expect(deletion(rows[1])).toHaveCSS("opacity", "1");
+      await editor.fill("thinking-label-probe application-status-gate");
+      await page.getByRole("button", { name: "发送消息", exact: true }).click();
+      await expect(page.getByRole("button", { name: "停止任务", exact: true })).toBeVisible();
+      await expect(page.locator("details.thinking-block")).toContainText("Reasoning fixture content.");
+      await page.mouse.move(800, 20);
+      for (const row of rows) await expect(deletion(row)).toBeHidden();
+      for (const row of rows) {
+        await row.hover();
+        await expect(deletion(row)).toBeHidden();
+      }
+      await mkdir(".local/session-delete", { recursive: true });
+      await page.locator(".sidebar").screenshot({ path: `.local/session-delete/reasoning-${theme}.png` });
+      await page.getByRole("button", { name: "停止任务", exact: true }).click();
+      await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).running).toBe(false);
+      await page.mouse.move(800, 20);
+      for (const row of rows) await expect(deletion(row)).toHaveCSS("opacity", "0");
+      await rows[1].hover();
+      await expect(deletion(rows[1])).toBeEnabled();
+      await expect(deletion(rows[1])).toHaveCSS("opacity", "1");
+    } finally {
+      await sdkAction(page, "abort");
+      await sdkAction(page, "session.delete", { id: previous.sessionId, path: previous.sessionFile });
+      await sdkAction(page, "session.delete", { id: current.sessionId, path: current.sessionFile });
+      await sdkAction(page, "theme.set", { theme: "light" });
+      await sdkAction(page, "initialize", { cwd: initial.cwd });
+    }
+  });
+}
+
 test("sidebar delete sits beside pin, supports cancellation, and clears pinned sessions and the last session", async ({
   page,
 }) => {

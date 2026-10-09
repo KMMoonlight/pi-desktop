@@ -90,14 +90,13 @@ export function SessionRail({
         attributes={{ "data-session-action": "pin" }}
         onClick={() => pin(session.id)}
       />
-      <IconButton
+      {!busy && <IconButton
         icon={Trash2}
         label={t("删除会话")}
         color="critical"
-        disabled={busy}
         attributes={{ "data-session-action": "delete", "aria-disabled": pending || undefined }}
         onClick={() => { if (!pending) remove(session); }}
-      />
+      />}
     </div>
   );
   return (
