@@ -3,7 +3,9 @@ import {
   Children,
   Fragment,
   isValidElement,
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -780,6 +782,26 @@ export function Messages({
   const follow = useRef(true);
   const scrollSize = useRef({ height: 0, viewport: 0, top: 0 });
   const [away, setAway] = useState(false);
+  const resumeFollowing = useCallback(() => {
+    follow.current = true;
+    setAway(false);
+    const element = scroller.current;
+    if (!element) return;
+    // A smooth scroll's intermediate events can disable following before it
+    // reaches the bottom, especially when new chunks move the destination.
+    element.scrollTop = element.scrollHeight;
+    scrollSize.current = {
+      height: element.scrollHeight,
+      viewport: element.clientHeight,
+      top: element.scrollTop,
+    };
+  }, []);
+  const latestUserId = messages
+    .filter(message => message.role === "user")
+    .at(-1)?.id;
+  useLayoutEffect(() => {
+    resumeFollowing();
+  }, [sessionId, latestUserId, resumeFollowing]);
   const toolEntries = {
     calls: new Set(
       messages
@@ -851,13 +873,19 @@ export function Messages({
       });
     turns[turns.length - 1].rows.push(row);
   }
-  useEffect(() => {
+  useLayoutEffect(() => {
     const element = scroller.current;
     if (!element) return;
     // Editor/completion snapshots also recreate the message arrays. Follow only
     // real content/viewport resizing, so those snapshots cannot move the reader.
     const observer = new ResizeObserver(() => {
-      if (follow.current) element.scrollTop = element.scrollHeight;
+      if (
+        follow.current ||
+        element.scrollHeight - element.clientHeight - element.scrollTop < 100
+      ) {
+        resumeFollowing();
+        return;
+      }
       scrollSize.current = {
         height: element.scrollHeight,
         viewport: element.clientHeight,
@@ -867,7 +895,7 @@ export function Messages({
     observer.observe(element);
     if (element.firstElementChild) observer.observe(element.firstElementChild);
     return () => observer.disconnect();
-  }, []);
+  }, [resumeFollowing]);
   const renderRow = (
     row: TranscriptRow,
     embedded = false,
@@ -920,6 +948,7 @@ export function Messages({
       <div
         className="transcript"
         ref={scroller}
+        data-follow-output={!away}
         onScroll={() => {
           const el = scroller.current!;
           // Resizing can emit scroll before ResizeObserver runs. It is not a
@@ -983,13 +1012,7 @@ export function Messages({
           <IconButton
             icon={ArrowDown}
             label={t("回到最新消息")}
-            onClick={() => {
-              follow.current = true;
-              scroller.current?.scrollTo({
-                top: scroller.current.scrollHeight,
-                behavior: "smooth",
-              });
-            }}
+            onClick={resumeFollowing}
           />
         </div>
       )}

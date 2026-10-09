@@ -473,6 +473,9 @@ button.session-row {
   overflow: auto;
   scroll-behavior: auto;
 }
+.transcript[data-follow-output="true"] {
+  overflow-anchor: none;
+}
 .transcript-inner {
   max-width: 850px;
   margin: 0 auto;
