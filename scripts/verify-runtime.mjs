@@ -38,6 +38,9 @@ try {
       clearTimeout(timer);
       if (exitCode !== 0 || !output.includes('pi-pty-ok')) process.exit(1);
       console.log('pi-runtime-ok');
+      // ConPTY can retain pipe handles after reporting a successful exit.
+      // This short-lived probe has completed all checks; close explicitly.
+      process.exit(0);
     });
   `], options);
   assert.match(probe, /pi-runtime-ok/);
