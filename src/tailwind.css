@@ -95,7 +95,7 @@
   html,
   body,
   #root {
-    @apply m-0 h-full min-w-[360px];
+    @apply m-0 h-full min-w-[360px] overflow-hidden overscroll-none;
   }
   body {
     @apply font-sans text-sm leading-relaxed;

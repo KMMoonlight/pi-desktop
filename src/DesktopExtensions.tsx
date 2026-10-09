@@ -48,6 +48,7 @@ import { ComponentImage } from "./ComponentImage";
 import { useTextSelection } from "./useTextSelection";
 import { Autocomplete } from "./Autocomplete";
 import { applyText, isApplyingText } from "./textEditing";
+import { resizeComposer } from "./composer-layout";
 import { applyEditorResult } from "./ExtensionInput";
 import { enqueueExtensionEvent } from "./extensionEvents";
 import { normalizePasteSelection } from "../shared/paste-selection";
@@ -817,10 +818,7 @@ function TextControl({
   useLayoutEffect(() => {
     const editor = control.current;
     if (!(editor instanceof HTMLTextAreaElement) || node.appearance !== "composer") return;
-    const resize = () => {
-      editor.style.height = "0px";
-      editor.style.height = `${Math.min(360, Math.max(96, editor.scrollHeight))}px`;
-    };
+    const resize = () => resizeComposer(editor);
     resize();
     let width = editor.getBoundingClientRect().width;
     const observer = new ResizeObserver(() => {

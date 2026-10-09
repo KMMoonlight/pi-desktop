@@ -1,7 +1,7 @@
-import { mkdir, cp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, cp, readFile, writeFile, access } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { prepareNative } from "./prepare-native.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const directory = join(root, "runtime");
@@ -26,14 +26,24 @@ await writeFile(
     2,
   ),
 );
-const npmCli = join(
-  process.execPath,
-  "..",
-  "node_modules",
-  "npm",
-  "bin",
-  "npm-cli.js",
-);
+// npm run supplies its actual CLI path. Standalone invocation also supports
+// Windows' adjacent npm directory and Unix/nvm's lib/node_modules layout.
+const npmCandidates = [
+  process.env.npm_execpath,
+  join(dirname(process.execPath), "node_modules/npm/bin/npm-cli.js"),
+  join(dirname(process.execPath), "../lib/node_modules/npm/bin/npm-cli.js"),
+].filter(Boolean);
+let npmCli;
+for (const candidate of npmCandidates) {
+  try {
+    await access(candidate);
+    npmCli = candidate;
+    break;
+  } catch {
+    // Try the next supported installation layout.
+  }
+}
+if (!npmCli) throw new Error("Cannot find npm CLI; run npm run runtime:stage.");
 const result = spawnSync(
   process.execPath,
   [npmCli, "install", "--omit=dev", "--ignore-scripts", "--prefix", directory],

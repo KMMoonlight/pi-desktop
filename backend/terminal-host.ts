@@ -116,6 +116,11 @@ export class TerminalHost extends EventEmitter {
                     this.shell = undefined;
                   }
                 }
+                if (event.type === "workspace_closed") {
+                  this.latest = undefined;
+                  this.shell?.dispose();
+                  this.shell = undefined;
+                }
                 if (event.type === "dialog")
                   this.dialogs.set(event.data.id, event.data);
                 if (event.type === "dialog_closed")

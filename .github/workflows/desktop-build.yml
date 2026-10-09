@@ -1,0 +1,51 @@
+name: Desktop installers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/package-*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-latest
+          - platform: macos-arm64
+            runner: macos-15
+          - platform: macos-x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run desktop:build
+      - name: Verify bundled runtime
+        run: npm run runtime:verify
+      - name: Archive macOS application
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent 'src-tauri/target/release/bundle/macos/Pi Desktop.app' 'src-tauri/target/release/bundle/Pi-Desktop-${{ matrix.platform }}.app.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pi-Desktop-${{ matrix.platform }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/*.app.zip

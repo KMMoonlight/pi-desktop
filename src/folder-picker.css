@@ -193,6 +193,9 @@
   align-items: center;
   min-width: 0;
 }
+.composer-region > .composer-workspace-picker {
+  margin-bottom: 8px;
+}
 .composer-workspace-picker > button {
   display: flex;
   align-items: center;

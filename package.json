@@ -12,6 +12,7 @@
     "build": "npm run check && vite build && esbuild backend/server.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-backend/server.mjs",
     "icons": "node scripts/generate-icons.mjs",
     "runtime:stage": "node scripts/stage-runtime.mjs",
+    "runtime:verify": "node scripts/verify-runtime.mjs",
     "desktop:dev": "tauri dev --config src-tauri/tauri.dev.conf.json",
     "desktop:build": "tauri build",
     "test": "tsx --test tests/*.test.ts",

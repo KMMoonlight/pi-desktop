@@ -23,12 +23,9 @@ test("session navigation, composer controls and selection rules work at all agre
     const usage = page.locator(".composer-usage").getByRole("button", { name: "查看上下文与用量" });
     await expect(usage).toBeInViewport();
     const chooser = await page.getByRole("button", { name: "选择工作区", exact: true }).boundingBox();
-    const addContext = await page.getByRole("button", { name: "添加上下文", exact: true }).boundingBox();
-    expect(Math.abs(chooser!.y + chooser!.height / 2 - addContext!.y - addContext!.height / 2), "workspace chooser must align with its neighboring composer action").toBeLessThan(1);
-    if (width === 1440) {
-      const send = await page.locator(".send-controls").boundingBox();
-      expect(Math.abs(chooser!.y + chooser!.height / 2 - send!.y - send!.height / 2)).toBeLessThan(1);
-    }
+    const composer = await page.locator(".composer").boundingBox();
+    expect(chooser!.y + chooser!.height, "workspace chooser must sit above the input").toBeLessThan(composer!.y);
+    expect(Math.abs(chooser!.x - composer!.x), "workspace chooser must align with the input's left edge").toBeLessThan(2);
     const input = page.getByRole("textbox", { name: "消息", exact: true });
     await input.fill("布局草稿");
     await nav.getByRole("button", { name: "文件与更改", exact: true }).click();

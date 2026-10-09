@@ -67,6 +67,7 @@ import { TranscriptLayout, syncTranscriptLayout } from "./TranscriptLayout";
 import { TerminalPanel } from "./TerminalPanel";
 import { StyledText } from "./StyledText";
 import { NativeWidgets } from "./NativeWidgets";
+import { resizeComposer } from "./composer-layout";
 import { DialogCountdown } from "./DialogCountdown";
 import { DialogOptions } from "./DialogOptions";
 import {
@@ -100,7 +101,7 @@ import { ContextUsage } from "./ContextUsage";
 import { FileNavigation, FileWorkspace, type FileTarget } from "./FileNavigation";
 
 type LocalDialog = {
-  kind: "name" | "label" | "compact" | "import" | "export" | "bash" | "delete";
+  kind: "name" | "label" | "compact" | "import" | "export" | "bash" | "delete" | "workspace-remove";
   value: string;
   id?: string;
   path?: string;
@@ -130,6 +131,7 @@ const labels: Record<string, string> = {
   export: t("导出会话"),
   bash: t("运行 Shell 命令"),
   delete: t("删除会话"),
+  "workspace-remove": t("移除工作区"),
 };
 
   const shutdownRequested = useRef(false);
@@ -145,6 +147,10 @@ const labels: Record<string, string> = {
     );
   }, []);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [workspaces, setWorkspaces] = useState<string[]>([]);
+  useEffect(() => {
+    if (snapshot) setWorkspaces(snapshot.recentWorkspaces);
+  }, [snapshot?.recentWorkspaces]);
   const [tab, setTab] = useState("chat");
   const draftKey = snapshot
     ? snapshot.sessionFile
@@ -344,7 +350,7 @@ const labels: Record<string, string> = {
       setBooting(true);
       void run<DesktopSnapshot | null>("initialize", {
         resumeExisting: true,
-        cwd: localStorage.getItem("pi.workspace.userSelection") || undefined,
+        cwd: localStorage.getItem("pi.workspace.userSelection") ?? undefined,
         appearance: matchMedia("(prefers-color-scheme: dark)").matches
           ? "dark"
           : "light",
@@ -353,6 +359,9 @@ const labels: Record<string, string> = {
           if (!mounted.current || id !== initialization) return;
           started.current = data !== undefined;
           if (data) setSnapshot(data);
+          else if (data === null) void run<string[]>("workspaces.list").then((paths) => {
+            if (mounted.current && paths) setWorkspaces(paths);
+          });
         })
         .finally(() => {
           if (!mounted.current || id !== initialization) return;
@@ -374,6 +383,15 @@ const labels: Record<string, string> = {
           storeSnapshot(undefined);
           setDialogs([]);
           setAuthLink(undefined);
+        } else if (event.type === "workspace_closed") {
+          storeSnapshot(undefined);
+          setWorkspaces(event.workspaces);
+          localStorage.setItem("pi.workspace.userSelection", "");
+          setTerminalOpen(false);
+          setInspector(false);
+          setAttachments([]);
+          setImages([]);
+          setTab("chat");
         } else if (event.type === "snapshot") setSnapshot(event.data);
         else if (event.type === "dialog")
           setDialogs((previous) =>
@@ -810,6 +828,17 @@ const labels: Record<string, string> = {
           await loadSessions();
         }
       }
+      if (d.kind === "workspace-remove") {
+        const next = await run<DesktopSnapshot | null>("workspace.remove", { cwd: d.path }, onError);
+        result = next;
+        if (result !== undefined) {
+          if (next) localStorage.setItem("pi.workspace.userSelection", next.cwd);
+          const paths = await run<string[]>("workspaces.list");
+          if (paths) setWorkspaces(paths);
+          setSearch("");
+          setTab("chat");
+        }
+      }
       if (d.kind === "export") {
         const path = await exportPath(d.format ?? "html");
         if (path === null) {
@@ -902,10 +931,7 @@ const labels: Record<string, string> = {
   useLayoutEffect(() => {
     const editor = composerRef.current;
     if (!editor || customEditor) return;
-    const resize = () => {
-      editor.style.height = "0px";
-      editor.style.height = `${Math.min(360, Math.max(96, editor.scrollHeight))}px`;
-    };
+    const resize = () => resizeComposer(editor);
     resize();
     let width = editor.getBoundingClientRect().width;
     const observer = new ResizeObserver(() => {
@@ -977,7 +1003,6 @@ const labels: Record<string, string> = {
             <Button
               icon={Plus}
               fullWidth
-              align="start"
               variant="outline"
               disabled={!snapshot || snapshot.running}
               pending={snapshot?.changing}
@@ -1061,7 +1086,7 @@ const labels: Record<string, string> = {
             </header>
             <SessionRail
               sessions={sessionMatches}
-              workspaces={snapshot?.recentWorkspaces ?? []}
+              workspaces={workspaces}
               pins={pins}
               currentId={snapshot?.sessionFile ? snapshot.sessionId : undefined}
               cwd={snapshot?.cwd}
@@ -1093,6 +1118,7 @@ const labels: Record<string, string> = {
                 path: session.path,
                 value: session.name || (session.messageCount > 0 && session.firstMessage) || t("新会话"),
               })}
+              removeWorkspace={(cwd) => setLocalDialog({ kind: "workspace-remove", path: cwd, value: baseName(cwd) })}
             />
           </section>
           <div className="sidebar-footer">
@@ -1463,6 +1489,20 @@ const labels: Record<string, string> = {
                         run={run}
                       />
                       <div className="composer-region">
+                        {emptyConversation && (
+                          <WorkspacePicker
+                            cwd={snapshot.cwd}
+                            workspaces={snapshot.recentWorkspaces}
+                            disabled={snapshot.running || choosingWorkspace}
+                            pending={snapshot.changing}
+                            choose={(cwd) => {
+                              void startWorkspaceSession(cwd);
+                            }}
+                            add={() => {
+                              void openWorkspace();
+                            }}
+                          />
+                        )}
                         <Autocomplete
                           text={text}
                           editor={composerRef}
@@ -1551,23 +1591,6 @@ const labels: Record<string, string> = {
                           )}
                           <div className="composer-toolbar grid items-center gap-2 px-3 pb-3">
                             <div className="composer-options">
-                              {emptyConversation && (
-                                <WorkspacePicker
-                                  cwd={snapshot.cwd}
-                                  workspaces={snapshot.recentWorkspaces}
-                                  disabled={
-                                    snapshot.running ||
-                                    choosingWorkspace
-                                  }
-                                  pending={snapshot.changing}
-                                  choose={(cwd) => {
-                                    void startWorkspaceSession(cwd);
-                                  }}
-                                  add={() => {
-                                    void openWorkspace();
-                                  }}
-                                />
-                              )}
                               <ContextMenu
                                 snapshot={snapshot}
                                 images={() => uploadRef.current?.click()}
@@ -1978,6 +2001,12 @@ const labels: Record<string, string> = {
                   {t("确定删除「{value1}」吗？会话及其消息将被永久删除。", { value1: localDialog.value })}
                 </p>
               )}
+              {localDialog.kind === "workspace-remove" && (
+                <div className="dialog-help break-words text-[13px] leading-relaxed text-muted">
+                  <p>{t("确定移除工作区「{value1}」吗？本地文件和历史会话会保留，重新添加后仍可继续使用。", { value1: localDialog.value })}</p>
+                  <p className="mt-2 break-all text-xs">{localDialog.path}</p>
+                </div>
+              )}
               {localDialog.kind === "bash" && (
                 <p className="dialog-help text-[13px] leading-relaxed text-muted">
                   {t("在当前 workspace 中运行一次 Shell 命令。命令和输出会记录到对话，供后续模型读取。")}
@@ -2005,7 +2034,7 @@ const labels: Record<string, string> = {
                   <option value="jsonl">JSONL</option>
                 </SelectField>
               )}
-              {localDialog.kind !== "delete" && <Field
+              {!["delete", "workspace-remove"].includes(localDialog.kind) && <Field
                 label={
                   localDialog.kind === "compact"
                     ? t("摘要重点（可选）")
@@ -2041,7 +2070,7 @@ const labels: Record<string, string> = {
                   {t("取消")}
                 </Button>
                 <Button
-                  color={localDialog.kind === "delete" ? "critical" : "primary"}
+                  color={["delete", "workspace-remove"].includes(localDialog.kind) ? "critical" : "primary"}
                   loading={submitting}
                   disabled={["import", "bash"].includes(localDialog.kind) && !localDialog.value.trim()}
                   onClick={() => {
@@ -2049,6 +2078,7 @@ const labels: Record<string, string> = {
                   }}
                 >
                   {localDialog.kind === "delete" ? t("删除会话")
+                    : localDialog.kind === "workspace-remove" ? t("移除工作区")
                     : localDialog.kind === "bash" ? t("运行命令")
                     : localDialog.kind === "import" ? t("导入会话")
                     : localDialog.kind === "export" ? t("导出会话")

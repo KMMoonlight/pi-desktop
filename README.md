@@ -52,12 +52,43 @@ package management are available before opening a workspace. Project settings
 and live MCP connection operations become available after a workspace is selected.
 The sidebar groups only explicitly registered workspaces; older automatic entries
 and unrelated session history do not add workspace groups. Session files are retained.
+Use the remove button beside a workspace's new-session button to remove it from
+the sidebar. Local files and saved sessions are kept and return when the workspace
+is added again. Removing the active workspace selects another available workspace;
+removing the last one returns to the open-workspace screen, including after reload.
 
 ```sh
 npm run desktop:build
 ```
 
-The Windows installer is written to `src-tauri/target/release/bundle/nsis/`. The build stages Node and the SDK dependency tree into `runtime/` and includes them in the installer. Installed users do not need a global Pi or Node installation. Windows still needs the WebView2 runtime; the Tauri installer uses its standard WebView2 bootstrap flow if necessary. Other platform builds have not been verified.
+Build on the target platform with its native Node and Rust toolchains:
+
+| Platform | Output under `src-tauri/target/release/bundle/` |
+| -------- | --------------------------------------------- |
+| Windows x64 | `nsis/Pi Desktop_*_x64-setup.exe` |
+| macOS Apple Silicon | `macos/Pi Desktop.app` and `dmg/Pi Desktop_*_aarch64.dmg` |
+| macOS Intel | `macos/Pi Desktop.app` and `dmg/Pi Desktop_*_x64.dmg` |
+
+The build stages Node and the SDK dependency tree into `runtime/` and includes
+them in the installer. Installed users do not need a global Pi or Node
+installation. Windows still needs the WebView2 runtime; the Tauri installer uses
+its standard WebView2 bootstrap flow if necessary. Runtime staging uses the host
+architecture, so build each architecture on its corresponding runner rather than
+cross-compiling only the Rust binary.
+
+Run `npm run runtime:verify` after building to check the staged Node, SDK, native
+PTY and backend protocol. To verify the runtime copied into a macOS app, run:
+
+```sh
+npm run runtime:verify -- 'src-tauri/target/release/bundle/macos/Pi Desktop.app/Contents/Resources/runtime'
+```
+
+The **Desktop installers** GitHub Actions workflow builds Windows x64, macOS
+Apple Silicon and macOS Intel separately and uploads installers and zipped macOS
+apps as artifacts retained for 14 days. Trigger it manually on a branch containing
+the workflow, or push a `codex/package-*` branch. These are test packages without
+configured distribution signing or Apple notarization; production signing must
+be configured before public distribution.
 
 App icons use the Pi Agent mark on a rounded, transparent canvas. Edit
 `src-tauri/app-icon.svg`, then run `npm run icons` to regenerate the desktop PNG,
