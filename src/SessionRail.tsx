@@ -1,5 +1,5 @@
 import { t, useLocale, getLocale } from "./i18n";
-import { Folder, Pin, Plus, ChevronRight, Trash2 } from "lucide-react";
+import { Folder, Pin, Plus, ChevronRight, Trash2, LoaderCircle } from "lucide-react";
 import { useState } from "react";
 import type { SessionItem } from "../shared/types";
 import { Hint, IconButton, baseName } from "./ui";
@@ -25,6 +25,7 @@ export function SessionRail({
   currentName,
   search,
   busy,
+  unreadSessions,
   pending,
   select,
   pin,
@@ -40,6 +41,7 @@ export function SessionRail({
   currentName?: string;
   search: string;
   busy: boolean;
+  unreadSessions: string[];
   pending?: boolean;
   select: (session?: SessionItem) => void;
   pin: (id: string) => void;
@@ -65,6 +67,15 @@ export function SessionRail({
     !!currentId &&
     !sessions.some((session) => session.id === currentId) &&
     !search;
+  const activity = (id: string) => busy && id === currentId ? (
+    <span className="session-activity" role="status" aria-label={t("执行中")} title={t("执行中")}>
+      <LoaderCircle size={13} className="spin" aria-hidden="true" />
+    </span>
+  ) : unreadSessions.includes(id) ? (
+    <span className="session-activity" role="status" aria-label={t("任务完成，未读")} title={t("任务完成，未读")}>
+      <span className="session-unread-dot" />
+    </span>
+  ) : null;
   const row = (session: SessionItem) => (
     <div
       className={`session-row ${session.id === currentId ? "active" : ""} ${pins.includes(session.id) ? "is-pinned" : ""}`}
@@ -76,6 +87,7 @@ export function SessionRail({
       >
         <button disabled={busy} aria-disabled={pending || undefined} aria-current={session.id === currentId ? "page" : undefined} onClick={() => { if (!pending) select(session); }}>
           <span>
+            {activity(session.id)}
             <strong>
               {session.name || (session.messageCount > 0 && session.firstMessage) || t("新会话")}
             </strong>
@@ -162,6 +174,7 @@ export function SessionRail({
             {fresh && projectKey(group.cwd) === projectKey(cwd!) && (
               <button className="session-row active" data-session-id={currentId} aria-current="page" disabled={busy} aria-disabled={pending || undefined} onClick={() => { if (!pending) select(); }}>
                 <span>
+                  {activity(currentId)}
                   <strong>{currentName ?? t("新会话")}</strong>
                 </span>
               </button>

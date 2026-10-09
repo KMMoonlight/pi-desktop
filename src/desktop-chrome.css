@@ -41,6 +41,10 @@
 .sidebar .session-row { height: 32px; min-height: 32px; padding: 0 8px; border-radius: 12px; }
 .sidebar .session-row > button:not([class]) > svg, .sidebar button.session-row > svg { display: none; }
 .session-row strong { font-size: 14px; font-weight: 400; line-height: 20px; }
+.sidebar .session-row .session-activity { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 14px; width: 14px; height: 20px; margin-right: 3px; color: var(--ui-muted); }
+.session-unread-dot { width: 7px; height: 7px; border-radius: 50%; background: #3478f6; }
+[data-theme="dark"] .session-unread-dot { background: #6aa5ff; }
+.sidebar button.session-row > span { display: flex; align-items: center; min-width: 0; }
 .sidebar .session-row.active strong { font-weight: 500; }
 .workspace-new-session { opacity: 1; color: var(--ui-secondary); }
 .sidebar .workspace-remove,

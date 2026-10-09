@@ -116,6 +116,7 @@ export const english = {
   "今天，想完成什么？": "What would you like to do today?",
   "配置模型账号": "Connect a model provider",
   "待处理消息": "Queued messages",
+  "任务完成，未读": "Task completed, unread",
   "取回编辑": "Take back to edit",
   "全部取回编辑": "Edit all queued messages",
   "当前工具结束后交付": "Delivered after the current tool finishes",

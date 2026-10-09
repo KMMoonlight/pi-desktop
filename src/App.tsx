@@ -83,6 +83,7 @@ import { enqueueExtensionEvent } from "./extensionEvents";
 import { FilesView, TreeView, type Run } from "./Workspace";
 import { SettingsView } from "./Settings";
 import { useSessionDraft } from "./draft";
+import { useSessionActivity } from "./useSessionActivity";
 import type {
   DesktopEvent,
   DesktopSnapshot,
@@ -330,6 +331,7 @@ const labels: Record<string, string> = {
   }, [connected, !!snapshot, settingsOpen, run]);
   const workspaceReady =
     connected && !booting && !!snapshot && !snapshot.changing;
+  const unreadSessions = useSessionActivity(snapshot, workspaceReady && tab === "chat" && !settingsOpen);
   useExtensionInput(connected ? snapshot : undefined, run);
   useTextSelection(composerRef, (target) => {
     if (!workspaceReady) return;
@@ -1096,6 +1098,7 @@ const labels: Record<string, string> = {
               currentName={snapshot?.sessionName}
               search={search}
               busy={snapshot?.running ?? false}
+              unreadSessions={unreadSessions}
               pending={snapshot?.changing}
               newSession={(cwd) => {
                 void startWorkspaceSession(cwd);
