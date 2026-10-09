@@ -1457,31 +1457,54 @@ const labels: Record<string, string> = {
                       )}
                       {(snapshot.queue.steering.length > 0 ||
                         snapshot.queue.followUp.length > 0) && (
-                        <div className="queue-strip">
-                          <div>
-                            <Clock3 size={14} />
-                            <strong>{t("待处理消息")}</strong>
+                        <section
+                          className="queue-strip message-queue"
+                          aria-label={t("待处理消息")}
+                        >
+                          <header className="queue-header">
+                            <div className="queue-heading">
+                              <Clock3 size={15} aria-hidden="true" />
+                              <strong>{t("待处理消息")}</strong>
+                              <span className="queue-count">
+                                {snapshot.queue.steering.length + snapshot.queue.followUp.length}
+                              </span>
+                            </div>
+                            <Button
+                              icon={PencilLine}
+                              variant="outline"
+                              size="small"
+                              className="queue-restore hover:border-muted hover:bg-card"
+                              onClick={() => {
+                                void run("queue.restore");
+                              }}
+                            >
+                              {snapshot.queue.steering.length + snapshot.queue.followUp.length > 1
+                                ? t("全部取回编辑")
+                                : t("取回编辑")}
+                            </Button>
+                          </header>
+                          <div className="queue-items">
+                            {([
+                              ["steer", snapshot.queue.steering],
+                              ["followUp", snapshot.queue.followUp],
+                            ] as const).flatMap(([mode, messages]) =>
+                              messages.map((message, i) => (
+                                <div className="queue-item" key={`${mode}-${i}`}>
+                                  <span
+                                    className={`queue-kind ${mode}`}
+                                    title={mode === "steer"
+                                      ? t("当前工具结束后交付")
+                                      : t("本轮任务结束后交付")}
+                                  >
+                                    <span aria-hidden="true" className="queue-kind-dot" />
+                                    {mode === "steer" ? t("调整方向") : t("任务结束后")}
+                                  </span>
+                                  <p className="queue-message">{message}</p>
+                                </div>
+                              )),
+                            )}
                           </div>
-                          {snapshot.queue.steering.map((message, i) => (
-                            <p key={`s-${i}`}>
-                              <span>{t("调整方向")}</span>
-                              {message}
-                            </p>
-                          ))}
-                          {snapshot.queue.followUp.map((message, i) => (
-                            <p key={`f-${i}`}>
-                              <span>{t("任务结束后")}</span>
-                              {message}
-                            </p>
-                          ))}
-                          <IconButton
-                            icon={X}
-                            label={t("清空消息队列")}
-                            onClick={() => {
-                              void run("queue.restore");
-                            }}
-                          />
-                        </div>
+                        </section>
                       )}
                       <NativeWidgets
                         snapshot={snapshot}

@@ -448,7 +448,7 @@ test("desktop streaming, queues, attachments and SDK dialog carriers expose thei
   await page.getByRole("button", { name: "发送消息", exact: true }).click();
   await expect(page.getByText("待处理消息", { exact: true })).toBeVisible();
   await capture(page, "chat-followup-queue");
-  await page.getByRole("button", { name: "清空消息队列", exact: true }).click();
+  await page.getByRole("button", { name: "取回编辑", exact: true }).click();
   // Taking a queued message back restores the draft, so the shared action is
   // Send until that draft is cleared, as it is for any other running input.
   await expect(composer).toHaveValue("Finish with a desktop review summary");
@@ -468,7 +468,7 @@ test("desktop streaming, queues, attachments and SDK dialog carriers expose thei
     .getByRole("treeitem", { name: "test-note.txt", exact: true })
     .click();
   await page.getByRole("button", { name: "添加到消息", exact: true }).click();
-  await page.getByRole("button", { name: "关闭文件面板", exact: true }).click();
+  await expect(page.getByRole("button", { name: "关闭文件面板", exact: true })).toHaveCount(0);
   await expect(page.locator(".attachment-list")).toContainText("test-note.txt");
   await capture(page, "composer-file-attachment");
   await sdkAction(page, "prompt", { message: "/desktop-dialog" });

@@ -128,6 +128,32 @@
 .context-usage-popup dd { margin: 0; font-variant-numeric: tabular-nums; }
 .context-usage-popup > button { width: 100%; margin-top: 12px; padding: 6px 8px; border: 0; border-radius: 8px; background: var(--ui-hover); color: var(--ui-ink); text-align: left; }
 .conversation-empty h2 { font-size: 26px; line-height: 32px; letter-spacing: 0; }
+.message-queue {
+  flex-shrink: 0; max-height: none; padding: 0; overflow: hidden;
+  border-radius: 12px; background: var(--ui-canvas); font-size: 12px;
+}
+.queue-header {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 48px; padding: 8px 12px; border-bottom: 1px solid var(--ui-line);
+  background: color-mix(in srgb, var(--ui-sidebar) 50%, var(--ui-canvas));
+}
+.queue-heading { display: flex; align-items: center; min-width: 0; gap: 7px; color: var(--ui-muted); }
+.queue-heading strong { color: var(--ui-secondary); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.queue-count { min-width: 19px; padding: 0 5px; border-radius: 5px; background: var(--ui-module); font-size: 11px; line-height: 19px; text-align: center; font-variant-numeric: tabular-nums; }
+.queue-header .queue-restore { margin-left: auto; }
+.message-queue > .queue-items { display: block; max-height: 160px; overflow: auto; padding: 0 12px; scrollbar-width: thin; }
+.queue-item { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; }
+.queue-item + .queue-item { border-top: 1px solid var(--ui-line); }
+.queue-kind { display: inline-flex; align-items: center; flex-shrink: 0; gap: 5px; color: var(--ui-muted); font-size: 11px; line-height: 20px; white-space: nowrap; }
+.queue-kind-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ui-muted); }
+.queue-kind.steer .queue-kind-dot { background: var(--ui-action); }
+.message-queue .queue-message { min-width: 0; margin: 0; padding: 0; color: var(--ui-ink); font-size: 13px; line-height: 21px; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .queue-header { gap: 8px; padding-inline: 10px; }
+  .queue-heading { gap: 5px; }
+  .queue-heading > svg { display: none; }
+  .queue-item { flex-direction: column; gap: 3px; }
+}
 .message { flex-direction: column; align-items: stretch; gap: 6px; padding: 6px 0; }
 .message .message-avatar { display: none; }
 .message .message-body { padding: 0; width: 100%; max-width: 100%; flex: 0 1 auto; }
