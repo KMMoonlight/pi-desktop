@@ -3497,6 +3497,7 @@ export class DesktopHost extends EventEmitter {
         break;
       }
       case "thinking.set": {
+        this.idle();
         const level = required(a.level, "思考等级");
         if (
           !session

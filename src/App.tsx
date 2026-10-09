@@ -1691,6 +1691,7 @@ const labels: Record<string, string> = {
                                   name={t("思考等级")}
                                   appearance="embedded"
                                   value={snapshot.thinking}
+                                  disabled={snapshot.running}
                                   pending={snapshot.changing}
                                   onChange={(level) => {
                                     void run("thinking.set", { level });
