@@ -269,6 +269,7 @@ export type DesktopEvent =
   | { type: "shutdown"; exitCode?: number }
   | { type: "sdk_event"; data: unknown }
   | { type: "snapshot"; data: DesktopSnapshot }
+  | { type: "workspace_closed"; workspaces: string[] }
   | { type: "dialog"; data: DialogRequest }
   | { type: "dialog_closed"; id: string }
   | {

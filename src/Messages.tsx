@@ -767,6 +767,7 @@ export function Messages({
   useLocale();
   const scroller = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
+  const scrollSize = useRef({ height: 0, viewport: 0, top: 0 });
   const [away, setAway] = useState(false);
   const toolEntries = {
     calls: new Set(
@@ -846,6 +847,11 @@ export function Messages({
     // real content/viewport resizing, so those snapshots cannot move the reader.
     const observer = new ResizeObserver(() => {
       if (follow.current) element.scrollTop = element.scrollHeight;
+      scrollSize.current = {
+        height: element.scrollHeight,
+        viewport: element.clientHeight,
+        top: element.scrollTop,
+      };
     });
     observer.observe(element);
     if (element.firstElementChild) observer.observe(element.firstElementChild);
@@ -905,6 +911,15 @@ export function Messages({
         ref={scroller}
         onScroll={() => {
           const el = scroller.current!;
+          // Resizing can emit scroll before ResizeObserver runs. It is not a
+          // reader scrolling away, so keep the prior follow state until resize.
+          const previous = scrollSize.current;
+          const resized = el.scrollHeight !== previous.height ||
+            el.clientHeight !== previous.viewport;
+          const clamped = previous.top > el.scrollHeight - el.clientHeight &&
+            el.scrollHeight - el.clientHeight - el.scrollTop <= 1;
+          if (resized && (el.scrollTop >= previous.top || clamped)) return;
+          previous.top = el.scrollTop;
           follow.current =
             el.scrollHeight - el.scrollTop - el.clientHeight < 100;
           setAway(!follow.current);

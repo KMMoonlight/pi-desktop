@@ -76,17 +76,19 @@ its standard WebView2 bootstrap flow if necessary. Runtime staging uses the host
 architecture, so build each architecture on its corresponding runner rather than
 cross-compiling only the Rust binary.
 
-Run `npm run runtime:verify` after building to check the staged Node, SDK, native
-PTY and backend protocol. To verify the runtime copied into a macOS app, run:
+Runtime staging checks the bundled Node, SDK, native PTY and backend protocol
+before packaging; a missing backend dependency fails the build. Run
+`npm run runtime:verify` to repeat that check after building. To verify the
+runtime copied into a macOS app, run:
 
 ```sh
 npm run runtime:verify -- 'src-tauri/target/release/bundle/macos/Pi Desktop.app/Contents/Resources/runtime'
 ```
 
 The **Desktop installers** GitHub Actions workflow builds Windows x64, macOS
-Apple Silicon and macOS Intel separately and uploads installers and zipped macOS
-apps as artifacts retained for 14 days. Trigger it manually on a branch containing
-the workflow, or push a `codex/package-*` branch. These are test packages without
+Apple Silicon and macOS Intel separately and uploads installer
+packages as artifacts retained for 14 days. Trigger it manually on a branch containing
+the workflow, push a `codex/package-*` branch, or push a `v*` version tag. These are test packages without
 configured distribution signing or Apple notarization; production signing must
 be configured before public distribution.
 

@@ -84,6 +84,7 @@ test("sidebar delete sits beside pin, supports cancellation, and clears pinned s
   // Deleting an inactive conversation must not change the selected session.
   await row(first.sessionId).getByRole("button").first().click();
   await expect(row(first.sessionId)).toHaveClass(/active/);
+  await target.hover();
   await deletion.click();
   await dialog.getByRole("button", { name: "删除会话", exact: true }).click();
   await expect(dialog).toHaveCount(0);
@@ -109,6 +110,7 @@ test("sidebar delete sits beside pin, supports cancellation, and clears pinned s
   await expect(row(first.sessionId)).toBeVisible();
   // Delete the active conversation and verify the unsaved empty state remains stable.
   await editor.fill("删除当前会话的草稿");
+  await row(first.sessionId).hover();
   await row(first.sessionId)
     .getByRole("button", { name: "删除会话", exact: true })
     .click();

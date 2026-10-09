@@ -6,7 +6,7 @@ Pi Desktop 是 [Pi](https://github.com/earendil-works/pi) 的图形化桌面应�
 
 支持 **Windows 和 macOS**，提供 **简体中文 / English** 界面。
 
-[下载安装](https://github.com/KMMoonlight/pi-desktop/releases/tag/v0.1.0) · [反馈问题](https://github.com/KMMoonlight/pi-desktop/issues)
+[下载安装](https://github.com/KMMoonlight/pi-desktop/releases/tag/v0.1.1) · [反馈问题](https://github.com/KMMoonlight/pi-desktop/issues)
 
 ![Pi Desktop 对话界面：项目会话、Markdown 回复与消息输入框](docs/images/conversation.png)
 
@@ -39,13 +39,13 @@ Pi Desktop 是 [Pi](https://github.com/earendil-works/pi) 的图形化桌面应�
 
 | 设备 | 下载 |
 | --- | --- |
-| Windows x64 | [Windows 安装器（.exe）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.0/Pi-Desktop_0.1.0_windows-x64-setup.exe) |
-| Mac Apple Silicon（M 系列芯片） | [Apple Silicon 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.0/Pi-Desktop_0.1.0_macos-arm64.dmg) |
-| Mac Intel | [Intel 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.0/Pi-Desktop_0.1.0_macos-x64.dmg) |
+| Windows x64 | [Windows 安装器（.exe）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.1/Pi-Desktop_0.1.1_windows-x64-setup.exe) |
+| Mac Apple Silicon（M 系列芯片） | [Apple Silicon 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.1/Pi-Desktop_0.1.1_macos-arm64.dmg) |
+| Mac Intel | [Intel 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.1/Pi-Desktop_0.1.1_macos-x64.dmg) |
 
 Windows 按安装器提示完成安装；macOS 打开 `.dmg`，将 Pi Desktop 拖入「应用程序」。无需另外安装 Node.js 或 Pi。
 
-当前为 **v0.1.0 测试预发布版**，尚未配置正式代码签名和 Apple 公证，系统可能显示安全提示。
+当前为 **v0.1.1 测试预发布版**，尚未配置正式代码签名和 Apple 公证，系统可能显示安全提示。
 
 ## 开始使用
 

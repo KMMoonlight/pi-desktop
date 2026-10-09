@@ -1,0 +1,66 @@
+name: Desktop installers
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/package-*'
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-latest
+          - platform: macos-arm64
+            runner: macos-15
+          - platform: macos-x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        run: npm run desktop:build
+      - name: Build macOS installers
+        if: runner.os == 'macOS'
+        run: npm run desktop:build -- --config src-tauri/tauri.macos.conf.json
+      - name: Verify packaged macOS runtime
+        if: runner.os == 'macOS'
+        run: npm run runtime:verify -- 'src-tauri/target/release/bundle/macos/Pi Desktop.app/Contents/Resources/runtime'
+      - name: Verify macOS disk image
+        if: runner.os == 'macOS'
+        run: hdiutil verify src-tauri/target/release/bundle/dmg/*.dmg
+      - name: Collect versioned installers
+        shell: bash
+        run: |
+          package_version=$(node -p 'JSON.parse(require("fs").readFileSync("package.json", "utf8")).version')
+          mkdir release-assets
+          if [ '${{ runner.os }}' = 'Windows' ]; then
+            cp src-tauri/target/release/bundle/nsis/*.exe "release-assets/Pi-Desktop_${package_version}_windows-x64-setup.exe"
+          else
+            cp src-tauri/target/release/bundle/dmg/*.dmg "release-assets/Pi-Desktop_${package_version}_${{ matrix.platform }}.dmg"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Pi-Desktop-${{ matrix.platform }}
+          if-no-files-found: error
+          retention-days: 14
+          path: release-assets/*

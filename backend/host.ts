@@ -1241,20 +1241,7 @@ export class DesktopHost extends EventEmitter {
     this.componentTextApi = componentRuntime.text;
     this.transcriptMarkdown = new TranscriptMarkdownRenderer(componentRuntime);
     if (this.disposal) throw new Error("Pi 已关闭");
-    if (this.runtime) {
-      const previous = this.runtime;
-      this.idle();
-      this.restoreSessionReload?.();
-      this.restoreSessionPrompt?.();
-      this.restoreSessionBash?.();
-      this.stopThemeWatch?.();
-      this.appearanceChanged = undefined;
-      await this.disposeRuntime(previous);
-      this.desktopUI.clearSurfaces();
-      this.restoreRuntimeTransitions.get(previous)?.();
-      this.restoreRuntimeTransitions.delete(previous);
-      if (this.runtime === previous) this.runtime = undefined;
-    }
+    await this.closeWorkspaceRuntime();
     // The old renderer uses its original launch settings throughout teardown.
     this.startup.configuration = { ...options };
     this.invocationTheme = undefined;
@@ -1339,7 +1326,29 @@ export class DesktopHost extends EventEmitter {
     await this.startup.run(options);
     return this.snapshot();
   }
-  private async rememberWorkspace(cwd: string) {
+  private async closeWorkspaceRuntime() {
+    const previous = this.runtime;
+    if (!previous) return;
+    this.idle();
+    this.saveEditorDraft();
+    this.sessionTitles.cancel();
+    this.restoreSessionReload?.();
+    this.restoreSessionPrompt?.();
+    this.restoreSessionBash?.();
+    this.stopThemeWatch?.();
+    this.appearanceChanged = undefined;
+    this.sessionLifetime.abort();
+    this.externalEditor?.controller.abort();
+    await this.disposeRuntime(previous);
+    this.unsubscribe?.();
+    this.clearInputListeners();
+    this.desktopUI.clearSurfaces();
+    this.restoreRuntimeTransitions.get(previous)?.();
+    this.restoreRuntimeTransitions.delete(previous);
+    if (this.runtime === previous) this.runtime = undefined;
+    this.workspaceDraft = undefined;
+  }
+  private async readWorkspacePreferences() {
     let preferences: RecordValue = {};
     try {
       preferences = record(
@@ -1352,11 +1361,17 @@ export class DesktopHost extends EventEmitter {
         : [];
     } catch {
       /* First launch has no desktop preferences. */
+      this.recentWorkspaces = [];
     }
-    this.recentWorkspaces = [
-      cwd,
-      ...this.recentWorkspaces.filter((p) => resolve(p).toLowerCase() !== cwd.toLowerCase()),
-    ].slice(0, 12);
+    return preferences;
+  }
+  private async rememberWorkspace(cwd: string, remove = false) {
+    const preferences = await this.readWorkspacePreferences();
+    const same = (value: string) => process.platform === "win32"
+      ? resolve(value).toLowerCase() === cwd.toLowerCase()
+      : resolve(value) === cwd;
+    const remaining = this.recentWorkspaces.filter((p) => !same(p));
+    this.recentWorkspaces = remove ? remaining : [cwd, ...remaining].slice(0, 12);
     await mkdir(this.agentDir, { recursive: true });
     await writeFile(
       join(this.agentDir, "desktop.json"),
@@ -2472,6 +2487,7 @@ export class DesktopHost extends EventEmitter {
   async action(request: ActionRequest): Promise<unknown> {
     if (this.shuttingDown || this.disposal) throw new Error("Pi 正在关闭");
     const mutations = new Set([
+      "workspace.remove",
       "session.new",
       "session.switch",
       "session.delete",
@@ -2610,6 +2626,30 @@ export class DesktopHost extends EventEmitter {
       await this.rememberWorkspace(cwd);
       this.publish();
       return this.runtime ? this.snapshot() : { cwd };
+    }
+    if (request.action === "workspaces.list") {
+      await this.readWorkspacePreferences();
+      return this.recentWorkspaces;
+    }
+    if (request.action === "workspace.remove") {
+      const cwd = resolve(required(a.cwd, "工作区路径"));
+      const current = this.runtime?.cwd;
+      await this.rememberWorkspace(cwd, true);
+      if (current === cwd) {
+        let next: string | undefined;
+        for (const workspace of this.recentWorkspaces) {
+          if (await stat(workspace).then((info) => info.isDirectory(), () => false)) {
+            next = workspace;
+            break;
+          }
+        }
+        if (next) return this.initializeWorkspace(next, {});
+        await this.closeWorkspaceRuntime();
+        this.emitEvent({ type: "workspace_closed", workspaces: this.recentWorkspaces });
+        return null;
+      }
+      this.publish();
+      return this.runtime ? this.snapshot() : null;
     }
     if (request.action === "folders.list")
       return browseDirectories(text(a.path), a.showDot === true);

@@ -43,6 +43,22 @@
 .session-row strong { font-size: 14px; font-weight: 400; line-height: 20px; }
 .sidebar .session-row.active strong { font-weight: 500; }
 .workspace-new-session { opacity: 1; color: var(--ui-secondary); }
+.sidebar .workspace-remove,
+.sidebar .session-row > button[data-session-action="delete"] {
+  opacity: 0;
+  pointer-events: none;
+  color: var(--color-danger);
+}
+.sidebar .session-row > button[data-session-action="delete"] > svg {
+  color: inherit;
+}
+.sidebar .session-project > summary:hover .workspace-remove,
+.sidebar .session-row:hover > button[data-session-action="delete"],
+.sidebar .workspace-remove:focus-visible,
+.sidebar .session-row > button[data-session-action="delete"]:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
 .sidebar .session-row > button > span > strong { max-width: none; }
 .sidebar .session-row > button[class] { position: absolute; right: 4px; top: 0; }
 .sidebar .session-row > button[data-session-action="pin"] { right: 38px; }

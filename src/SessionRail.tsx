@@ -29,6 +29,7 @@ export function SessionRail({
   select,
   pin,
   remove,
+  removeWorkspace,
   newSession,
 }: {
   sessions: SessionItem[];
@@ -43,6 +44,7 @@ export function SessionRail({
   select: (session?: SessionItem) => void;
   pin: (id: string) => void;
   remove: (session: SessionItem) => void;
+  removeWorkspace: (cwd: string) => void;
   newSession: (cwd: string) => void;
 }) {
   useLocale();
@@ -91,6 +93,7 @@ export function SessionRail({
       <IconButton
         icon={Trash2}
         label={t("删除会话")}
+        color="critical"
         disabled={busy}
         attributes={{ "data-session-action": "delete", "aria-disabled": pending || undefined }}
         onClick={() => { if (!pending) remove(session); }}
@@ -132,6 +135,16 @@ export function SessionRail({
               {names.filter(name => name === baseName(group.cwd).toLowerCase()).length > 1 && (
                 <small className="workspace-parent">{parentName(group.cwd)}</small>
               )}
+              <button
+                type="button" className="workspace-remove workspace-new-session"
+                aria-label={t("移除工作区 {value1}", { value1: baseName(group.cwd) })}
+                disabled={busy} aria-disabled={pending || undefined}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (!pending) removeWorkspace(group.cwd);
+                }}
+              ><Trash2 size={14} /></button>
               <button
                 type="button" className="workspace-new-session"
                 aria-label={t("在 {value1} 中新建会话", { value1: baseName(group.cwd) })} disabled={busy}

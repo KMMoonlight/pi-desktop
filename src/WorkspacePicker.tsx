@@ -43,11 +43,14 @@ export function WorkspacePicker({
       const bounds = trigger.current!.getBoundingClientRect();
       const above = bounds.top - 18,
         below = innerHeight - bounds.bottom - 18;
-      const height = Math.min(
-        360,
-        Math.max(above, below),
-        menu.current!.scrollHeight,
-      );
+      const maxHeight = Math.min(360, Math.max(above, below));
+      const element = menu.current!;
+      const previousMaxHeight = element.style.maxHeight;
+      // Measure the full border box at its final cap; scrollHeight omits borders
+      // and would squeeze a short options list enough to create a scrollbar.
+      element.style.maxHeight = `${maxHeight}px`;
+      const height = element.getBoundingClientRect().height;
+      element.style.maxHeight = previousMaxHeight;
       setPosition({
         left: Math.max(
           12,
@@ -60,7 +63,7 @@ export function WorkspacePicker({
           below >= height
             ? bounds.bottom + 6
             : Math.max(12, bounds.top - height - 6),
-        maxHeight: Math.max(100, height),
+        maxHeight,
       });
     };
     place();
