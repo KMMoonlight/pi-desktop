@@ -3307,8 +3307,8 @@ test("desktop hit paths distinguish shared horizontal occurrences and retain the
     assert.equal(shared.handleMouse, original);
     assert.equal(Object.hasOwn(stack, "handleMouse"), false);
     assert.equal(stack.mouseLayout, layout);
-    await assert.rejects(
-      registry.mouse(
+    assert.deepEqual(
+      await registry.mouse(
         surface.id,
         rootId.action,
         pointer({
@@ -3318,7 +3318,141 @@ test("desktop hit paths distinguish shared horizontal occurrences and retain the
           ],
         }),
       ),
-      /hit path is no longer available/,
+      { handled: false, capture: false, render: false },
+    );
+  } finally {
+    registry.dispose();
+    await setup.close();
+  }
+});
+
+test("obsolete desktop hit paths are discarded after a child is replaced or moved", async () => {
+  const setup = await fixture();
+  const registry = new DesktopUIRegistry(
+    () => setup.host.sdk,
+    () => {},
+  );
+  registerComponentMappings(registry);
+  const api = await loadTuiApi();
+  const Text = Reflect.get(api, "Text"),
+    Container = Reflect.get(api, "Container");
+  const received: string[] = [];
+  const child = (name: string) => {
+    const value = new Text(name, 0, 0);
+    value.handleMouse = (event: PiMouseEvent) => {
+      received.push(`${name}:${event.type}`);
+      return { handled: true, capture: event.type === "press", render: false };
+    };
+    return value;
+  };
+  let parentEvents = 0;
+  const root = new (class extends Container {
+    handleMouse(event: PiMouseEvent) {
+      parentEvents++;
+      return super.handleMouse(event);
+    }
+  })();
+  const original = child("original"),
+    replacement = child("replacement");
+  root.addChild(original);
+  const pathFor = (surface: DesktopSurface, name: string) => {
+    const visit = (
+      node: DesktopNode,
+      parents: NonNullable<DesktopNode["component"]>[] = [],
+    ): NonNullable<DesktopNode["component"]>[] | undefined => {
+      const path = node.component ? [...parents, node.component] : parents;
+      if ("text" in node && node.text === name) return path;
+      for (const child of "children" in node
+        ? node.children
+        : node.kind === "region"
+          ? [node.child]
+          : []) {
+        const found = visit(child, path);
+        if (found) return found;
+      }
+    };
+    const identities = visit(surface.view);
+    assert.ok(identities, `Missing mouse target: ${name}`);
+    return identities.map((identity) => ({
+      ...identity,
+      x: 1,
+      y: 0,
+      width: 20,
+      height: 2,
+    }));
+  };
+  try {
+    await registry.mount(root, "dialog", "changing-hit-path");
+    const surface = registry.surfaces[0];
+    const stale = pathFor(surface, "original");
+    await registry.mouse(
+      surface.id,
+      stale[0].action,
+      pointer({ x: 1, y: 0, hitPath: stale }),
+    );
+    assert.deepEqual(received, ["original:press"]);
+    root.clear();
+    root.addChild(replacement);
+    // Both events were sampled before the replacement reached the browser.
+    for (const type of ["release", "wheel", "press"] as const) {
+      const result = await registry.mouse(
+        surface.id,
+        stale[0].action,
+        pointer({ x: 1, y: 0, type, hitPath: stale }),
+      );
+      assert.deepEqual(result, {
+        handled: false,
+        capture: false,
+        render: false,
+      });
+    }
+    assert.deepEqual(received, ["original:press"]);
+    assert.equal(parentEvents, 1);
+    const current = pathFor(registry.surfaces[0], "replacement");
+    await registry.mouse(
+      surface.id,
+      current[0].action,
+      pointer({ x: 1, y: 0, hitPath: current }),
+    );
+    // Keep the captured component alive, but move its occurrence in the tree.
+    root.clear();
+    root.addChild(original);
+    root.addChild(replacement);
+    await registry.mouse(
+      surface.id,
+      current[0].action,
+      pointer({ x: 1, y: 0, type: "release", hitPath: current }),
+    );
+    assert.deepEqual(received, ["original:press", "replacement:press"]);
+    const moved = pathFor(registry.surfaces[0], "replacement");
+    const uncaptured = await registry.mouse(
+      surface.id,
+      moved[0].action,
+      pointer({ x: 1, y: 0, type: "move", hitPath: moved }),
+    );
+    assert.equal(uncaptured.capture, false);
+    await registry.mouse(
+      surface.id,
+      moved[0].action,
+      pointer({ x: 1, y: 0, hitPath: moved }),
+    );
+    await registry.mouse(
+      surface.id,
+      moved[0].action,
+      pointer({ x: 1, y: 0, type: "release", hitPath: moved }),
+    );
+    assert.deepEqual(received.slice(-3), [
+      "replacement:press",
+      "replacement:release",
+      "replacement:click",
+    ]);
+    await assert.rejects(
+      registry.mouse(
+        surface.id,
+        moved[0].action,
+        pointer({ x: 1, y: 0, hitPath: [{ ...moved[0], width: NaN }] }),
+      ),
+      /Invalid desktop component hit path/,
     );
   } finally {
     registry.dispose();

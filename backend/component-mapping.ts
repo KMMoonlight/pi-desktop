@@ -3029,28 +3029,37 @@ export async function createMappedComponent(
   function desktopMousePath(
     target: Component,
     input: DesktopMouseEvent,
-  ): MousePath | undefined {
+  ): MousePath | null | undefined {
     if (!input.hitPath) return;
     if (!input.hitPath.length || input.hitPath.length > 128)
       throw new Error("Invalid desktop component hit path");
-    let previous: string | undefined;
-    return input.hitPath.map((hit, index) => {
-      const occurrence = occurrences.get(hit.occurrence);
+    for (const hit of input.hitPath) {
       if (
-        !occurrence ||
-        id(occurrence.target) !== hit.action ||
-        (index === 0
-          ? occurrence.target !== target
-          : occurrence.parent !== previous) ||
         ![hit.x, hit.y, hit.width, hit.height].every(Number.isFinite) ||
         hit.width < 1 ||
         hit.width > 100000 ||
         hit.height < 0 ||
         hit.height > 100000
       )
-        throw new Error("Desktop component hit path is no longer available");
+        throw new Error("Invalid desktop component hit path");
+    }
+    const path: MousePath = [];
+    let previous: string | undefined;
+    for (const [index, hit] of input.hitPath.entries()) {
+      const occurrence = occurrences.get(hit.occurrence);
+      if (
+        !occurrence ||
+        id(occurrence.target) !== hit.action ||
+        (index === 0
+          ? occurrence.target !== target
+          : occurrence.parent !== previous)
+      ) {
+        // DOM events can outlive the component frame that produced their path.
+        // Reject the whole path; falling back could activate a replacement child.
+        return null;
+      }
       previous = hit.occurrence;
-      return {
+      path.push({
         component: occurrence.target,
         frame: {
           x: input.x - hit.x,
@@ -3058,8 +3067,9 @@ export async function createMappedComponent(
           width: Math.ceil(hit.width),
           height: Math.ceil(hit.height),
         },
-      };
-    });
+      });
+    }
+    return path;
   }
   function withMousePath<T>(
     path: MousePath | undefined,
@@ -3180,11 +3190,15 @@ export async function createMappedComponent(
     const target = controls.get(action);
     if (!target) throw new Error("Pi mouse component is no longer active");
     const input = { ...event, ...mouseEvent(event) };
+    let path = desktopMousePath(target, input);
+    if (path === null) {
+      mouse.cancel(input.pointerId);
+      return { handled: false, capture: false, render: false };
+    }
     const renderedHeight = withKeys(() => target.render(input.width)).length;
     const native = input.nativeControl;
     let nativeTarget = target;
     let nativeRange: DesktopSelection | undefined;
-    let path = desktopMousePath(target, input);
     let nativeTargets: Map<Component, PiMouseTarget> | undefined;
     if (native) {
       const match = /^(component:\d+)(?::setting:(.*))?$/.exec(native.action);
