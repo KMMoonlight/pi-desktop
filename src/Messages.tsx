@@ -356,6 +356,7 @@ function ToolExecutionView({
         </div>
       )}
       <div className="tool-body tool-content" hidden={!detailsVisible}>
+        {(detailsVisible || !presentation?.builtin) && <>
         {callSurface ? (
           <DesktopSurfaceView surface={callSurface} run={run} />
         ) : !self && call.arguments !== undefined ? (
@@ -381,6 +382,7 @@ function ToolExecutionView({
             imageWidth={imageWidth}
           />
         )}
+        </>}
       </div>
       {detailsVisible &&
         showImages &&
@@ -616,6 +618,7 @@ function AssistantReply({
   group,
   renderRow,
   running,
+  interactiveTools,
 }: {
   group: ReplyGroup;
   renderRow: (
@@ -624,6 +627,7 @@ function AssistantReply({
     part?: "thinking" | "content",
   ) => ReactNode;
   running: boolean;
+  interactiveTools: ReadonlySet<string>;
 }) {
   useLocale();
   const [copied, setCopied] = useState(false);
@@ -692,6 +696,7 @@ function AssistantReply({
               key={segment.id}
               count={tools.length}
               running={running}
+              keepMounted={tools.some(tool => !tool.call.toolPresentation?.builtin || interactiveTools.has(tool.call.id ?? ""))}
             >
               {contents}
             </ProcessSteps>
@@ -739,10 +744,12 @@ function ProcessSteps({
   count,
   running,
   children,
+  keepMounted,
 }: {
   count: number;
   running: boolean;
   children: ReactNode;
+  keepMounted: boolean;
 }) {
   const [open, setOpen] = useState(running);
   useEffect(() => {
@@ -766,7 +773,7 @@ function ProcessSteps({
         </span>
         <ChevronDown size={13} />
       </summary>
-      <div className="process-steps">{children}</div>
+      <div className="process-steps">{(open || keepMounted) && children}</div>
     </details>
   );
 }
@@ -848,6 +855,13 @@ function MessagesView({
     ),
     active: new Map(activeTools.map((tool) => [tool.id, tool])),
   };
+  // Closed passive tool histories need no DOM. Keep interactive extension
+  // controls mounted so focus, terminal state and callbacks remain intact.
+  const interactiveTools = new Set(surfaces.flatMap(surface =>
+    surface.target?.toolCallId && interactiveNode(surface.view)
+      ? [surface.target.toolCallId]
+      : [],
+  ));
   const rows: TranscriptRow[] = [];
   const renderedTools = new Set<string>();
   const addNotices = (afterMessageId?: string) => {
@@ -1042,6 +1056,7 @@ function MessagesView({
                     group={row}
                     renderRow={renderRow}
                     running={busy && turn.id === turns.at(-1)?.id}
+                    interactiveTools={interactiveTools}
                   />
                 ) : (
                   <Fragment

@@ -163,13 +163,14 @@ test("multiple reasoning records and tool results form one compact reply and sur
   await page.screenshot({ path: ".local/turn-activity/desktop-dark.png" });
   await page.reload();
   await expect(reply).toHaveCount(1);
-  await expect(reply.locator(".tool-execution")).toHaveCount(3);
+  await expect(reply.locator(".tool-execution")).toHaveCount(0);
   await expect(reply).toContainText("已完成检查。");
   await expect(reply.locator(".thinking-block[open]")).toHaveCount(0);
   await expect(reply.locator(".message-heading")).toContainText("用时");
   await expect(group).not.toHaveAttribute("open");
   await group.locator(":scope > summary").click();
   await expect(group).toHaveAttribute("open", "");
+  await expect(reply.locator(".tool-execution")).toHaveCount(3);
   await expect(failed.locator(".tool-body")).toBeVisible();
   await group.locator(":scope > summary").click();
   await expect(group).not.toHaveAttribute("open");

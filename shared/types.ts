@@ -32,6 +32,8 @@ export interface StartupSnapshot {
 export interface ToolPresentation {
   sessionId: string;
   shell: "default" | "self" | "generic";
+  /** Original SDK renderers may defer hidden DOM; extensions retain mounted controls. */
+  builtin?: boolean;
   review?: "edit";
   expanded: boolean;
   state: "pending" | "success" | "error";
