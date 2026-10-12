@@ -69,7 +69,7 @@ import { TranscriptLayout, syncTranscriptLayout } from "./TranscriptLayout";
 import { TerminalPanel } from "./TerminalPanel";
 import { StyledText } from "./StyledText";
 import { NativeWidgets } from "./NativeWidgets";
-import { resizeComposer } from "./composer-layout";
+import { observeComposer, resizeComposer } from "./composer-layout";
 import { DialogCountdown } from "./DialogCountdown";
 import { DialogOptions } from "./DialogOptions";
 import {
@@ -970,18 +970,11 @@ const labels: Record<string, string> = {
   useLayoutEffect(() => {
     const editor = composerRef.current;
     if (!editor || customEditor) return;
-    const resize = () => resizeComposer(editor);
-    resize();
-    let width = editor.getBoundingClientRect().width;
-    const observer = new ResizeObserver(() => {
-      const next = editor.getBoundingClientRect().width;
-      if (next !== width) {
-        width = next;
-        resize();
-      }
-    });
-    observer.observe(editor);
-    return () => observer.disconnect();
+    return observeComposer(editor);
+  }, [emptyConversation, customEditor, !!snapshot]);
+  useLayoutEffect(() => {
+    const editor = composerRef.current;
+    if (editor && !customEditor) resizeComposer(editor);
   }, [text, emptyConversation, customEditor, !!snapshot]);
   if (shutdown)
     return (

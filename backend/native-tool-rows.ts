@@ -43,6 +43,14 @@ const staticRenderers = [
   createLsToolDefinition,
 ].map((create) => create("."));
 
+export function isBuiltinToolPresentation(definition: Renderers | undefined) {
+  return !!definition && staticRenderers.some(native =>
+    native.renderCall === definition.renderCall &&
+    native.renderResult === definition.renderResult &&
+    native.renderShell === definition.renderShell,
+  );
+}
+
 /** A single original SDK row owns both render callbacks and their shared state. */
 export class NativeToolRow {
   original?: ToolExecutionComponent;
@@ -61,16 +69,7 @@ export class NativeToolRow {
     const definition = this.context().session.getToolDefinition(
       result.context.toolName!,
     );
-    if (
-      definition &&
-      staticRenderers.some(
-        (native) =>
-          native.renderCall === definition.renderCall &&
-          native.renderResult === definition.renderResult &&
-          native.renderShell === definition.renderShell,
-      )
-    )
-      return this.viewRevision;
+    if (isBuiltinToolPresentation(definition)) return this.viewRevision;
   }
   constructor(
     readonly id: string,

@@ -9,6 +9,7 @@ import type {
 } from "../shared/types.ts";
 import type { DesktopUIRegistry, DesktopRenderSource } from "./desktop-ui.ts";
 import { defaultToolRenderer } from "./tool-rendering.ts";
+import { isBuiltinToolPresentation } from "./native-tool-rows.ts";
 
 // Renderer identity keeps extension-provided edit tools on their own presentation.
 const nativeEdit = createEditToolDefinition(".");
@@ -36,6 +37,7 @@ export function describeTool(
   return {
     sessionId: session.sessionId,
     shell: definition ? (definition.renderShell ?? "default") : "generic",
+    ...(isBuiltinToolPresentation(definition) ? { builtin: true } : {}),
     ...(name === "edit" &&
       definition?.renderCall === nativeEdit.renderCall &&
       definition?.renderResult === nativeEdit.renderResult

@@ -1053,8 +1053,10 @@ export class DesktopHost extends EventEmitter {
   publish() {
     this.startupPolicies.observeModel();
     this.authorizations.refreshPresentations();
-    if (this.runtime)
-      this.emitEvent({ type: "snapshot", data: this.snapshot() });
+    if (!this.runtime) return;
+    const data = this.snapshot();
+    this.emitEvent({ type: "snapshot", data });
+    return data;
   }
   private initialProjectTrust(cwd: string): boolean {
     return (
@@ -2547,19 +2549,20 @@ export class DesktopHost extends EventEmitter {
     this.changing = true;
     this.publish();
     let result: unknown;
+    let completedSnapshot: DesktopSnapshot | undefined;
     try {
       result = await this.runtimeLifecycle.track(() =>
-        Promise.resolve().then(() => this.perform(request)),
+        Promise.resolve().then(() => this.perform(request, true)),
       );
     } finally {
       this.changing = false;
-      this.publish();
+      completedSnapshot = this.publish();
     }
     return result && typeof result === "object" && "sessionId" in result
-      ? this.snapshot()
+      ? completedSnapshot
       : result;
   }
-  private async perform(request: ActionRequest): Promise<unknown> {
+  private async perform(request: ActionRequest, deferSnapshot = false): Promise<unknown> {
     const a = request.args ?? {};
     if (request.action === "fonts.list") return listSystemFonts(a.refresh === true);
     if (request.action === "settings.snapshot" && this.runtime) return this.snapshot();
@@ -3773,8 +3776,10 @@ export class DesktopHost extends EventEmitter {
         throw new Error(`未知操作：${request.action}`);
     }
     await this.runtime!.services.settingsManager.flush();
-    this.publish();
-    return this.snapshot();
+    // Mutations publish their final non-changing snapshot in action(). Avoid
+    // rebuilding and transmitting the same large history several times here.
+    if (deferSnapshot) return { sessionId: session.sessionId };
+    return this.publish();
   }
   private async login(modelRuntime: ModelRuntime, settingsManager: SettingsManager, a: RecordValue, lifetime: AbortSignal) {
     if (this.authAbort) throw new Error("已有登录流程正在进行");
