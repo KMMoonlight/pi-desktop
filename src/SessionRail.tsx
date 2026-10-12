@@ -1,7 +1,7 @@
 import { t, useLocale, getLocale } from "./i18n";
 import { Folder, Pin, Plus, ChevronRight, Trash2, LoaderCircle } from "lucide-react";
 import { useState } from "react";
-import type { SessionItem } from "../shared/types";
+import type { SessionItem, DesktopSnapshot } from "../shared/types";
 import { Hint, IconButton, baseName } from "./ui";
 
 const projectKey = (cwd: string) =>
@@ -25,6 +25,7 @@ export function SessionRail({
   currentName,
   search,
   busy,
+  sessionActivity,
   unreadSessions,
   pending,
   select,
@@ -41,6 +42,7 @@ export function SessionRail({
   currentName?: string;
   search: string;
   busy: boolean;
+  sessionActivity?: DesktopSnapshot["sessionActivity"];
   unreadSessions: string[];
   pending?: boolean;
   select: (session?: SessionItem) => void;
@@ -67,7 +69,10 @@ export function SessionRail({
     !!currentId &&
     !sessions.some((session) => session.id === currentId) &&
     !search;
-  const activity = (id: string) => busy && id === currentId ? (
+  const running = (id: string) => sessionActivity?.find(session => session.id === id)?.running ?? (busy && id === currentId);
+  const activity = (id: string) => sessionActivity?.find(session => session.id === id)?.needsAttention ? (
+    <span className="session-activity" role="status" aria-label={t("需要处理")} title={t("需要处理")}>!</span>
+  ) : running(id) ? (
     <span className="session-activity" role="status" aria-label={t("执行中")} title={t("执行中")}>
       <LoaderCircle size={13} className="spin" aria-hidden="true" />
     </span>
@@ -85,7 +90,7 @@ export function SessionRail({
       <Hint
         text={`${session.cwd} · ${new Date(session.modified).toLocaleString(getLocale())}`}
       >
-        <button disabled={busy} aria-disabled={pending || undefined} aria-current={session.id === currentId ? "page" : undefined} onClick={() => { if (!pending) select(session); }}>
+        <button aria-disabled={pending || undefined} aria-current={session.id === currentId ? "page" : undefined} onClick={() => { if (!pending) select(session); }}>
           <span>
             {activity(session.id)}
             <strong>
@@ -102,7 +107,7 @@ export function SessionRail({
         attributes={{ "data-session-action": "pin" }}
         onClick={() => pin(session.id)}
       />
-      {!busy && <IconButton
+      {!busy && !running(session.id) && <IconButton
         icon={Trash2}
         label={t("删除会话")}
         color="critical"
@@ -149,7 +154,7 @@ export function SessionRail({
               <button
                 type="button" className="workspace-remove workspace-new-session"
                 aria-label={t("移除工作区 {value1}", { value1: baseName(group.cwd) })}
-                disabled={busy} aria-disabled={pending || undefined}
+                disabled={group.sessions.some(session => running(session.id)) || (busy && projectKey(group.cwd) === projectKey(cwd ?? ""))} aria-disabled={pending || undefined}
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
@@ -158,7 +163,7 @@ export function SessionRail({
               ><Trash2 size={14} /></button>
               <button
                 type="button" className="workspace-new-session"
-                aria-label={t("在 {value1} 中新建会话", { value1: baseName(group.cwd) })} disabled={busy}
+                aria-label={t("在 {value1} 中新建会话", { value1: baseName(group.cwd) })}
                 aria-disabled={pending || undefined}
                 onClick={(event) => {
                   event.preventDefault();
@@ -172,7 +177,7 @@ export function SessionRail({
               ><Plus size={14} /></button>
             </summary>
             {fresh && projectKey(group.cwd) === projectKey(cwd!) && (
-              <button className="session-row active" data-session-id={currentId} aria-current="page" disabled={busy} aria-disabled={pending || undefined} onClick={() => { if (!pending) select(); }}>
+              <button className="session-row active" data-session-id={currentId} aria-current="page" aria-disabled={pending || undefined} onClick={() => { if (!pending) select(); }}>
                 <span>
                   {activity(currentId)}
                   <strong>{currentName ?? t("新会话")}</strong>

@@ -15,6 +15,11 @@ import type {
   DialogRequest,
 } from "../shared/types.ts";
 
+const workerCleanup = new Set<() => void>();
+process.once("exit", () => {
+  for (const cleanup of workerCleanup) cleanup();
+});
+
 /** Owns the PTY outside the SDK event loop, including during spawnSync. */
 export class TerminalHost extends EventEmitter {
   private readonly terminalId = randomBytes(16).toString("hex");
@@ -68,7 +73,7 @@ export class TerminalHost extends EventEmitter {
         this.pty?.kill();
       } catch {}
     };
-    process.once("exit", cleanup);
+    workerCleanup.add(cleanup);
     try {
       await new Promise<void>((resolve, reject) => {
         listener.once("error", reject);
@@ -199,7 +204,7 @@ export class TerminalHost extends EventEmitter {
         this.shell?.dispose();
         this.exitCode = exitCode;
         this.closed = true;
-        process.removeListener("exit", cleanup);
+        workerCleanup.delete(cleanup);
         const error = new Error(`Pi SDK terminal exited (${exitCode})`);
         rejectConnection(error);
         this.failPending(error);
@@ -214,7 +219,7 @@ export class TerminalHost extends EventEmitter {
       if (!this.pty) {
         this.closed = true;
         this.resolveExit();
-        process.removeListener("exit", cleanup);
+        workerCleanup.delete(cleanup);
       }
       throw error;
     } finally {

@@ -1,7 +1,7 @@
 import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { action, subscribeTerminal } from "./client";
+import { action as sendAction, subscribeTerminal } from "./client";
 import { TerminalAppearance } from "./terminal-appearance";
 import { TerminalIO } from "./terminal-io";
 import type { DesktopEvent } from "../shared/types";
@@ -17,11 +17,15 @@ export function ShellTerminal({
   active,
   ref,
   onState,
+  sessionId,
 }: {
   active: boolean;
   ref: Ref<ShellTerminalHandle>;
   onState(error: string, exitCode?: number): void;
+  sessionId?: string;
 }) {
+  const action = <T,>(name: string, args?: Record<string, unknown>) =>
+    sendAction<T>(name, { ...args, __sessionId: sessionId });
   const container = useRef<HTMLDivElement>(null);
   const controls = useRef<ShellTerminalHandle | null>(null);
   const state = useRef(onState);

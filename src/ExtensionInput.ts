@@ -391,9 +391,12 @@ async function nativeDefault(
 export function useExtensionInput(
   snapshot: DesktopSnapshot | undefined,
   run: Run,
+  sendAlternate?: (text: string) => void,
 ) {
   const current = useRef(snapshot);
   current.current = snapshot;
+  const alternateSubmit = useRef(sendAlternate);
+  alternateSubmit.current = sendAlternate;
   useEffect(() => {
     const pointerSelections = new WeakMap<HTMLElement, number>();
     const recordPointerSelection = (event: PointerEvent) => {
@@ -574,7 +577,30 @@ export function useExtensionInput(
       if (!state || !(native.target instanceof HTMLElement)) return;
       let target = native.target;
       if (isText(target) && compositions.has(target)) return;
+      // Handle the desktop send override before SDK key capture; terminal
+      // editors do not share the desktop's saved delivery preference.
+      if (
+        state.running && alternateSubmit.current && isText(target) &&
+        target.closest(".composer") && !target.readOnly &&
+        native.key === "Enter" && (native.metaKey || native.ctrlKey) &&
+        !native.shiftKey && !native.altKey
+      ) {
+        native.preventDefault();
+        native.stopImmediatePropagation();
+        if (native.type === "keydown" && !native.repeat)
+          alternateSubmit.current(target.value);
+        return;
+      }
       if (native.type === "keyup" && isText(target)) printableKeys.delete(target);
+      // Preserve native macOS editing (and its clipboard/undo user gesture).
+      // Text changes still synchronize through input/onChange and paste below.
+      // Skip releases too, so SDK acknowledgements cannot restore pre-cut text.
+      if (
+        isText(target) && !isRaw(target) && native.metaKey &&
+        !native.ctrlKey && !native.altKey &&
+        ["a", "c", "x", "v", "z", "y"].includes(native.key.toLowerCase())
+      )
+        return;
       // Control replacement can leave focus on body; a text-only modal can
       // focus its surrounding focus-trap container. Route those keys to the
       // sole extension modal, without taking keys from sibling controls or

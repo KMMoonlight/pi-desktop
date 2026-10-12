@@ -1,6 +1,7 @@
 import { createFixture } from "./fixture.ts";
 
 const fixture = await createFixture({
+  preflightProbe: true,
   officialQuestions: true,
   officialWorkflows: ["todo", "qna", "message-renderer"],
   extractionDelayMs: 1200,

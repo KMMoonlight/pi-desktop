@@ -550,7 +550,7 @@ function MessageView({
     <>
       {hasBody && (
         <article
-          className={`message message-${message.role}`}
+          className={`message message-${message.role}${message.preparing ? " message-preparing" : ""}`}
           data-message-id={message.id}
           aria-label={
             message.role === "user"
@@ -576,6 +576,7 @@ function MessageView({
           )}
           <div className="message-body">{body}</div>
           <div className="message-meta">
+            {message.preparing && <span role="status">{t("正在准备发送…")}</span>}
             {timestamp}
             <div className="message-actions">
               <IconButton

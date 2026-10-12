@@ -141,7 +141,7 @@ for (const modal of [false, true])
           restored.editor?.text,
           "steering\n\nfollow-up\n\nunfinished",
         );
-        assert.deepEqual(host.snapshot().queue, { steering: [], followUp: [] });
+        assert.deepEqual(host.snapshot().queue, { steering: [], followUp: [], followUpIds: [] });
         await host.action({
           action: "prompt",
           args: { message: "restored on abort", mode: "followUp" },

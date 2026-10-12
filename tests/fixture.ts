@@ -8,6 +8,7 @@ process.env.PI_DESKTOP_SKIP_STARTUP_POLICIES ??= "1";
 
 export async function createFixture(
   options: {
+    preflightProbe?: boolean;
     officialQuestions?: boolean;
     officialWorkflows?: ("todo" | "qna" | "message-renderer")[];
     extractionDelayMs?: number;
@@ -483,6 +484,11 @@ export async function createFixture(
               maxTokens: 4096,
               cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
             },
+            ...(options.preflightProbe ? [{
+              id: "desktop-switch-test", name: "Desktop Switch Test", reasoning: false,
+              input: ["text", "image"], contextWindow: 272000, maxTokens: 4096,
+              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            }] : []),
           ],
         },
       },
@@ -492,6 +498,10 @@ export async function createFixture(
     join(agentDir, "extensions", "desktop-test.js"),
     `export default function (pi) {
     let unsubscribe;
+    pi.on("before_agent_start", async event => {
+      if (event.prompt.includes("slow-preflight-probe"))
+        await new Promise(resolve => setTimeout(resolve, 1800));
+    });
     pi.registerShortcut("ctrl+alt+u", { description: "Native shortcut", handler: (ctx) => ctx.ui.setEditorText("Shortcut handled") });
     pi.registerCommand("desktop-input", { handler: async (_, ctx) => {
       unsubscribe?.();

@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { DesktopHost, record } from "./host.ts";
 import type { ActionRequest } from "../shared/types.ts";
 import { connectNativeChannel } from "./native-channel.ts";
-import { TerminalHost } from "./terminal-host.ts";
+import { SessionHost } from "./session-host.ts";
 import { getShellConfig } from "@earendil-works/pi-coding-agent";
 import { errorMessage } from "../shared/errors.ts";
 import { actionResult } from "./action-result.ts";
@@ -30,7 +30,7 @@ const host =
         legacyExampleAdapters:
           process.env.PI_DESKTOP_LEGACY_EXAMPLE_ADAPTERS === "1",
       })
-    : new TerminalHost();
+    : new SessionHost();
 if (
   process.argv.includes("--sdk-worker") &&
   process.env.PI_DESKTOP_PTY === "1"

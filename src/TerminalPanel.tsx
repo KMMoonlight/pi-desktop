@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { action, subscribeTerminal } from "./client";
+import { action as sendAction, subscribeTerminal } from "./client";
 import { TerminalIO } from "./terminal-io";
 import { TerminalAppearance } from "./terminal-appearance";
 import { TerminalEffects } from "./terminal-effects";
@@ -27,11 +27,15 @@ export function TerminalPanel({
   open,
   onOpenChange,
   cwd,
+  sessionId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   cwd?: string;
+  sessionId?: string;
 }) {
+  const action = <T,>(name: string, args?: Record<string, unknown>) =>
+    sendAction<T>(name, { ...args, __sessionId: sessionId });
   useLocale();
   const container = useRef<HTMLDivElement>(null);
   const terminal = useRef<Terminal | undefined>(undefined);
@@ -403,6 +407,7 @@ export function TerminalPanel({
       />
       {shellCwd === cwd && cwd && (
         <ShellTerminal
+          sessionId={sessionId}
           key={cwd}
           ref={shell}
           active={open && source === "shell"}

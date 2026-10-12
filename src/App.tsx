@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import {
   action,
+  setActionSession,
   subscribe,
   selectFolder,
   selectSession,
@@ -229,7 +230,10 @@ const labels: Record<string, string> = {
     desktopCopy?: boolean;
   }>();
   const [notices, setNotices] = useState<Notice[]>([]);
-  const [submitting, setSubmitting] = useState(false);
+  const [localSubmitting, setSubmitting] = useState(false);
+  const [promotingMessages, setPromotingMessages] = useState<Set<string>>(() => new Set());
+  const [sendingSessions, setSendingSessions] = useState<Set<string>>(() => new Set());
+  const submitting = localSubmitting || sendingSessions.has(snapshot?.sessionId ?? "");
   const [choosingWorkspace, setChoosingWorkspace] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -271,8 +275,12 @@ const labels: Record<string, string> = {
   const connectionOpen = useRef(false);
   const currentSnapshot = useRef(snapshot);
   currentSnapshot.current = snapshot;
+  useLayoutEffect(() => { setActionSession(snapshot?.sessionId); }, [snapshot?.sessionId]);
   const draftSession = useRef<string | undefined>(undefined);
   const workspaceIdentity = useRef<string | undefined>(undefined);
+  const attachmentDrafts = useRef(new Map<string, { attachments: string[]; images: typeof images }>());
+  const visibleAttachments = useRef({ attachments, images });
+  visibleAttachments.current = { attachments, images };
 
   const notify = useCallback(
     (
@@ -295,13 +303,14 @@ const labels: Record<string, string> = {
       onError?: (message: string) => void,
     ) => {
       const epoch = connectionEpoch.current;
+      const owner = currentSnapshot.current?.sessionId;
       if (name === "initialize") setBooting(true);
       try {
         if (name === "prompt" || name === "transcript.thinking") {
           await syncTranscriptLayout();
           if (epoch !== connectionEpoch.current) return undefined;
         }
-        const data = await action<T>(name, args);
+        const data = await action<T>(name, { __sessionId: owner, ...args });
         if (epoch !== connectionEpoch.current) return undefined;
         if (data && typeof data === "object" && "sessionId" in data)
           setSnapshot(data as unknown as DesktopSnapshot);
@@ -341,7 +350,9 @@ const labels: Record<string, string> = {
   const workspaceReady =
     connected && !booting && !!snapshot && !snapshot.changing;
   const unreadSessions = useSessionActivity(snapshot, workspaceReady && tab === "chat" && !settingsOpen);
-  useExtensionInput(connected ? snapshot : undefined, run);
+  useExtensionInput(connected ? snapshot : undefined, run, (value) =>
+    sendEditor.current(value, queueMode === "steer" ? "followUp" : "steer"),
+  );
   useTextSelection(composerRef, (target) => {
     if (!workspaceReady) return;
     void run("editor.update", {
@@ -426,6 +437,10 @@ const labels: Record<string, string> = {
         } else if (event.type === "auth_url")
           setAuthLink({ url: event.url, message: event.message, id: event.id, desktopCopy: event.desktopCopy });
         else if (event.type === "activity") {
+          if (event.name === "desktop_session_selected") {
+            setAuthLink(undefined);
+            setPendingSelection(undefined);
+          }
           if (event.name === "desktop_editor_exit") void closeDesktop();
           if (event.name === "desktop_editor_submit")
             sendEditor.current(
@@ -554,13 +569,16 @@ const labels: Record<string, string> = {
     snapshot?.extensionUI.windowProgress,
     notify,
   ]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!workspaceReady) return;
     const identity = `${snapshot.backendId}/${snapshot.sessionId}`;
     if (workspaceIdentity.current !== identity) {
+      if (workspaceIdentity.current)
+        attachmentDrafts.current.set(workspaceIdentity.current, visibleAttachments.current);
       workspaceIdentity.current = identity;
-      setAttachments([]);
-      setImages([]);
+      const draft = attachmentDrafts.current.get(identity);
+      setAttachments(draft?.attachments ?? []);
+      setImages(draft?.images ?? []);
     }
   }, [workspaceReady, snapshot?.backendId, snapshot?.sessionId, snapshot?.cwd]);
   useEffect(() => {
@@ -634,6 +652,7 @@ const labels: Record<string, string> = {
     snapshot?.busy,
     snapshot?.messages.length,
     snapshot?.sessionName,
+    JSON.stringify(snapshot?.sessionActivity),
     loadSessions,
   ]);
   useEffect(() => {
@@ -695,7 +714,7 @@ const labels: Record<string, string> = {
       if (!(event.ctrlKey || event.metaKey)) return;
       if (event.key === "n") {
         event.preventDefault();
-        if (!snapshot?.busy) void run("session.new");
+        if (!snapshot?.changing) void run("session.new");
       }
       if (event.key === "k") {
         event.preventDefault();
@@ -710,7 +729,7 @@ const labels: Record<string, string> = {
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [snapshot?.busy, run, shutdown]);
+  }, [snapshot?.changing, run, shutdown]);
   useEffect(() => {
     setFileTarget(undefined);
   }, [snapshot?.cwd]);
@@ -777,7 +796,7 @@ const labels: Record<string, string> = {
     (snapshot?.model || extensionCommand),
   );
   const send = async (editorText?: string, mode?: string) => {
-    if (snapshot?.changing) return;
+    if (!snapshot || snapshot.changing) return;
     const editor = document.querySelector<HTMLTextAreaElement>(
       '[data-surface-id="editor"] textarea',
     );
@@ -793,7 +812,8 @@ const labels: Record<string, string> = {
                 command.name === /^\/([^\s]+)/.exec(currentText)?.[1],
             ));
     if (!allowed || submitting) return;
-    setSubmitting(true);
+    const owner = snapshot.sessionId;
+    setSendingSessions(previous => new Set(previous).add(owner));
     const result = await run("prompt", {
       message: currentText.trim() || t("请分析附件。"),
       mode: mode ?? queueMode,
@@ -801,12 +821,16 @@ const labels: Record<string, string> = {
       files: attachments,
       images: images.map(({ data, mimeType }) => ({ data, mimeType })),
     });
-    if (result) {
+    if (result && currentSnapshot.current?.sessionId === snapshot?.sessionId) {
       setText("");
       setAttachments([]);
       setImages([]);
     }
-    setSubmitting(false);
+    setSendingSessions(previous => {
+      const next = new Set(previous);
+      next.delete(owner);
+      return next;
+    });
   };
   sendEditor.current = (value, mode) => void send(value, mode);
   const confirmLocal = async () => {
@@ -937,6 +961,7 @@ const labels: Record<string, string> = {
   const emptyConversation =
     !!snapshot &&
     snapshot.messages.length === 0 &&
+    !snapshot.pendingPrompts?.length &&
     !snapshot.streaming &&
     !snapshot.conversationNotices?.length;
   const customEditor = snapshot?.desktopSurfaces.some(
@@ -1018,7 +1043,7 @@ const labels: Record<string, string> = {
               icon={Plus}
               fullWidth
               variant="outline"
-              disabled={!snapshot || snapshot.running}
+              disabled={!snapshot}
               pending={snapshot?.changing}
               onClick={() => {
                 void run("session.new");
@@ -1091,7 +1116,7 @@ const labels: Record<string, string> = {
                   onClick={() => {
                     if (!snapshot?.changing) void openWorkspace();
                   }}
-                  disabled={snapshot?.running || choosingWorkspace || !connected}
+                  disabled={choosingWorkspace || !connected}
                   aria-disabled={snapshot?.changing || undefined}
                 >
                   <Plus size={16} />
@@ -1107,6 +1132,7 @@ const labels: Record<string, string> = {
               currentName={snapshot?.sessionName}
               search={search}
               busy={snapshot?.running ?? false}
+              sessionActivity={snapshot?.sessionActivity}
               unreadSessions={unreadSessions}
               pending={snapshot?.changing}
               newSession={(cwd) => {
@@ -1417,7 +1443,7 @@ const labels: Record<string, string> = {
                         ready={workspaceReady}
                         outputPad={snapshot.settings.outputPad === 0 ? 0 : 1}
                         messagesVisible={
-                          snapshot.messages.length > 0 || !!snapshot.streaming
+                          snapshot.messages.length > 0 || !!snapshot.pendingPrompts?.length || !!snapshot.streaming
                         }
                         run={run}
                       />
@@ -1446,7 +1472,7 @@ const labels: Record<string, string> = {
                         <>
                           <Messages
                             sessionId={snapshot.sessionId}
-                            messages={snapshot.messages}
+                            messages={snapshot.messages.concat(snapshot.pendingPrompts ?? [])}
                             conversationNotices={snapshot.conversationNotices}
                             streaming={snapshot.streaming}
                             busy={snapshot.running}
@@ -1512,6 +1538,28 @@ const labels: Record<string, string> = {
                                     {mode === "steer" ? t("调整方向") : t("任务结束后")}
                                   </span>
                                   <p className="queue-message">{message}</p>
+                                  {mode === "followUp" && snapshot.running && snapshot.queue.followUpIds?.[i] && (
+                                    <Button
+                                      variant="outline"
+                                      size="small"
+                                      className="queue-promote"
+                                      title={t("当前工具结束后交付")}
+                                      loading={promotingMessages.has(snapshot.queue.followUpIds[i]!)}
+                                      onClick={() => {
+                                        const id = snapshot.queue.followUpIds![i]!;
+                                        setPromotingMessages(previous => new Set(previous).add(id));
+                                        void run("queue.promote", { id, __sessionId: snapshot.sessionId }).finally(() => {
+                                          setPromotingMessages(previous => {
+                                            const next = new Set(previous);
+                                            next.delete(id);
+                                            return next;
+                                          });
+                                        });
+                                      }}
+                                    >
+                                      {t("立即执行")}
+                                    </Button>
+                                  )}
                                 </div>
                               )),
                             )}
@@ -1815,7 +1863,7 @@ const labels: Record<string, string> = {
             data-workspace-terminal-dock
           />
         </main>
-        <TerminalPanel open={terminalOpen} onOpenChange={setTerminalOpen} cwd={snapshot?.cwd} />
+        <TerminalPanel key={snapshot?.sessionId} sessionId={snapshot?.sessionId} open={terminalOpen} onOpenChange={setTerminalOpen} cwd={snapshot?.cwd} />
         {snapshot && inspector && !settingsOpen && (
           <>
             <button

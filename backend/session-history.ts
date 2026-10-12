@@ -95,9 +95,14 @@ export function rememberDesktopSession(
 ) {
   const path = manager.getSessionFile();
   if (!manager.isPersisted() || !path || !existsSync(path)) return;
+  rememberDesktopSessionFile(agentDir, manager.getCwd(), manager.getSessionId(), path);
+}
+
+/** Selecting an already-live worker must also persist the desktop selection. */
+export function rememberDesktopSessionFile(agentDir: string, cwdInput: string, id: string, path: string) {
+  if (!existsSync(path)) return;
   const sessions = activeSessions(agentDir);
-  const cwd = resolve(manager.getCwd());
-  const id = manager.getSessionId();
+  const cwd = resolve(cwdInput);
   if (sessions[cwd]?.id === id && sessions[cwd]?.path === path) return;
   sessions[cwd] = { id, path };
   saveActiveSessions(agentDir, sessions);

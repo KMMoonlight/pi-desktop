@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { DesktopSnapshot } from "../shared/types";
 
 const storageKey = "pi.unreadCompletedSessions";
+const completionKey = "pi.sessionCompletionCounters";
 
 export function useSessionActivity(
   snapshot: DesktopSnapshot | undefined,
@@ -22,10 +23,38 @@ export function useSessionActivity(
   const previous = useRef<
     { backend: string; id: string; running: boolean } | undefined
   >(undefined);
+  const [completions] = useState(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(completionKey) ?? "[]");
+      return new Map<string, number>(Array.isArray(saved) ? saved.filter(
+        (entry): entry is [string, number] => Array.isArray(entry) &&
+          typeof entry[0] === "string" && typeof entry[1] === "number",
+      ) : []);
+    } catch { return new Map<string, number>(); }
+  });
   const id = snapshot?.sessionId;
   const running = snapshot?.running ?? false;
   useEffect(() => {
     if (!snapshot) return;
+    if (snapshot.sessionActivity) {
+      const newlyCompleted: string[] = [];
+      const runningIds = new Set<string>();
+      for (const activity of snapshot.sessionActivity) {
+        const key = `${snapshot.backendId}/${activity.id}`;
+        if (activity.completed > (completions.get(key) ?? 0))
+          newlyCompleted.push(activity.id);
+        completions.set(key, activity.completed);
+        if (activity.running) runningIds.add(activity.id);
+      }
+      for (const key of completions.keys())
+        if (!key.startsWith(`${snapshot.backendId}/`)) completions.delete(key);
+      try { localStorage.setItem(completionKey, JSON.stringify([...completions])); } catch {}
+      setUnread(ids => {
+        const next = [...new Set([...ids, ...newlyCompleted])].filter(id => !runningIds.has(id));
+        return next.length === ids.length && next.every((id, index) => id === ids[index]) ? ids : next;
+      });
+      return;
+    }
     const last = previous.current;
     previous.current = {
       backend: snapshot.backendId,
@@ -47,7 +76,7 @@ export function useSessionActivity(
         ids.includes(snapshot.sessionId) ? ids : [...ids, snapshot.sessionId],
       );
     }
-  }, [snapshot?.backendId, id, running]);
+  }, [snapshot?.backendId, id, running, JSON.stringify(snapshot?.sessionActivity)]);
   useEffect(() => {
     try {
       localStorage.setItem(storageKey, JSON.stringify(unread));

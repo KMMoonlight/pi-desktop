@@ -58,6 +58,7 @@ export interface ContentBlock {
   toolPresentation?: ToolPresentation;
 }
 export interface ChatMessage {
+  preparing?: boolean;
   id: string;
   entryId?: string;
   role: string;
@@ -158,6 +159,9 @@ export interface DialogRequest {
   };
 }
 export interface DesktopSnapshot {
+  pendingPrompts?: ChatMessage[];
+  /** All live sessions owned by the desktop supervisor. */
+  sessionActivity?: { id: string; running: boolean; needsAttention: boolean; completed: number }[];
   managedTools?: ManagedToolsSnapshot;
   startup?: StartupSnapshot;
   startupPolicies?: StartupPoliciesSnapshot;
@@ -207,7 +211,7 @@ export interface DesktopSnapshot {
   editor: { text: string; revision: number };
   globalSettings: RecordValue;
   projectSettings: RecordValue;
-  queue: { steering: string[]; followUp: string[] };
+  queue: { steering: string[]; followUp: string[]; followUpIds?: (string | null)[] };
   tree: TreeItem[];
   leafId: string | null;
   stats: {

@@ -151,6 +151,7 @@
 .queue-kind { display: inline-flex; align-items: center; flex-shrink: 0; gap: 5px; color: var(--ui-muted); font-size: 11px; line-height: 20px; white-space: nowrap; }
 .queue-kind-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ui-muted); }
 .queue-kind.steer .queue-kind-dot { background: var(--ui-action); }
+.queue-promote { margin-left: auto; flex-shrink: 0; }
 .message-queue .queue-message { min-width: 0; margin: 0; padding: 0; color: var(--ui-ink); font-size: 13px; line-height: 21px; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 600px) {
   .queue-header { gap: 8px; padding-inline: 10px; }
@@ -192,6 +193,7 @@
 .message:has(:focus-visible) .message-meta,
 .message-meta:is(:hover, :focus-within) { opacity: 1; }
 .message-meta .message-actions { margin: 0; }
+.message-preparing .message-meta { opacity: 1; }
 .message-user .message-actions { margin-left: 0; }
 .conversation-turn + .conversation-turn { margin-top: 20px; }
 .generation-status { margin-top: 8px; gap: 6px; }

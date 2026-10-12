@@ -16,10 +16,17 @@ import { BrowserTransport } from "./http-client";
 import { SnapshotDecoder, type DesktopWireEvent } from "../shared/snapshot-transport";
 
 const browserTransport = new BrowserTransport();
+let actionSession: string | undefined;
+export function setActionSession(sessionId: string | undefined) {
+  actionSession = sessionId;
+}
 export async function action<T = unknown>(
   name: string,
   args?: RecordValue,
 ): Promise<T> {
+  // Capture the owner before transport/auth awaits; a tab switch must not
+  // redirect an already initiated prompt, stop, or editor operation.
+  args = { __sessionId: args?.sessionId ?? actionSession, ...args };
   if (isTauri())
     return invoke<T>("sdk_action", { action: name, args: args ?? {} }).catch(
       (error) => {

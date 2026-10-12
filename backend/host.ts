@@ -12,6 +12,7 @@ import {
   forgetDesktopSession,
 } from "./session-history.ts";
 import { GlobalSettings, globalSettingsActions } from "./global-settings.ts";
+import { followUpMessageIds, promoteFollowUp } from "./queue-promotion.ts";
 import { listSystemFonts } from "./system-fonts.ts";
 import { browseDirectories, createDirectory } from "./folders.ts";
 import { GenerationTracker, recordedGeneration } from "./generation-metrics.ts";
@@ -267,6 +268,7 @@ export class DesktopHost extends EventEmitter {
   >();
   private runtimeDisposals = new WeakMap<AgentSessionRuntime, Promise<void>>();
   private inflightPrompts = 0;
+  private pendingPrompts = new Map<string, { message: import("../shared/types.ts").ChatMessage; started: boolean }>();
   private activeTools: DesktopSnapshot["activeTools"] = [];
   private recentWorkspaces: string[] = [];
   private globalSettings?: GlobalSettings;
@@ -1214,14 +1216,14 @@ export class DesktopHost extends EventEmitter {
     }
     return this.runtimeFactory!(options, this.defaultFactory, this.sdk.sdk);
   };
-  async initialize(cwdInput: string, options?: DesktopStartupOptions) {
+  async initialize(cwdInput: string, options?: DesktopStartupOptions, selection?: { newSession?: boolean; sessionFile?: string; unsaved?: boolean }) {
     if (this.disposal) throw new Error("Pi 已关闭");
     if (this.runtime?.cwd === resolve(cwdInput)) return this.snapshot();
     if (this.changing) throw new Error("工作区正在切换，请稍后重试");
     this.changing = true;
     try {
       await this.runtimeLifecycle.track(() =>
-        this.initializeWorkspace(cwdInput, options ?? this.launchOptions ?? {}),
+        this.initializeWorkspace(cwdInput, options ?? this.launchOptions ?? {}, selection?.newSession, selection?.sessionFile, selection?.unsaved),
       );
       this.launchOptions = undefined;
     } finally {
@@ -1234,6 +1236,8 @@ export class DesktopHost extends EventEmitter {
     cwdInput: string,
     options: DesktopStartupOptions,
     newSession = false,
+    sessionFile?: string,
+    unsaved = false,
   ) {
     const cwd = resolve(cwdInput);
     if (!(await stat(cwd)).isDirectory()) throw new Error("工作区不是文件夹");
@@ -1275,13 +1279,13 @@ export class DesktopHost extends EventEmitter {
       `--${cwd.replace(/^[/\\]/, "").replace(/[:\\/]/g, "-")}--`,
     );
     const directory = settings.getSessionDir() ?? sessionDir;
-    const restored = newSession
+    const restored = sessionFile ? SessionManager.open(sessionFile, directory) : newSession
       ? undefined
       : await resumeDesktopSession(this.agentDir, cwd, directory);
     const sessionManager = restored ?? SessionManager.create(cwd, directory);
     // Pi's editor needs a backing manager. Keep the initial blank workspace
     // unsaved and out of history until the user actually starts a conversation.
-    this.workspaceDraft = !newSession && !restored ? sessionManager : undefined;
+    this.workspaceDraft = unsaved || (!newSession && !restored) ? sessionManager : undefined;
     this.runtime = await createAgentSessionRuntime(this.factory, {
       cwd,
       agentDir: this.agentDir,
@@ -1492,6 +1496,12 @@ export class DesktopHost extends EventEmitter {
     this.sessionTitles.update(session, this.sessionLifetime.signal);
   }
   private onSessionEvent(event: AgentSessionEvent) {
+    if (event.type === "message_end" && event.message.role === "user") {
+      // Replace the accepted preview only once the SDK has appended its final
+      // (possibly transformed) user message. Model preflight can be slow.
+      const pending = [...this.pendingPrompts].find(([, prompt]) => prompt.started);
+      if (pending) this.pendingPrompts.delete(pending[0]);
+    }
     if (event.type === "session_info_changed") this.sessionTitles.cancel();
     this.generation.observe(event, this.session.sessionId);
     if (event.type === "agent_start") this.turnToolCalls.clear();
@@ -2339,6 +2349,7 @@ export class DesktopHost extends EventEmitter {
       conversationNotices: application?.conversationNotices.presentation(
         this.renderWidth,
       ),
+      pendingPrompts: [...this.pendingPrompts.values()].map(prompt => prompt.message),
       messages,
       streaming,
       activeTools: this.activeTools.map((tool) => ({
@@ -2406,6 +2417,7 @@ export class DesktopHost extends EventEmitter {
       queue: {
         steering: [...session.getSteeringMessages()],
         followUp: [...session.getFollowUpMessages()],
+        followUpIds: followUpMessageIds(session),
       },
       tree,
       leafId: session.sessionManager.getLeafId(),
@@ -2622,6 +2634,7 @@ export class DesktopHost extends EventEmitter {
       return this.initialize(
         required(cwd, "工作目录"),
         a.startup === undefined ? undefined : startupOptions(a.startup),
+        { newSession: a.newSession === true, sessionFile: typeof a.sessionFile === "string" ? a.sessionFile : undefined, unsaved: a.unsaved === true },
       );
     }
     if (request.action === "workspace.add") {
@@ -3439,6 +3452,17 @@ export class DesktopHost extends EventEmitter {
           }
           const streamingBehavior =
             a.mode === "followUp" ? ("followUp" as const) : ("steer" as const);
+          const promptId = randomUUID();
+          const command = /^\/([^\s]+)/.exec(editorMessage)?.[1];
+          if (!command || !session.extensionRunner.getRegisteredCommands().some(item => item.invocationName === command)) {
+            this.pendingPrompts.set(promptId, {
+              started: false,
+              message: {
+                id: `pending-${promptId}`, role: "user", timestamp: Date.now(), preparing: true,
+                content: [{ type: "text", text: message }, ...images],
+              },
+            });
+          }
           this.desktopUI.addEditorHistory(editorMessage);
           if (a.clearEditor === true)
             session.extensionRunner.getUIContext().setEditorText("");
@@ -3447,12 +3471,19 @@ export class DesktopHost extends EventEmitter {
               images,
               streamingBehavior,
               source: "interactive",
+              preflightResult: disposition => {
+                const pending = this.pendingPrompts.get(promptId);
+                if (disposition === "started" && pending) pending.started = true;
+                else this.pendingPrompts.delete(promptId);
+                this.refreshSoon();
+              },
             })
             .catch((error) => {
               this.notice(errorMessage(error), "error");
               this.publish();
             })
             .finally(() => {
+              this.pendingPrompts.delete(promptId);
               this.inflightPrompts--;
               this.publish();
             });
@@ -3476,6 +3507,11 @@ export class DesktopHost extends EventEmitter {
         break;
       case "queue.clear":
         return session.clearQueue();
+      case "queue.promote": {
+        const promoted = promoteFollowUp(session, required(a.id, "排队消息 ID"));
+        this.publish();
+        return { promoted };
+      }
       case "queue.restore": {
         const queued = session.clearQueue();
         const messages = [...queued.steering, ...queued.followUp];
