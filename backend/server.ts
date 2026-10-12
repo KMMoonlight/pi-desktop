@@ -10,6 +10,7 @@ import { actionResult } from "./action-result.ts";
 import { loadStartupPolicyRuntime } from "./startup-policy-runtime.ts";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { join } from "node:path";
+import { SnapshotEncoder } from "../shared/snapshot-transport.ts";
 
 if (process.env.PI_DESKTOP_AGENT_DIR)
   process.env.PI_CODING_AGENT_DIR = process.env.PI_DESKTOP_AGENT_DIR;
@@ -85,6 +86,7 @@ const protocolInput = nativeChannel ?? process.stdin;
 const protocolWrite = protocolOutput.write.bind(protocolOutput);
 console.log = (...values) => console.error(...values);
 if (nativeChannel || process.argv.includes("--stdio")) {
+  const snapshots = new SnapshotEncoder();
   if (!nativeChannel)
     process.stdout.write = process.stderr.write.bind(process.stderr);
   const output = (value: unknown) =>
@@ -117,7 +119,7 @@ if (nativeChannel || process.argv.includes("--stdio")) {
     );
   };
   host.on("event", (event) => {
-    output({ event });
+    output({ event: nativeChannel ? snapshots.encode(event) : event });
     if (event.type === "shutdown") disconnected(event.exitCode);
   });
   let input = "";
@@ -135,6 +137,12 @@ if (nativeChannel || process.argv.includes("--stdio")) {
       input = input.slice(index + 1);
       try {
         const request = record(JSON.parse(line));
+        if (request.action === "transport.snapshot") {
+          snapshots.reset();
+          if (host.runtime) output({ event: snapshots.encode({ type: "snapshot", data: host.snapshot()! }) });
+          output({ id: request.id, data: null });
+          continue;
+        }
         if (request.action === "shutdown") {
           void host.dispose().then(
             () => {
@@ -169,10 +177,10 @@ if (nativeChannel || process.argv.includes("--stdio")) {
 } else {
   const port = Number(process.env.PI_DESKTOP_PORT ?? 4319);
   const token = randomBytes(24).toString("hex");
-  const clients = new Set<import("node:http").ServerResponse>();
+  const clients = new Map<import("node:http").ServerResponse, SnapshotEncoder>();
   host.on("event", (event) => {
-    for (const client of clients)
-      client.write(`data: ${JSON.stringify(event)}\n\n`);
+    for (const [client, snapshots] of clients)
+      client.write(`data: ${JSON.stringify(snapshots.encode(event))}\n\n`);
     if (event.type === "shutdown") close(event.exitCode);
   });
   const server = createServer(async (req, res) => {
@@ -208,11 +216,12 @@ if (nativeChannel || process.argv.includes("--stdio")) {
         "Content-Type": "text/event-stream",
         Connection: "keep-alive",
       });
-      clients.add(res);
+      const snapshots = new SnapshotEncoder();
+      clients.set(res, snapshots);
       res.write(": connected\n\n");
       if (host.runtime)
         res.write(
-          `data: ${JSON.stringify({ type: "snapshot", data: host.snapshot() })}\n\n`,
+          `data: ${JSON.stringify(snapshots.encode({ type: "snapshot", data: host.snapshot()! }))}\n\n`,
         );
       for (const data of host.pendingDialogs)
         res.write(`data: ${JSON.stringify({ type: "dialog", data })}\n\n`);
@@ -281,7 +290,7 @@ if (nativeChannel || process.argv.includes("--stdio")) {
         console.error(error);
         exitCode = 1;
       }
-      for (const client of clients) client.end();
+      for (const client of clients.keys()) client.end();
       // Stop accepting requests immediately, but drain existing responses and
       // SSE shutdown events before terminating the supervisor.
       await drained;

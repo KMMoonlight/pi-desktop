@@ -1,5 +1,6 @@
 import { t, localizeText } from "./i18n";
 import type { DesktopEvent, RecordValue } from "../shared/types.ts";
+import { SnapshotDecoder, type DesktopWireEvent } from "../shared/snapshot-transport";
 
 export class BrowserTransport {
   private token?: string;
@@ -75,6 +76,7 @@ export class BrowserTransport {
           `/api/events?token=${encodeURIComponent(token)}`,
         );
         source = current;
+        const snapshots = new SnapshotDecoder();
         current.onopen = () => {
           if (stopped || source !== current) return;
           const restarted =
@@ -85,7 +87,13 @@ export class BrowserTransport {
         };
         current.onmessage = (message) => {
           if (stopped || source !== current) return;
-          const event: DesktopEvent = JSON.parse(message.data);
+          const event = snapshots.decode(JSON.parse(message.data) as DesktopWireEvent);
+          if (!event) {
+            current.close();
+            source = undefined;
+            reconnect();
+            return;
+          }
           if (event.type === "shutdown") {
             stop();
             connection(false, false);

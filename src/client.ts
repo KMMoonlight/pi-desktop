@@ -13,6 +13,7 @@ import { subscribeWithDialogReplay } from "./dialog-replay";
 import { desktopExternalLink, isCustomExternalProtocol } from "../shared/links";
 import { errorMessage } from "../shared/errors";
 import { BrowserTransport } from "./http-client";
+import { SnapshotDecoder, type DesktopWireEvent } from "../shared/snapshot-transport";
 
 const browserTransport = new BrowserTransport();
 export async function action<T = unknown>(
@@ -32,12 +33,22 @@ export async function subscribe(
   connection: (connected: boolean, restarted?: boolean) => void,
 ): Promise<() => void> {
   if (isTauri()) {
+    const snapshots = new SnapshotDecoder();
+    let resync: Promise<unknown> | undefined;
     const unlisten = await subscribeWithDialogReplay(
       (receive) =>
-        listen<DesktopEvent>("pi:event", (event) => receive(event.payload)),
+        listen<DesktopWireEvent>("pi:event", (event) => {
+          const decoded = snapshots.decode(event.payload);
+          if (decoded) receive(decoded);
+          else if (!resync) {
+            resync = action("transport.snapshot").finally(() => { resync = undefined; });
+            void resync.catch(console.error);
+          }
+        }),
       () => action<DialogRequest[]>("dialog.list"),
       handler,
     );
+    await action("transport.snapshot");
     connection(true);
     return unlisten;
   }

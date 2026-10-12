@@ -16,7 +16,7 @@ for (const width of [1440, 390])
           Object.defineProperty(this, "onmessage", {
             set: (handler: (event: MessageEvent) => void) => {
               this.addEventListener("message", (event) => {
-                if (state.hold && JSON.parse(event.data).type === "snapshot")
+                if (state.hold && ["snapshot", "snapshot_patch"].includes(JSON.parse(event.data).type))
                   state.queued.push(() => handler(event));
                 else handler(event);
               });

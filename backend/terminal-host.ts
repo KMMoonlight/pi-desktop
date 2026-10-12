@@ -8,6 +8,7 @@ import { parseTerminalEffect } from "../shared/terminal-effect.ts";
 import { isConPtyStartupTitle } from "./conpty-startup.ts";
 import { ShellTerminal } from "./shell-terminal.ts";
 import { listSystemFonts } from "./system-fonts.ts";
+import { SnapshotDecoder } from "../shared/snapshot-transport.ts";
 import type {
   ActionRequest,
   DesktopSnapshot,
@@ -89,6 +90,7 @@ export class TerminalHost extends EventEmitter {
           socket.setTimeout(5000, () => socket.destroy());
           let authenticated = false;
           const lines = createInterface({ input: socket });
+          const snapshots = new SnapshotDecoder();
           lines.on("line", (line) => {
             if (!authenticated) {
               if (line !== token || this.channel) {
@@ -108,7 +110,8 @@ export class TerminalHost extends EventEmitter {
             try {
               const packet = JSON.parse(line);
               if (packet.event) {
-                const event = packet.event;
+                const event = snapshots.decode(packet.event);
+                if (!event) throw new Error("SDK snapshot stream lost its baseline");
                 if (event.type === "snapshot") {
                   this.latest = event.data;
                   if (this.shell && this.shell.cwd !== event.data.cwd) {
