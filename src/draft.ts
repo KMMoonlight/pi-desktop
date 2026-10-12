@@ -9,7 +9,7 @@ import {
 export function useSessionDraft(key?: string) {
   const read = () =>
     key ? (localStorage.getItem(`pi.draft.${key}`) ?? "") : "";
-  const [draft, setDraft] = useState({ key, text: read() });
+  const [draft, setDraft] = useState(() => ({ key, text: read() }));
   const activeKey = useRef(key);
   activeKey.current = key;
   const text = draft.key === key ? draft.text : read();
@@ -22,10 +22,10 @@ export function useSessionDraft(key?: string) {
           : key
             ? (localStorage.getItem(`pi.draft.${key}`) ?? "")
             : "";
-      return {
-        key,
-        text: typeof value === "function" ? value(current) : value,
-      };
+      const text = typeof value === "function" ? value(current) : value;
+      return previous.key === key && previous.text === text
+        ? previous
+        : { key, text };
     });
   }, []);
   useEffect(() => {

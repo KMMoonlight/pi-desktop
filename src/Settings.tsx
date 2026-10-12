@@ -217,6 +217,7 @@ export function SettingsView({
     const value = await run<string>("mcp.status");
     if (value !== undefined) setMcpStatus(value);
   };
+  if (!open) return null;
   return (
     <Modal key={open ? "open" : "closed"} active={open} onClose={onClose}
       size="960px" padding={0} className="settings-modal" ariaLabel={t("设置")}

@@ -900,8 +900,27 @@ function MessagesView({
       };
     });
     observer.observe(element);
-    if (element.firstElementChild) observer.observe(element.firstElementChild);
-    return () => observer.disconnect();
+    // Collapsing/replacing process output can clamp scrollTop and restore the
+    // same box size within one frame. Positioned output can also grow only the
+    // scrollable overflow. Neither guarantees a ResizeObserver notification.
+    // Restore the bottom before those layout-generated scroll events arrive.
+    const mutations = new MutationObserver(() => {
+      if (follow.current) resumeFollowing();
+    });
+    if (element.firstElementChild) {
+      observer.observe(element.firstElementChild);
+      mutations.observe(element.firstElementChild, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ["open", "style", "class", "src", "hidden"],
+      });
+    }
+    return () => {
+      observer.disconnect();
+      mutations.disconnect();
+    };
   }, [resumeFollowing]);
   const renderRow = (
     row: TranscriptRow,
@@ -978,7 +997,16 @@ function MessagesView({
             el.clientHeight !== previous.viewport;
           const clamped = previous.top > el.scrollHeight - el.clientHeight &&
             el.scrollHeight - el.clientHeight - el.scrollTop <= 1;
-          if (resized && (el.scrollTop >= previous.top || clamped)) return;
+          if (resized && (el.scrollTop >= previous.top || clamped)) {
+            // A collapse can move the viewport upward before replacement
+            // content grows again. That movement must not cancel following.
+            if (follow.current) resumeFollowing();
+            return;
+          }
+          // A reader can scroll up while a fast editor resize is still awaiting
+          // its observer. An upward move away from the clamp is user intent.
+          previous.height = el.scrollHeight;
+          previous.viewport = el.clientHeight;
           previous.top = el.scrollTop;
           follow.current = false;
           setAway(true);

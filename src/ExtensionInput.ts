@@ -79,7 +79,7 @@ export function applyEditorResult(
     result.editor.selection.end,
   );
 }
-function inputContext(target: HTMLElement) {
+function inputContext(target: HTMLElement, includeLayout = true) {
   const raw = isRaw(target);
   if (isText(target) && target.dataset.pasteSpans) {
     const selection = normalizePasteSelection(
@@ -130,7 +130,7 @@ function inputContext(target: HTMLElement) {
         ? { start: target.selectionStart ?? 0, end: target.selectionEnd ?? 0 }
         : undefined,
     editorLayout:
-      isText(target) && !raw ? measureEditorLayout(target) : undefined,
+      includeLayout && isText(target) && !raw ? measureEditorLayout(target) : undefined,
     editorText:
       isText(target) &&
       !raw &&
@@ -151,7 +151,8 @@ type Composition = {
 };
 function capturesInput(state: DesktopSnapshot, target: HTMLElement) {
   if (target.closest("[data-desktop-native-input]")) return false;
-  const { surfaceId } = inputContext(target);
+  const surfaceId = componentControlOwner(target)
+    .closest<HTMLElement>("[data-surface-id]")?.dataset.surfaceId;
   return (
     !!target.closest("[data-dialog-id]") ||
     state.extensionUI.inputListeners > 0 ||
@@ -159,6 +160,28 @@ function capturesInput(state: DesktopSnapshot, target: HTMLElement) {
       (surface) => surface.id === surfaceId && surface.acceptsKeys,
     )
   );
+}
+
+function textInputNeedsLayout(
+  state: DesktopSnapshot | undefined,
+  target: HTMLElement,
+  key?: string,
+) {
+  const commandKeys = state?.extensionUI.editorCommandKeys;
+  if (
+    !target.hasAttribute("data-composer-input") ||
+    commandKeys === undefined ||
+    state?.extensionUI.inputListeners
+  ) return true;
+  const bindings = [...commandKeys, ...(state?.extensionUI.shortcuts ?? [])];
+  // An IME has not supplied its committed text at compositionstart yet.
+  if (key === undefined) return bindings.some((binding) => {
+    const event = desktopKeyFromId(binding);
+    return event && [...event.key].length === 1 &&
+      !event.ctrlKey && !event.altKey && !event.metaKey;
+  });
+  const normalize = (value: string) => value.toLowerCase().split("+").sort().join("+");
+  return bindings.some((binding) => normalize(binding) === normalize(key));
 }
 
 function move(
@@ -431,7 +454,11 @@ export function useExtensionInput(
         pendingKeys === 0 &&
         !pendingCompositions.has(target)
       ) {
-        const context = inputContext(target);
+        // Ordinary text insertion does not use visual rows/caret coordinates.
+        // Preserve geometry for custom bindings and input-transforming extensions.
+        const key = event ? desktopKeyId(event) : data.toLowerCase();
+        const includeLayout = textInputNeedsLayout(current.current, target, key);
+        const context = inputContext(target, includeLayout);
         const start = context.selection?.start ?? 0;
         const end = context.selection?.end ?? start;
         const text = context.controlText ?? "";
@@ -493,7 +520,7 @@ export function useExtensionInput(
               pendingCompositions.has(target)
             )
               return;
-            const selected = committedContext(inputContext(target), insertion);
+            const selected = committedContext(inputContext(target, false), insertion);
             applyEditorResult(target, {
               consume: true,
               editor: {
@@ -639,7 +666,7 @@ export function useExtensionInput(
         >(target, {
           event,
           sessionId: state.sessionId,
-          ...inputContext(target),
+          ...inputContext(target, event.type !== "release"),
         });
         if (
           !target.isConnected ||
@@ -855,7 +882,7 @@ export function useExtensionInput(
         pendingInsertions.get(event.target);
       endingInputs.delete(event.target);
       const composition: Composition = {
-        context: inputContext(event.target),
+        context: inputContext(event.target, textInputNeedsLayout(current.current, event.target)),
         sessionId: current.current.sessionId,
         previous:
           previous?.sessionId === current.current.sessionId

@@ -1,5 +1,6 @@
 import { t, useLocale, localizeText } from "./i18n";
 import {
+  startTransition,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -144,12 +145,16 @@ const labels: Record<string, string> = {
   const [globalSettings, setGlobalSettings] = useState<DesktopSettingsSnapshot>();
   const setSnapshot = useCallback((next: DesktopSnapshot) => {
     if (shutdownRequested.current) return;
-    storeSnapshot((previous) =>
-      previous?.backendId === next.backendId &&
-      previous.revision >= next.revision
-        ? previous
-        : next,
-    );
+    // Background snapshots can be large; local editor transactions must retain
+    // priority over rebuilding the rest of the application while typing.
+    startTransition(() => {
+      storeSnapshot((previous) =>
+        previous?.backendId === next.backendId &&
+        previous.revision >= next.revision
+          ? previous
+          : next,
+      );
+    });
   }, []);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [workspaces, setWorkspaces] = useState<string[]>([]);

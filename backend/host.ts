@@ -2467,6 +2467,10 @@ export class DesktopHost extends EventEmitter {
         windowTitle: this.windowTitle,
         windowProgress: this.windowProgressOwners.size > 0,
         inputListeners: this.inputListeners.size,
+        editorCommandKeys: this.editorFactory ? undefined :
+          Object.values(this.keybindings).flat().filter(
+            (key): key is NonNullable<typeof key> => key !== undefined,
+          ),
         shortcuts: [
           ...session.extensionRunner.getShortcuts(this.keybindings).keys(),
         ],

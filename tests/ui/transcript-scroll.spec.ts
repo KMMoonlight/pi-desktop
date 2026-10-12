@@ -53,6 +53,51 @@ async function setup(page: Page, width: number) {
 }
 
 for (const width of [1440, 760]) {
+  test(`layout clamping followed by replacement output keeps following at ${width}px`, async ({ page }) => {
+    const { run, transcript, bottom, up } = await setup(page, width);
+    await bottom();
+    // A process section can collapse and be replaced before the next paint.
+    // The browser clamps scrollTop, but the final box size can be unchanged,
+    // so ResizeObserver alone cannot detect that the bottom needs restoring.
+    await transcript.evaluate((node) => {
+      const inner = node.querySelector<HTMLElement>(".transcript-inner")!;
+      inner.style.height = "100px";
+      inner.style.overflow = "hidden";
+      void node.scrollTop;
+      inner.style.removeProperty("height");
+      inner.style.removeProperty("overflow");
+    });
+    await bottom();
+    await expect(transcript).toHaveAttribute("data-follow-output", "true");
+    try {
+      await run("stream", 20);
+      await bottom();
+      await up();
+      const readingTop = await transcript.evaluate(node => node.scrollTop);
+      await run("stream", 30);
+      await expect(transcript).toContainText("Streaming 29:");
+      expect(await transcript.evaluate(node => node.scrollTop)).toBe(readingTop);
+    } finally {
+      await run("clear");
+    }
+  });
+
+  test(`positioned output growth follows even when observed box sizes stay unchanged at ${width}px`, async ({ page }) => {
+    const { transcript, bottom } = await setup(page, width);
+    await bottom();
+    await transcript.evaluate((node) => {
+      const inner = node.querySelector<HTMLElement>(".transcript-inner")!;
+      inner.style.position = "relative";
+      const overflow = document.createElement("div");
+      Object.assign(overflow.style, {
+        position: "absolute", top: "100%", height: "400px", width: "1px",
+      });
+      inner.append(overflow);
+    });
+    await bottom();
+    await expect(transcript).toHaveAttribute("data-follow-output", "true");
+  });
+
   test(`bottom button clears when overflow changes without resizing the transcript at ${width}px`, async ({
     page,
   }) => {

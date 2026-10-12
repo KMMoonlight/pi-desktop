@@ -236,6 +236,8 @@ export interface DesktopSnapshot {
     windowProgress: boolean;
     inputListeners: number;
     shortcuts: string[];
+    /** Custom key bindings that can turn printable input into editor commands. */
+    editorCommandKeys?: string[];
     theme?: {
       name?: string;
       appearance: "light" | "dark";
