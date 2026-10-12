@@ -11,7 +11,7 @@ mockIPC(async (command, raw) => {
   if (command === "updater_configured") return true;
   if (command === "plugin:updater|check") {
     state.checks++;
-    return { rid: 1, currentVersion: "0.1.2", version: "0.2.0", body: "修复问题并改善性能。", rawJson: {} };
+    return { rid: 1, currentVersion: "0.1.2", version: "0.2.0", body: "## 本次更新\n\n修复问题并改善性能。\n\n- **输入优化**\n- 支持 `Markdown` 更新说明\n\n| 平台 | 安装包 |\n| --- | --- |\n| macOS | `.dmg` |\n\n[查看发布](https://github.com/KMMoonlight/pi-desktop/releases)", rawJson: {} };
   }
   if (command === "plugin:updater|download") {
     state.downloads++;

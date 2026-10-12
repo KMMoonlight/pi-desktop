@@ -19,6 +19,11 @@ test("automatic download shows progress and installation requires confirmation",
   await expect(page.getByText("版本 0.2.0 已准备就绪")).toBeVisible();
   await page.getByText("更新说明", { exact: true }).click();
   await expect(page.getByText("修复问题并改善性能。")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "本次更新" })).toBeVisible();
+  await expect(page.locator(".markdown li")).toHaveCount(2);
+  await expect(page.locator(".markdown strong")).toHaveText("输入优化");
+  await expect(page.getByRole("table")).toContainText("macOS");
+  await expect(page.getByRole("link", { name: "查看发布" })).toHaveAttribute("href", "https://github.com/KMMoonlight/pi-desktop/releases");
   await page.getByRole("button", { name: "安装并重启" }).click();
   expect(await page.evaluate(() => (window as any).updateTest.installs)).toBe(0);
   await page.screenshot({ path: ".local/update-ready.png" });

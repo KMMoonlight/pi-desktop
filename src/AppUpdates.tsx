@@ -1,6 +1,7 @@
 import { Download, RefreshCw } from "lucide-react";
 import { t, useLocale, formatDate } from "./i18n";
 import { Switch, Button } from "./primitives";
+import { Markdown } from "./Messages";
 import { useUpdates, updates, setAutoDownload, confirmUpdateInstall } from "./updates";
 
 export function AppUpdates() {
@@ -37,7 +38,7 @@ export function AppUpdates() {
           {state.phase === "available" && <Button icon={Download} onClick={() => void updates.download()}>{t("下载更新")}</Button>}
           {ready && <Button color="primary" onClick={() => void confirmUpdateInstall()}>{t("安装并重启")}</Button>}
         </div>
-        {state.notes && <details className="mt-4"><summary>{t("更新说明")}</summary><p className="mt-2 whitespace-pre-wrap break-words text-body">{state.notes}</p></details>}
+        {state.notes && <details className="mt-4"><summary>{t("更新说明")}</summary><div className="markdown mt-2 min-w-0 overflow-x-auto break-words text-body"><Markdown text={state.notes} /></div></details>}
       </>}
     {(state.error || state.setupError) && <div className="error-inline mt-3" role="alert">{t("更新失败，请重试。你的当前版本仍可继续使用。")}<details><summary>{t("错误详情")}</summary><p className="break-words">{state.error || state.setupError}</p></details></div>}
   </div>;
