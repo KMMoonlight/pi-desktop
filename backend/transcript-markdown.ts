@@ -23,6 +23,12 @@ export class TranscriptMarkdownRenderer {
   private hideThinking?: boolean;
   private thinkingVisibility = new Map<string, boolean>();
   private previousStreaming?: ChatMessage;
+  private rendered = new Map<
+    string,
+    { key: string; value: TranscriptMarkdown }
+  >();
+  private renderTheme?: Theme;
+  private renderSettings?: string;
 
   constructor(private runtime: Runtime) {}
 
@@ -75,6 +81,7 @@ export class TranscriptMarkdownRenderer {
   resetThinking() {
     this.thinkingVisibility.clear();
     this.previousStreaming = undefined;
+    this.rendered.clear();
   }
 
   render(
@@ -121,12 +128,27 @@ export class TranscriptMarkdownRenderer {
     }
     this.previousStreaming = streaming;
     const api = this.runtime.markdown;
+    const extensions = session.extensionRunner.getMarkdownTransformers();
+    const renderSettings = JSON.stringify([
+      settings.getMermaidRenderingMode(),
+      settings.getCodeBlockIndent(),
+      settings.getOutputPad(),
+    ]);
+    if (
+      this.renderTheme !== theme ||
+      this.renderSettings !== renderSettings ||
+      extensions.length
+    )
+      this.rendered.clear();
+    this.renderTheme = theme;
+    this.renderSettings = renderSettings;
+    const liveRendered = new Set<string>();
     const transformers = [
       api.createMermaidMarkdownTransformer({
         getMode: () => settings.getMermaidRenderingMode(),
         theme,
       }),
-      ...session.extensionRunner.getMarkdownTransformers(),
+      ...extensions,
     ];
     const markdownTheme = {
       ...api.getMarkdownTheme(),
@@ -156,6 +178,20 @@ export class TranscriptMarkdownRenderer {
               : availableWidths[thinking ? "thinking" : "text"]) +
             settings.getOutputPad() * 2
           : width;
+        const cacheId = `${message.id}:${blockIndices.join(",")}:${thinking}`;
+        liveRendered.add(cacheId);
+        const cacheKey = JSON.stringify([
+          source,
+          componentWidth,
+          visible,
+          isStreaming,
+          message.role,
+        ]);
+        const cached = this.rendered.get(cacheId);
+        if (!extensions.length && cached?.key === cacheKey) {
+          presentations.push(cached.value);
+          return;
+        }
         const component =
           visible && (message.role === "user" ? source : source.trim())
             ? new api.Markdown(
@@ -194,12 +230,15 @@ export class TranscriptMarkdownRenderer {
         const rendered = component
           ? componentMarkdown(component, componentWidth, this.runtime.text)
           : { text: source, blocks: [] };
-        presentations.push({
+        const presentation: TranscriptMarkdown = {
           blockIndices,
           source: rendered.text,
           blocks: rendered.blocks,
           ...(thinking ? { visible } : {}),
-        });
+        };
+        presentations.push(presentation);
+        if (!extensions.length)
+          this.rendered.set(cacheId, { key: cacheKey, value: presentation });
       };
       if (message.role === "user") {
         const indices = message.content.flatMap((block, index) =>
@@ -235,6 +274,8 @@ export class TranscriptMarkdownRenderer {
     };
     messages.forEach((message) => render(message, false));
     if (streaming) render(streaming, true);
+    for (const key of this.rendered.keys())
+      if (!liveRendered.has(key)) this.rendered.delete(key);
     for (const key of this.thinkingVisibility.keys())
       if (!liveThinking.has(key)) this.thinkingVisibility.delete(key);
   }

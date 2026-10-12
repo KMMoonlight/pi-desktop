@@ -28,6 +28,8 @@ test("typing after large tool output uses small patches, and reconnect restores 
   );
   await sdkAction(page, "sdk.run", { path });
   await expect(page.locator(".transcript")).toContainText("History restored.");
+  await sdkAction(page, "prompt", { message: "application-status-gate" });
+  await expect(page.locator(".run-indicator")).toBeVisible();
   await editor.fill("");
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Network.enable");
@@ -59,5 +61,9 @@ test("typing after large tool output uses small patches, and reconnect restores 
     .toBe(true);
   await editor.pressSequentially(" again");
   await expect(editor).toHaveValue("responsive input again");
+  await cdp.send("Input.imeSetComposition", { text: "nihao", selectionStart: 5, selectionEnd: 5 });
+  await cdp.send("Input.insertText", { text: "你好" });
+  await expect(editor).toHaveValue("responsive input again你好");
+  await sdkAction(page, "abort");
   await cdp.detach();
 });

@@ -1,4 +1,14 @@
-import { ToolExecutionComponent } from "@earendil-works/pi-coding-agent";
+import {
+  ToolExecutionComponent,
+  createReadToolDefinition,
+  createWriteToolDefinition,
+  createEditToolDefinition,
+  createBashToolDefinition,
+  createPowerShellToolDefinition,
+  createGrepToolDefinition,
+  createFindToolDefinition,
+  createLsToolDefinition,
+} from "@earendil-works/pi-coding-agent";
 import {
   callComponentMethod,
   componentField,
@@ -22,6 +32,17 @@ const component = (value: unknown): value is PiComponent =>
   typeof Reflect.get(value, "render") === "function" &&
   typeof Reflect.get(value, "invalidate") === "function";
 
+const staticRenderers = [
+  createReadToolDefinition,
+  createWriteToolDefinition,
+  createEditToolDefinition,
+  createBashToolDefinition,
+  createPowerShellToolDefinition,
+  createGrepToolDefinition,
+  createFindToolDefinition,
+  createLsToolDefinition,
+].map((create) => create("."));
+
 /** A single original SDK row owns both render callbacks and their shared state. */
 export class NativeToolRow {
   original?: ToolExecutionComponent;
@@ -32,6 +53,25 @@ export class NativeToolRow {
   private retired = false;
   private session;
   private state: Record<string, unknown>;
+  private viewRevision = 0;
+  /** Only completed, original built-in renderers have an immutable presentation. */
+  get staticViewRevision(): number | undefined {
+    const result = this.sources.get("toolResult");
+    if (!result || result.context.isPartial || this.retired) return;
+    const definition = this.context().session.getToolDefinition(
+      result.context.toolName!,
+    );
+    if (
+      definition &&
+      staticRenderers.some(
+        (native) =>
+          native.renderCall === definition.renderCall &&
+          native.renderResult === definition.renderResult &&
+          native.renderShell === definition.renderShell,
+      )
+    )
+      return this.viewRevision;
+  }
   constructor(
     readonly id: string,
     private tui: DesktopTui,
@@ -51,6 +91,7 @@ export class NativeToolRow {
     if (this.signatures.has(key) && this.signatures.get(key) === signature)
       return;
     this.signatures.set(key, signature);
+    this.viewRevision++;
     update();
   }
   private renderContext(native: RenderContext, phase: Phase) {
@@ -259,6 +300,7 @@ export class NativeToolRow {
   }
   invalidate() {
     if (this.retired || !this.original) return;
+    this.viewRevision++;
     this.original.invalidate();
     this.refreshRoots();
   }

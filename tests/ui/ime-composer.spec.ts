@@ -35,7 +35,9 @@ test("IME punctuation with key code 229 inserts a slash once and preserves repea
       await expect(composer).toHaveValue(text, { timeout: 3000 });
     }
     expect(sent.filter((input) => input.event?.key === "/")).toEqual([]);
-    await expect.poll(() => sent.filter((input) => input.data === "/")).toHaveLength(2);
+    await expect
+      .poll(() => sent.filter((input) => input.data === "/"))
+      .toHaveLength(2);
     await composer.fill("");
     await composer.pressSequentially("//");
     await expect(composer).toHaveValue("//");
@@ -94,3 +96,107 @@ for (const width of [1440, 760]) {
     ).toBe(true);
   });
 }
+
+test("an unmarked printable key can start native composition without being inserted by the backend", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const composer = page.getByRole("textbox", { name: "消息", exact: true });
+  await expect(composer).toBeVisible();
+  await sdkAction(page, "session.new");
+  const sent: any[] = [];
+  page.on("request", (request) => {
+    if (request.url().endsWith("/api/action") && request.method() === "POST") {
+      const body = request.postDataJSON();
+      if (body.action === "desktop.input") sent.push(body.args);
+    }
+  });
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await composer.focus();
+    await cdp.send("Input.dispatchKeyEvent", {
+      type: "rawKeyDown",
+      key: "n",
+      code: "KeyN",
+      windowsVirtualKeyCode: 78,
+    });
+    await cdp.send("Input.imeSetComposition", {
+      text: "ni",
+      selectionStart: 2,
+      selectionEnd: 2,
+    });
+    await expect(composer).toHaveValue("ni");
+    await cdp.send("Input.insertText", { text: "你" });
+    await expect(composer).toHaveValue("你");
+    await expect
+      .poll(() => sent.some((input) => input.data === "你"))
+      .toBe(true);
+    expect(
+      sent.some(
+        (input) => input.event?.key === "n" && input.event?.type === "press",
+      ),
+    ).toBe(false);
+  } finally {
+    await cdp.detach();
+  }
+});
+
+test("a late key release acknowledgement does not overwrite native composition", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const composer = page.getByRole("textbox", { name: "消息", exact: true });
+  await expect(composer).toBeVisible();
+  await sdkAction(page, "session.new");
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let held = false;
+  await page.route("**/api/action", async (route) => {
+    const body = route.request().postDataJSON();
+    if (
+      body.action === "desktop.input" &&
+      body.args.event?.type === "release" &&
+      body.args.event.key === "x"
+    ) {
+      const response = await route.fetch();
+      held = true;
+      await gate;
+      await route.fulfill({ response });
+    } else await route.continue();
+  });
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    await composer.press("x");
+    await expect.poll(() => held).toBe(true);
+    await cdp.send("Input.imeSetComposition", {
+      text: "ni",
+      selectionStart: 2,
+      selectionEnd: 2,
+    });
+    await expect(composer).toHaveValue("xni");
+    const acknowledged = page.waitForResponse((response) => {
+      if (
+        !response.url().endsWith("/api/action") ||
+        response.request().method() !== "POST"
+      )
+        return false;
+      const body = response.request().postDataJSON();
+      return (
+        body.action === "desktop.input" &&
+        body.args.event?.type === "release" &&
+        body.args.event.key === "x"
+      );
+    });
+    release();
+    await acknowledged;
+    await expect(composer).toHaveValue("xni");
+    await cdp.send("Input.insertText", { text: "你" });
+    await expect(composer).toHaveValue("x你");
+  } finally {
+    release();
+    await cdp.detach();
+    await page.unrouteAll({ behavior: "wait" });
+  }
+});

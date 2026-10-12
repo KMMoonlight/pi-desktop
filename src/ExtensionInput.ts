@@ -436,6 +436,7 @@ export function useExtensionInput(
     const pendingInsertions = new WeakMap<TextControl, Composition>();
     const endingInputs = new WeakMap<TextControl, Composition>();
     const externalDialogs = new WeakSet<TextControl>();
+    const printableKeys = new WeakMap<TextControl, DesktopKeyEvent>();
     // Navigation/deletion must settle before another optimistic insertion
     // captures its selection. Key releases do not change that selection.
     let pendingKeys = 0;
@@ -544,7 +545,7 @@ export function useExtensionInput(
         const context = inputContext(target);
         const result = await sendInput<DesktopInputResult>(target, {
           sessionId,
-          data: encodeDesktopText(data),
+          ...(event ? { event } : { data: encodeDesktopText(data) }),
           ...context,
         });
         if (!target.isConnected || current.current?.sessionId !== sessionId)
@@ -572,6 +573,8 @@ export function useExtensionInput(
       const state = current.current;
       if (!state || !(native.target instanceof HTMLElement)) return;
       let target = native.target;
+      if (isText(target) && compositions.has(target)) return;
+      if (native.type === "keyup" && isText(target)) printableKeys.delete(target);
       // Control replacement can leave focus on body; a text-only modal can
       // focus its surrounding focus-trap container. Route those keys to the
       // sole extension modal, without taking keys from sibling controls or
@@ -619,6 +622,20 @@ export function useExtensionInput(
             desktopKeyId(event).split("+").sort().join("+"),
         );
       if (!captures) return;
+      // WebKit/third-party IMEs may start composition only AFTER a printable
+      // keydown (without keyCode 229). Let the OS process that key first;
+      // beforeinput still owns ordinary text insertion and SDK reconciliation.
+      if (
+        native.isTrusted && event.type === "press" && [...event.key].length === 1 &&
+        !event.ctrlKey && !event.metaKey && !event.altKey &&
+        isText(target) && !target.readOnly && !isRaw(target) &&
+        !state.extensionUI.shortcuts.some(shortcut =>
+          shortcut.split("+").sort().join("+") === desktopKeyId(event).split("+").sort().join("+"),
+        )
+      ) {
+        printableKeys.set(target, event);
+        return;
+      }
       native.preventDefault();
       native.stopImmediatePropagation();
       // Display ordinary typing immediately, using the same reconciliation as
@@ -678,7 +695,7 @@ export function useExtensionInput(
         if (!(
           event.type === "release" &&
           isText(target) &&
-          pendingInsertions.has(target)
+          (pendingInsertions.has(target) || pendingCompositions.has(target))
         ))
           applyEditorResult(target, result);
         if (
@@ -829,7 +846,9 @@ export function useExtensionInput(
       }
       if (event.inputType !== "insertText" || !event.data) return;
       event.preventDefault();
-      insertText(target, event.data, state.sessionId);
+      const key = printableKeys.get(target);
+      printableKeys.delete(target);
+      insertText(target, event.data, state.sessionId, key?.key === event.data ? key : undefined);
     };
     const input = (event: Event) => {
       if (
@@ -880,6 +899,7 @@ export function useExtensionInput(
       const previous =
         pendingCompositions.get(event.target) ??
         pendingInsertions.get(event.target);
+      printableKeys.delete(event.target);
       endingInputs.delete(event.target);
       const composition: Composition = {
         context: inputContext(event.target, textInputNeedsLayout(current.current, event.target)),

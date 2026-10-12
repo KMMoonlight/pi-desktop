@@ -246,7 +246,7 @@ function ToolOutput({
   );
 }
 
-function ToolExecution({
+function ToolExecutionView({
   sessionId,
   call,
   result,
@@ -397,7 +397,17 @@ function ToolExecution({
   );
 }
 
-function Message({
+const ToolExecution = memo(ToolExecutionView, (previous, next) => {
+  const { surfaces: oldSurfaces, ...oldProps } = previous;
+  const { surfaces: newSurfaces, ...newProps } = next;
+  return sameTranscriptValue(oldProps, newProps) &&
+    sameTranscriptValue(
+      oldSurfaces.filter(surface => surface.target?.toolCallId === previous.call.id),
+      newSurfaces.filter(surface => surface.target?.toolCallId === next.call.id),
+    );
+});
+
+function MessageView({
   message,
   embedded = false,
   part,
@@ -592,6 +602,16 @@ function Message({
     </>
   );
 }
+const Message = memo(MessageView, (previous, next) => {
+  const { surfaces: oldSurfaces, ...oldProps } = previous;
+  const { surfaces: newSurfaces, ...newProps } = next;
+  return sameTranscriptValue(oldProps, newProps) &&
+    sameTranscriptValue(
+      oldSurfaces.find(surface => surface.id === previous.message.desktopSurfaceId),
+      newSurfaces.find(surface => surface.id === next.message.desktopSurfaceId),
+    );
+});
+
 function AssistantReply({
   group,
   renderRow,

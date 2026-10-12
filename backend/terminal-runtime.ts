@@ -288,6 +288,7 @@ export class TerminalRuntimeScope {
       this.reference,
       this.host.context,
       this.runtime,
+      this.injectedTerminal,
     );
     await this.application.initialize();
     if (this.signal.aborted) {

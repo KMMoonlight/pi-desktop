@@ -35,6 +35,7 @@ type CachedMessage = {
 
 /** Native application objects share the workspace lifetime of their TUI. */
 export class ApplicationComponents {
+  private workingTui: DesktopTui;
   readonly tools: NativeToolRows;
   readonly conversationNotices: ConversationNotices;
   readonly content: ApplicationContent;
@@ -90,7 +91,19 @@ export class ApplicationComponents {
     private tui: DesktopTui,
     private context: () => DesktopSdkContext,
     private runtime: Runtime,
+    nativeStatusAnimation = true,
   ) {
+    // The default desktop working animation is rendered by the frontend.
+    // Its native 80 ms timer must not redraw every completed tool and message.
+    // Supplied terminals and extension editors retain native animation ticks.
+    this.workingTui = new Proxy(tui, {
+      get: (target, key) => key === "requestRender"
+        ? (force?: boolean) => {
+            if (nativeStatusAnimation || context().session.extensionRunner.getUIContext().getEditorComponent())
+              target.requestRender(force);
+          }
+        : Reflect.get(target, key),
+    });
     const sdk = context();
     this.content = new ApplicationContent(context, runtime, tui);
     this.conversationNotices = new ConversationNotices(
@@ -437,7 +450,7 @@ export class ApplicationComponents {
       const api = this.runtime.status;
       if (kind === "working")
         this.status = new api.WorkingStatusIndicator(
-          this.tui,
+          this.workingTui,
           options.message ?? "Working...",
           options.indicator,
         );

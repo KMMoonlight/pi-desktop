@@ -290,11 +290,14 @@ export async function createMappedComponent(
   let focusRevision = 0;
   let renderSourceValue: DesktopRenderSource | undefined;
   let rendererDirty = false;
+  let cachedViewKey: string | undefined;
+  let cachedOwned: ReadonlySet<Component> | undefined;
   let rootOverlay = context.runtimeOverlay;
   let releaseRuntime: (() => void) | undefined;
   const invalidateTui = tui.invalidate.bind(tui);
   tui.invalidate = () => {
     if (stopped) return;
+    cachedViewKey = undefined;
     withKeys(() => {
       // Factory roots are hosted by the desktop registry, outside the native
       // TUI children list. Preserve native child/overlay invalidation as well.
@@ -2286,6 +2289,7 @@ export async function createMappedComponent(
     });
   };
   const updateSource = (source: DesktopRenderSource) => {
+    cachedViewKey = undefined;
     renderSourceValue = source;
     rendererDirty = false;
     let next = renderSource(source);
@@ -2317,6 +2321,12 @@ export async function createMappedComponent(
   };
   let lastView: DesktopNode | undefined;
   let lastHeight = 0;
+  const staticViewKey = () => {
+    const revision = renderSourceValue?.nativeToolRow?.staticViewRevision;
+    return revision !== undefined && !tui.children.length && !overlays.size
+      ? `${revision}:${surfaceWidth ?? geometry.columns}:${geometry.rows}`
+      : undefined;
+  };
   const baseRoots = () => [...tui.children, ...(root ? [root] : [])];
   const renderBase = (width: number) => {
     rememberRegistered();
@@ -2335,6 +2345,8 @@ export async function createMappedComponent(
       return { ...(lastView ?? { kind: "spacer", lines: 0 }), inert: true };
     if (rendererDirty && renderSourceValue) updateSource(renderSourceValue);
     if (!root) throw new Error("Pi component is unavailable");
+    const viewKey = staticViewKey();
+    if (viewKey !== undefined && viewKey === cachedViewKey && lastView) return lastView;
     syncFooter();
     // Run original layout/state hooks, but never display its terminal output.
     lastHeight = renderBase(surfaceWidth ?? geometry.columns);
@@ -2354,8 +2366,11 @@ export async function createMappedComponent(
       withKeys(() => overlay.component.render(width));
       mapTree(overlay.component, width);
     }
-    release(rememberOwned());
+    const owned = rememberOwned();
+    release(owned);
+    cachedOwned = owned;
     lastView = view;
+    cachedViewKey = viewKey;
     return paused ? { ...view, inert: true } : view;
   };
   const showOverlay = tui.showOverlay.bind(tui);
@@ -2461,7 +2476,9 @@ export async function createMappedComponent(
     claim: (target) => {
       claimedFocus.add(target);
     },
-    retained: () => rememberOwned(),
+    retained: () => cachedViewKey !== undefined && cachedViewKey === staticViewKey() && cachedOwned
+      ? cachedOwned
+      : rememberOwned(),
     focus: (target, revision, explicit) => {
       if (stopped) return;
       setFocus(target);
