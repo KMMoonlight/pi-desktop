@@ -105,3 +105,32 @@ test("missing or skipped baselines require resync instead of silently applying a
   assert.equal(decoder.decode(wire(second))?.type, "snapshot");
   assert.equal(decoder.decode(wire(third))?.type, "snapshot");
 });
+
+test("returning to a resident history sends only changes and retains its message identity", () => {
+  const encoder = new SnapshotEncoder(), decoder = new SnapshotDecoder();
+  const send = (data: DesktopSnapshot) => decoder.decode(wire(encoder.encode({type:"snapshot",data})));
+  const first = send(snapshot(1));
+  send(snapshot(2,{sessionId:"B"}));
+  send(snapshot(3,{sessionId:"C"}));
+  const patch=encoder.encode({type:"snapshot",data:snapshot(4,{editor:{text:"restored"}})});
+  assert.equal(patch.type,"snapshot_patch");
+  assert.ok(JSON.stringify(patch).length<1000);
+  const restored=decoder.decode(wire(patch));
+  assert.equal(restored?.type,"snapshot");
+  if(first?.type==='snapshot'&&restored?.type==='snapshot') {
+    assert.equal(restored.data.messages,first.data.messages);
+    assert.equal(restored.data.editor.text,"restored");
+  }
+});
+
+test("evicted histories are resent in full and missing cached baselines require resync", () => {
+  const encoder=new SnapshotEncoder(),decoder=new SnapshotDecoder();
+  for(let i=0;i<4;i++)decoder.decode(wire(encoder.encode({type:"snapshot",data:snapshot(i,{sessionId:String(i)})})));
+  const back=encoder.encode({type:"snapshot",data:snapshot(5,{sessionId:'0'})});
+  assert.equal(back.type,'snapshot');
+  decoder.decode(wire(back));
+  const patch=encoder.encode({type:"snapshot",data:snapshot(6,{sessionId:'2'})});
+  assert.equal(patch.type,'snapshot_patch');
+  assert.equal(new SnapshotDecoder().decode(wire(patch)),undefined);
+  assert.equal(decoder.decode(wire(patch))?.type,'snapshot');
+});

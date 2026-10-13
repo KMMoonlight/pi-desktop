@@ -28,6 +28,7 @@ export function SessionRail({
   sessionActivity,
   unreadSessions,
   pending,
+  selecting = false,
   select,
   pin,
   remove,
@@ -45,6 +46,7 @@ export function SessionRail({
   sessionActivity?: DesktopSnapshot["sessionActivity"];
   unreadSessions: string[];
   pending?: boolean;
+  selecting?: boolean;
   select: (session?: SessionItem) => void;
   pin: (id: string) => void;
   remove: (session: SessionItem) => void;
@@ -90,7 +92,7 @@ export function SessionRail({
       <Hint
         text={`${session.cwd} · ${new Date(session.modified).toLocaleString(getLocale())}`}
       >
-        <button aria-disabled={pending || undefined} aria-current={session.id === currentId ? "page" : undefined} onClick={() => { if (!pending) select(session); }}>
+        <button aria-disabled={(pending && !selecting) || undefined} aria-current={session.id === currentId ? "page" : undefined} onClick={() => { if (!pending || selecting) select(session); }}>
           <span>
             {activity(session.id)}
             <strong>

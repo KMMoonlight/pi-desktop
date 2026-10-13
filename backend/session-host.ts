@@ -258,11 +258,24 @@ export class SessionHost extends EventEmitter {
     if (this.disposal) throw new Error("Pi 正在关闭");
     if (request.action === "initialize" && request.args?.resumeExisting === true && this.active.snapshot)
       return this.snapshot();
+    if (request.action === "session.switch" && !this.navigating && typeof request.args?.path === "string") {
+      const existing = this.findPath(request.args.path);
+      if (existing) {
+        // Selecting a resident worker is synchronous. Do not publish busy/idle
+        // frames that traverse the old and new histories around this selection.
+        const selected = this.select(existing);
+        return request.args.selectionOnly === true ? { cwd: selected?.cwd, selectedSessionId: selected?.sessionId } : selected;
+      }
+    }
     if (["initialize", "session.new", "session.switch", "session.delete", "workspace.remove"].includes(request.action)) {
       if (this.navigating) throw new Error("会话正在切换，请稍后重试");
       const navigation = this.navigate(request);
       this.navigation = navigation;
       const result = await navigation;
+      // UI subscribers already receive the complete snapshot event. Returning
+      // it again doubles serialization and parsing of large session histories.
+      if (request.action === "session.switch" && request.args?.selectionOnly === true)
+        return { cwd: this.active.snapshot?.cwd, selectedSessionId: this.active.snapshot?.sessionId };
       return result?.sessionId ? this.snapshot() : result;
     }
     const args = request.args ?? {};

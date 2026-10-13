@@ -65,27 +65,46 @@ function reconcile(
   return result;
 }
 
+// Bound retained histories independently on each transport connection. Both ends
+// use the same LRU order; a missing revision still takes the normal resync path.
+class SnapshotBaselines {
+  private backendId?: string;
+  private entries = new Map<string, DesktopSnapshot>();
+  clear() { this.entries.clear(); this.backendId = undefined; }
+  get(backendId: string, sessionId: string) {
+    return backendId === this.backendId ? this.entries.get(sessionId) : undefined;
+  }
+  set(snapshot: DesktopSnapshot) {
+    if (this.backendId !== snapshot.backendId) this.clear();
+    this.backendId = snapshot.backendId;
+    this.entries.delete(snapshot.sessionId);
+    this.entries.set(snapshot.sessionId, snapshot);
+    if (this.entries.size > 3) this.entries.delete(this.entries.keys().next().value!);
+  }
+}
+
 export class SnapshotEncoder {
-  private previous?: DesktopSnapshot;
+  private baselines = new SnapshotBaselines();
   reset() {
-    this.previous = undefined;
+    this.baselines.clear();
   }
   encode(event: DesktopEvent): DesktopWireEvent {
     if (event.type === "workspace_closed" || event.type === "shutdown")
       this.reset();
     if (event.type !== "snapshot") return event;
     const next = event.data;
-    const previous = this.previous;
+    const previous = this.baselines.get(next.backendId, next.sessionId);
     if (
       !previous ||
       previous.backendId !== next.backendId ||
       previous.sessionId !== next.sessionId
     ) {
-      this.previous = JSON.parse(JSON.stringify(next));
-      return { type: "snapshot", data: this.previous! };
+      const data = JSON.parse(JSON.stringify(next));
+      this.baselines.set(data);
+      return { type: "snapshot", data };
     }
     const changes: SnapshotChange[] = [];
-    this.previous = reconcile(previous, next, [], changes);
+    this.baselines.set(reconcile(previous, next, [], changes));
     return {
       type: "snapshot_patch",
       backendId: next.backendId,
@@ -98,13 +117,13 @@ export class SnapshotEncoder {
 }
 
 export class SnapshotDecoder {
-  private previous?: DesktopSnapshot;
+  private baselines = new SnapshotBaselines();
   decode(event: DesktopWireEvent): DesktopEvent | undefined {
     if (event.type === "workspace_closed" || event.type === "shutdown")
-      this.previous = undefined;
-    if (event.type === "snapshot") this.previous = event.data;
+      this.baselines.clear();
+    if (event.type === "snapshot") this.baselines.set(event.data);
     if (event.type !== "snapshot_patch") return event;
-    const previous = this.previous;
+    const previous = this.baselines.get(event.backendId, event.sessionId);
     if (
       !previous ||
       previous.backendId !== event.backendId ||
@@ -142,7 +161,7 @@ export class SnapshotDecoder {
           writable: true,
         });
     }
-    this.previous = result;
+    this.baselines.set(result);
     return { type: "snapshot", data: result };
   }
 }

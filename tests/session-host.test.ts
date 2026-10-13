@@ -163,3 +163,23 @@ test("one worker failing cannot shut down the other running sessions", async () 
     assert.equal(host.snapshot()?.sessionActivity?.[0].needsAttention, true);
   } finally { await host.dispose(); }
 });
+
+test("resident UI switching publishes one snapshot without duplicating history in its reply", async () => {
+  const { host } = fixture();
+  try {
+    await host.action({ action: "initialize", args: { cwd: "/project" } });
+    await host.action({ action: "session.new" });
+    const snapshots: DesktopSnapshot[] = [];
+    host.on("event", (event: DesktopEvent) => {
+      if (event.type === "snapshot") snapshots.push(event.data);
+    });
+    const result = await host.action({ action: "session.switch", args: {
+      path: "/sessions/0.jsonl", selectionOnly: true,
+    } });
+    assert.deepEqual(result, { cwd: "/project", selectedSessionId: "0" });
+    assert.equal(snapshots.length, 1);
+    assert.equal(snapshots[0].sessionId, "0");
+    assert.equal(snapshots[0].changing, false);
+    assert.equal(host.snapshot()?.sessionActivity?.length, 2);
+  } finally { await host.dispose(); }
+});

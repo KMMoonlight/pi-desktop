@@ -817,6 +817,7 @@ function MessagesView({
   const follow = useRef(true);
   const scrollSize = useRef({ height: 0, viewport: 0, top: 0 });
   const [away, setAway] = useState(false);
+  const [expandedHistory, setExpandedHistory] = useState<string>();
   const resumeFollowing = useCallback(() => {
     follow.current = true;
     setAway(false);
@@ -863,6 +864,8 @@ function MessagesView({
       ? [surface.target.toolCallId]
       : [],
   ));
+  const interactiveSurfaces = new Set(surfaces.filter(surface =>
+    interactiveNode(surface.view)).map(surface => surface.id));
   const rows: TranscriptRow[] = [];
   const renderedTools = new Set<string>();
   const addNotices = (afterMessageId?: string) => {
@@ -1048,9 +1051,20 @@ function MessagesView({
         }}
       >
         <div className="transcript-inner">
-          {turns.map((turn) => (
-            <section className="conversation-turn" key={turn.id}>
-              {groupTranscriptRows(turn.rows).map((row) =>
+          {messages.length > 100 && turns.length > 1 && expandedHistory !== sessionId && (
+            <button type="button" onClick={() => setExpandedHistory(sessionId)}>
+              {t("显示全部历史消息")}
+            </button>
+          )}
+          {turns.map((turn, index) => (
+            <HistoryTurn key={`${sessionId}:${turn.id}`}
+              eager={messages.length <= 100 || index >= turns.length - 3 || expandedHistory === sessionId ||
+                turn.rows.some(row => row.kind === "tool"
+                  ? interactiveTools.has(row.call.id ?? "")
+                  : row.kind === "message" && [row.message.desktopSurfaceId,
+                    ...row.message.content.map(block => block.desktopSurfaceId)]
+                    .some(id => id !== undefined && interactiveSurfaces.has(id)))}
+              render={() => groupTranscriptRows(turn.rows).map((row) =>
                 row.kind === "reply" ? (
                   <AssistantReply
                     key={row.id}
@@ -1073,7 +1087,7 @@ function MessagesView({
                   </Fragment>
                 ),
               )}
-            </section>
+            />
           ))}
           {busy && extensionUI.workingVisible && (
             <div className="run-indicator">
@@ -1101,6 +1115,31 @@ function MessagesView({
       )}
     </div>
   );
+}
+
+/** Mount passive history when it approaches the scroll viewport. Once visited,
+ * retain it so selection, expanded output and extension state are not lost. */
+function HistoryTurn({ eager, render }: { eager: boolean; render: () => ReactNode }) {
+  const element = useRef<HTMLElement>(null);
+  const [visited, setVisited] = useState(eager);
+  const visible = eager || visited;
+  useEffect(() => {
+    if (visible || !element.current) return;
+    if (typeof IntersectionObserver === "undefined") { setVisited(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setVisited(true);
+        observer.disconnect();
+      }
+    }, { root: element.current.closest(".transcript"), rootMargin: "600px" });
+    observer.observe(element.current);
+    return () => observer.disconnect();
+  }, [visible]);
+  return <section ref={element} className="conversation-turn"
+    style={visible ? undefined : { minHeight: 600 }}
+    aria-busy={!visible}>
+    {visible ? render() : null}
+  </section>;
 }
 
 export const Messages = memo(MessagesView, (previous, next) => {

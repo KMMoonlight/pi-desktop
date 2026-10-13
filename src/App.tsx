@@ -88,6 +88,7 @@ import { UpdateNotice } from "./AppUpdates";
 import { startUpdateChecks } from "./updates";
 import { useSessionDraft } from "./draft";
 import { useSessionActivity } from "./useSessionActivity";
+import { useSessionNavigation } from "./useSessionNavigation";
 import type {
   DesktopEvent,
   DesktopSnapshot,
@@ -143,6 +144,8 @@ const labels: Record<string, string> = {
 
   const shutdownRequested = useRef(false);
   const [snapshot, storeSnapshot] = useState<DesktopSnapshot>();
+  const sessionNavigation = useSessionNavigation(snapshot);
+  const selectedSession = sessionNavigation.selection?.session;
   const [globalSettings, setGlobalSettings] = useState<DesktopSettingsSnapshot>();
   const setSnapshot = useCallback((next: DesktopSnapshot) => {
     if (shutdownRequested.current) return;
@@ -348,7 +351,7 @@ const labels: Record<string, string> = {
     return () => { active = false; };
   }, [connected, !!snapshot, settingsOpen, run]);
   const workspaceReady =
-    connected && !booting && !!snapshot && !snapshot.changing;
+    connected && !booting && !!snapshot && !snapshot.changing && !selectedSession;
   const unreadSessions = useSessionActivity(snapshot, workspaceReady && tab === "chat" && !settingsOpen);
   useExtensionInput(connected ? snapshot : undefined, run, (value) =>
     sendEditor.current(value, queueMode === "steer" ? "followUp" : "steer"),
@@ -723,7 +726,7 @@ const labels: Record<string, string> = {
       if (!(event.ctrlKey || event.metaKey)) return;
       if (event.key === "n") {
         event.preventDefault();
-        if (!snapshot?.changing) void run("session.new");
+        if (!snapshot?.changing && !selectedSession) void run("session.new");
       }
       if (event.key === "k") {
         event.preventDefault();
@@ -738,7 +741,7 @@ const labels: Record<string, string> = {
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  }, [snapshot?.changing, run, shutdown]);
+  }, [snapshot?.changing, selectedSession, run, shutdown]);
   useEffect(() => {
     setFileTarget(undefined);
   }, [snapshot?.cwd]);
@@ -1027,7 +1030,7 @@ const labels: Record<string, string> = {
     <FileNavigation.Provider value={openFile}>
     <FileWorkspace.Provider value={snapshot?.cwd}>
       <div
-        className={`app-shell ${sidebar ? "" : "sidebar-hidden"} ${inspector && !settingsOpen ? "" : "inspector-hidden"}`}
+        className={`app-shell ${sidebar ? "" : "sidebar-hidden"} ${inspector && !settingsOpen && !selectedSession ? "" : "inspector-hidden"}`}
       >
         <aside className={`sidebar min-h-0 flex-col border-r border-line bg-soft ${sidebar ? "flex" : "hidden collapsed"}`}>
           <div className="brand flex h-11 min-h-11 shrink-0 items-center gap-3 border-b border-transparent px-4 py-1">
@@ -1045,8 +1048,8 @@ const labels: Record<string, string> = {
               icon={Plus}
               fullWidth
               variant="outline"
-              disabled={!snapshot}
-              pending={snapshot?.changing}
+              disabled={!snapshot || !!selectedSession}
+              pending={snapshot?.changing || !!selectedSession}
               onClick={() => {
                 void run("session.new");
                 setTab("chat");
@@ -1116,10 +1119,10 @@ const labels: Record<string, string> = {
                   className="workspace-add"
                   aria-label={t("添加工作区")}
                   onClick={() => {
-                    if (!snapshot?.changing) void openWorkspace();
+                    if (!snapshot?.changing && !selectedSession) void openWorkspace();
                   }}
                   disabled={choosingWorkspace || !connected}
-                  aria-disabled={snapshot?.changing || undefined}
+                  aria-disabled={snapshot?.changing || !!selectedSession || undefined}
                 >
                   <Plus size={16} />
                 </button>
@@ -1129,25 +1132,22 @@ const labels: Record<string, string> = {
               sessions={sessionMatches}
               workspaces={workspaces}
               pins={pins}
-              currentId={snapshot?.sessionFile ? snapshot.sessionId : undefined}
-              cwd={snapshot?.cwd}
-              currentName={snapshot?.sessionName}
+              currentId={selectedSession?.id ?? (snapshot?.sessionFile ? snapshot.sessionId : undefined)}
+              cwd={selectedSession?.cwd ?? snapshot?.cwd}
+              currentName={selectedSession?.name ?? snapshot?.sessionName}
               search={search}
-              busy={snapshot?.running ?? false}
+              busy={selectedSession ? false : snapshot?.running ?? false}
               sessionActivity={snapshot?.sessionActivity}
               unreadSessions={unreadSessions}
-              pending={snapshot?.changing}
+              pending={snapshot?.changing || !!selectedSession}
+              selecting={!!selectedSession}
               newSession={(cwd) => {
                 void startWorkspaceSession(cwd);
               }}
               select={(session) => {
-                if (session)
-                  void run<DesktopSnapshot>("session.switch", {
-                    path: session.path,
-                    cwd: session.cwd,
-                  }).then((data) => {
-                    if (data) localStorage.setItem("pi.workspace.userSelection", data.cwd);
-                  });
+                if (session) sessionNavigation.select(session);
+                setMenu(false);
+                setTerminalOpen(false);
                 setTab("chat");
                 if (innerWidth < 1024) setSidebar(false);
               }}
@@ -1199,14 +1199,14 @@ const labels: Record<string, string> = {
                 />
               )}
               <div className="group/session-title flex min-w-0 items-center gap-1">
-                <Hint text={snapshot?.cwd ?? "Pi Desktop"}>
+                <Hint text={selectedSession?.cwd ?? snapshot?.cwd ?? "Pi Desktop"}>
                   <h1 tabIndex={0}>
-                    {snapshot?.sessionFile
+                    {selectedSession ? selectedSession.name || t("新会话") : snapshot?.sessionFile
                       ? snapshot.sessionName ?? t("新会话")
                       : t("开始对话")}
                   </h1>
                 </Hint>
-                {snapshot?.sessionFile && tab === "chat" && (
+                {!selectedSession && snapshot?.sessionFile && tab === "chat" && (
                   <IconButton
                     icon={PencilLine}
                     label={t("重命名会话")}
@@ -1224,7 +1224,7 @@ const labels: Record<string, string> = {
               </div>
             </div>
             <div className="header-tools">
-              {snapshot && !settingsOpen && (
+              {snapshot && !settingsOpen && !selectedSession && (
                 <>
                   <IconButton
                     icon={Terminal}
@@ -1238,7 +1238,7 @@ const labels: Record<string, string> = {
                   />
                 </>
               )}
-              {snapshot?.running ? (
+              {!selectedSession && snapshot?.running ? (
                 <span className="status-tag running">
                   <span />
                   {snapshot.compacting
@@ -1252,14 +1252,14 @@ const labels: Record<string, string> = {
                   {t("连接断开")}
                 </span>
               ) : null}
-              {snapshot && !inspector && !settingsOpen && (
+              {snapshot && !inspector && !settingsOpen && !selectedSession && (
                 <IconButton
                   icon={PanelRightOpen}
                   label={t("打开检查器")}
                   onClick={() => setInspector(true)}
                 />
               )}
-              {!settingsOpen && (
+              {!settingsOpen && !selectedSession && (
                 <div
                   className="session-menu"
                   ref={menuTrigger}
@@ -1399,7 +1399,24 @@ const labels: Record<string, string> = {
               )}
             </div>
           </header>
-          {!snapshot ? (
+          {sessionNavigation.selection ? (
+            <div className="startup-state" data-session-loading={selectedSession!.id}>
+              {sessionNavigation.selection.status === "error" ? (
+                <>
+                  <CircleAlert size={24} aria-hidden="true" />
+                  <p role="alert">{sessionNavigation.selection.error}</p>
+                  <Button disabled={!connected} onClick={() => sessionNavigation.select(selectedSession!)}>
+                    {t("重试加载会话")}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <LoaderCircle className="spin" size={24} aria-hidden="true" />
+                  <p role="status">{t("正在加载会话…")}</p>
+                </>
+              )}
+            </div>
+          ) : !snapshot ? (
             <div className="startup-state">
               <PiLogo size={32} />
               <h2>Pi Desktop</h2>
@@ -1868,8 +1885,8 @@ const labels: Record<string, string> = {
             data-workspace-terminal-dock
           />
         </main>
-        <TerminalPanel key={snapshot?.sessionId} sessionId={snapshot?.sessionId} open={terminalOpen} onOpenChange={setTerminalOpen} cwd={snapshot?.cwd} />
-        {snapshot && inspector && !settingsOpen && (
+        <TerminalPanel key={snapshot?.sessionId} sessionId={snapshot?.sessionId} open={!selectedSession && terminalOpen} onOpenChange={setTerminalOpen} cwd={snapshot?.cwd} />
+        {snapshot && inspector && !settingsOpen && !selectedSession && (
           <>
             <button
               className="panel-backdrop inspector-backdrop"

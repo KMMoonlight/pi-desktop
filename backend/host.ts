@@ -1379,6 +1379,8 @@ export class DesktopHost extends EventEmitter {
     const same = (value: string) => process.platform === "win32"
       ? resolve(value).toLowerCase() === cwd.toLowerCase()
       : resolve(value) === cwd;
+    // Selecting a session must not reorder the user's registered workspaces.
+    if (!remove && this.recentWorkspaces.some(same)) return;
     const remaining = this.recentWorkspaces.filter((p) => !same(p));
     this.recentWorkspaces = remove ? remaining : [cwd, ...remaining].slice(0, 12);
     await mkdir(this.agentDir, { recursive: true });
