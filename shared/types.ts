@@ -209,6 +209,7 @@ export interface DesktopSnapshot {
   commands: { name: string; description?: string; source: string }[];
   providers: ProviderItem[];
   settings: RecordValue;
+  toolsExpanded?: boolean;
   toolImages?: { visible: boolean; widthCells: number };
   editor: { text: string; revision: number };
   globalSettings: RecordValue;

@@ -269,6 +269,49 @@ test("an old automatic workspace stays closed until a folder is selected", async
   }
 });
 
+test("saved appearance preferences override stale browser values without a workspace", async ({ page }) => {
+  const backend = await recoveryBackend();
+  try {
+    await writeFile(join(backend.initial.agentDir, "settings.json"), JSON.stringify({
+      ...backend.initial.globalSettings,
+      hideThinkingBlock: true,
+      theme: "dark",
+    }));
+    await backend.restart();
+    await page.route("**/api/**", route => {
+      const url = new URL(route.request().url());
+      return route.continue({ url: backend.url + url.pathname + url.search });
+    });
+    await page.addInitScript(() => {
+      localStorage.setItem("pi.workspace.userSelection", "");
+      localStorage.setItem("pi.showThinking", "true");
+      localStorage.setItem("pi.colorMode", "light");
+    });
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "打开工作区", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "设置", exact: true }).click();
+    const settings = page.getByRole("dialog", { name: "设置", exact: true });
+    await settings.getByRole("button", { name: "外观与显示", exact: true }).click();
+    await expect(settings.locator('input[name="show-thinking"]')).not.toBeChecked();
+    await expect(settings.getByRole("combobox", { name: "颜色模式", exact: true })).toContainText("深色");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    expect(backend.snapshot()).toBeUndefined();
+    await sdkAction(page, "theme.set", { theme: "system" });
+    await sdkAction(page, "display.thinking", { visible: true });
+    await backend.restart();
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.reload();
+    await page.getByRole("button", { name: "设置", exact: true }).click();
+    await settings.getByRole("button", { name: "外观与显示", exact: true }).click();
+    await expect(settings.locator('input[name="show-thinking"]')).toBeChecked();
+    await expect(settings.getByRole("combobox", { name: "颜色模式", exact: true })).toContainText("跟随系统");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  } finally {
+    await page.close();
+    await backend.close();
+  }
+});
+
 for (const width of [1440, 760]) {
   test(`workspace bootstrap defers stale session synchronization at ${width}px`, async ({
     page,

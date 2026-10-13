@@ -605,9 +605,18 @@ const labels: Record<string, string> = {
     run,
     setText,
   ]);
+  const displaySettings = snapshot?.settings ?? globalSettings?.settings;
   useEffect(() => {
-    if (snapshot) setShowThinking(snapshot.settings.hideThinkingBlock !== true);
-  }, [snapshot?.settings.hideThinkingBlock]);
+    if (displaySettings) setShowThinking(displaySettings.hideThinkingBlock !== true);
+  }, [!!displaySettings, displaySettings?.hideThinkingBlock, snapshot?.sessionId]);
+  useEffect(() => {
+    if (snapshot) setExpanded(snapshot.toolsExpanded === true);
+  }, [snapshot?.toolsExpanded, snapshot?.sessionId]);
+  useEffect(() => {
+    if (snapshot || !globalSettings) return;
+    const theme = globalSettings.settings.theme ?? "system";
+    if (theme === "light" || theme === "dark" || theme === "system") setColorMode(theme);
+  }, [!!snapshot, !!globalSettings, globalSettings?.settings.theme]);
   useEffect(() => {
     const timer = setTimeout(() => {
       if (
@@ -1985,7 +1994,10 @@ const labels: Record<string, string> = {
                     size="small"
                     name="expand-thinking"
                     checked={showThinking}
-                    onChange={({ checked }) => setShowThinking(checked)}
+                    onChange={({ checked }) => {
+                      setShowThinking(checked);
+                      void run("display.thinking", { visible: checked });
+                    }}
                   />
                 </div>
               </section>

@@ -12,6 +12,8 @@ import {
   forgetDesktopSession,
 } from "./session-history.ts";
 import { GlobalSettings, globalSettingsActions } from "./global-settings.ts";
+import { restoreToolPreferences, saveToolPreferences } from "./tool-preferences.ts";
+import { readToolsExpanded, saveToolsExpanded } from "./display-preferences.ts";
 import { followUpMessageIds, promoteFollowUp } from "./queue-promotion.ts";
 import { listSystemFonts } from "./system-fonts.ts";
 import { browseDirectories, createDirectory } from "./folders.ts";
@@ -359,6 +361,7 @@ export class DesktopHost extends EventEmitter {
   ) {
     super();
     this.agentDir = agentDir;
+    this.expanded = readToolsExpanded(agentDir);
     this.runtimeFactory = options.runtimeFactory;
     this.launchOptions = options.startup;
     this.managedTools = new ManagedTools(this.hostLifetime.signal, (status) => {
@@ -1493,8 +1496,10 @@ export class DesktopHost extends EventEmitter {
       onError: (error) => this.notice(error.error, "error"),
     });
     await this.editorMount;
-    if (!this.disposal && this.runtime?.session === session)
+    if (!this.disposal && this.runtime?.session === session) {
+      restoreToolPreferences(this.agentDir, this.runtime.cwd, session);
       rememberDesktopSession(this.agentDir, session.sessionManager);
+    }
     this.sessionTitles.update(session, this.sessionLifetime.signal);
   }
   private onSessionEvent(event: AgentSessionEvent) {
@@ -2034,18 +2039,16 @@ export class DesktopHost extends EventEmitter {
         return { success: true };
       },
       getToolsExpanded: () => this.expanded,
-      setToolsExpanded: (expanded) => {
-        if (expanded === this.expanded) return;
-        this.expanded = expanded;
-        this.toolExpansions.clear();
-        this.emitEvent({
-          type: "activity",
-          name: "tools_expanded",
-          data: expanded,
-        });
-        this.publish();
-      },
+      setToolsExpanded: (expanded) => this.setToolsExpanded(expanded),
     };
+  }
+  private setToolsExpanded(expanded: boolean) {
+    if (expanded === this.expanded) return;
+    saveToolsExpanded(this.agentDir, expanded);
+    this.expanded = expanded;
+    this.toolExpansions.clear();
+    this.emitEvent({ type: "activity", name: "tools_expanded", data: expanded });
+    this.publish();
   }
   setToolExpanded(id: string, expanded: boolean) {
     if ((this.toolExpansions.get(id) ?? this.expanded) === expanded) return;
@@ -2406,6 +2409,7 @@ export class DesktopHost extends EventEmitter {
         };
       }),
       settings: record(services.settingsManager.getSettings()),
+      toolsExpanded: this.expanded,
       toolImages: {
         visible: session.settingsManager.getShowImages(),
         widthCells: session.settingsManager.getImageWidthCells(),
@@ -2804,8 +2808,7 @@ export class DesktopHost extends EventEmitter {
       if (tui.isKeyRelease(data)) return { consume: true };
       return (
         (await this.handleDialogInput(a, data, initial, tui, () => {
-          this.expanded = !this.expanded;
-          this.toolExpansions.clear();
+          this.setToolsExpanded(!this.expanded);
         })) ?? {
           consume: false,
           data,
@@ -2862,6 +2865,7 @@ export class DesktopHost extends EventEmitter {
           ? this.session.settingsManager.getHideThinkingBlock()
           : a.visible === true;
       this.session.settingsManager.setHideThinkingBlock(!visible);
+      await this.session.settingsManager.flush();
       this.transcriptMarkdown?.resetThinking();
       this.emitEvent({
         type: "activity",
@@ -3580,6 +3584,7 @@ export class DesktopHost extends EventEmitter {
           !a.names.every((n) => typeof n === "string")
         )
           throw new Error("工具名称格式错误");
+        saveToolPreferences(this.agentDir, this.runtime!.cwd, session, a.names);
         session.setActiveToolsByName(a.names);
         break;
       case "compact":
