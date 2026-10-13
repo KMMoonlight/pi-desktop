@@ -205,6 +205,26 @@ export class SessionHost extends EventEmitter {
         if (typeof args.path !== "string") throw new Error("缺少会话路径");
         const existing = this.findPath(args.path);
         if (existing) return this.select(existing);
+        const activeSnapshot = this.active.snapshot;
+        const canReuseActiveWorker =
+          this.entries.size === 1 &&
+          !!activeSnapshot &&
+          !activeSnapshot.busy &&
+          this.pendingDialogs.length === 0 &&
+          typeof args.cwd === "string" &&
+          resolve(args.cwd) === resolve(activeSnapshot.cwd);
+        if (canReuseActiveWorker) {
+          const result = await this.active.worker.action(request);
+          if (result?.sessionId) {
+            this.active.snapshot = result;
+            this.workspaces = result.recentWorkspaces;
+          }
+          return this.select(this.active);
+        }
+        // The session rail already has the session's cwd. Avoid rescanning
+        // every history file just to recover data that the caller supplied.
+        if (typeof args.cwd === "string" && args.cwd.length > 0)
+          return await this.open({ cwd: args.cwd, sessionFile: args.path });
         const history: SessionItem[] = await this.active.worker.action({ action: "sessions.list", args: { all: true } });
         const target = history.find(session => resolve(session.path) === resolve(args.path as string));
         if (!target) throw new Error("会话不存在或已被删除");

@@ -136,7 +136,16 @@
 }
 .composer > textarea,
 .composer .desktop-extension-editor .desktop-textarea[data-composer-input] {
-  @apply block px-4 py-3 font-sans text-sm font-normal leading-5;
+  /* Keep the native caret on the same text box metrics as the visible draft. */
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: 0;
+  font: 14px/24px var(--ui-font);
+  font-weight: 400;
+  text-indent: 0;
+  vertical-align: top;
 }
 .composer > textarea::placeholder {
   color: var(--ui-muted);

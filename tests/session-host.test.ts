@@ -29,6 +29,15 @@ function fixture() {
         });
         return this.state;
       }
+      if (request.action === "session.switch") {
+        this.update({
+          sessionId: "saved",
+          sessionFile: String(request.args?.path),
+          cwd: String(request.args?.cwd),
+          recentWorkspaces: [String(request.args?.cwd)],
+        });
+        return this.state;
+      }
       if (request.action === "prompt") { this.update({ running: true, busy: true }); return { accepted: true }; }
       if (request.action === "abort") { this.update({ running: false, busy: false }); return null; }
       if (request.action === "delayed") return this.delayed;
@@ -123,6 +132,20 @@ test("opening saved history uses its exact file without opening another running 
     assert.deepEqual(workers[1].calls[0].args, { appearance: undefined, cwd: "/other", sessionFile: "/saved.jsonl" });
     assert.equal(workers[0].state?.running, true);
     assert.equal(host.snapshot()?.sessionFile, "/saved.jsonl");
+  } finally { await host.dispose(); }
+});
+
+test("an idle same-workspace switch reuses the active worker", async () => {
+  const { host, workers } = fixture();
+  try {
+    await host.action({ action: "initialize", args: { cwd: "/project" } });
+    await host.action({
+      action: "session.switch",
+      args: { path: "/saved.jsonl", cwd: "/project" },
+    });
+    assert.equal(workers.length, 1);
+    assert.equal(workers[0].calls.at(-1)?.action, "session.switch");
+    assert.equal(host.snapshot()?.sessionId, "saved");
   } finally { await host.dispose(); }
 });
 

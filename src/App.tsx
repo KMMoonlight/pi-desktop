@@ -1142,7 +1142,10 @@ const labels: Record<string, string> = {
               }}
               select={(session) => {
                 if (session)
-                  void run<DesktopSnapshot>("session.switch", { path: session.path }).then((data) => {
+                  void run<DesktopSnapshot>("session.switch", {
+                    path: session.path,
+                    cwd: session.cwd,
+                  }).then((data) => {
                     if (data) localStorage.setItem("pi.workspace.userSelection", data.cwd);
                   });
                 setTab("chat");
