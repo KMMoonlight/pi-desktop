@@ -445,6 +445,7 @@ export const english = {
   "保存设置": "Save settings",
   "Pi 终端": "Pi terminal",
   "调整终端高度": "Resize terminal height",
+  "新建终端": "New terminal",
   "收起终端": "Collapse terminal",
   "已退出 ·": "Exited ·",
   "中断 Ctrl+C": "Interrupt Ctrl+C",

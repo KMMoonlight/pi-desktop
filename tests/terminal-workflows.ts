@@ -219,7 +219,7 @@ export async function verifyTerminalPresentation(page: Page) {
     return JSON.parse(current.statuses["terminal-colors"]);
   }).toEqual(JSON.parse(changed.statuses["terminal-colors"]));
   await sdkAction(page, "theme.set", { theme: previousTheme });
-  await page.getByRole("button", { name: "关闭终端", exact: true }).click();
+  await page.getByRole("button", { name: "收起终端", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "终端", exact: true }),
   ).toHaveAttribute("aria-expanded", "false");

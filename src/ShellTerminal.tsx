@@ -2,6 +2,7 @@ import { useEffect, useImperativeHandle, useRef, type Ref } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { action as sendAction, subscribeTerminal } from "./client";
+import { installTerminalLinks } from "./terminal-links";
 import { TerminalAppearance } from "./terminal-appearance";
 import { TerminalIO } from "./terminal-io";
 import type { DesktopEvent } from "../shared/types";
@@ -18,14 +19,16 @@ export function ShellTerminal({
   ref,
   onState,
   sessionId,
+  tabId,
 }: {
   active: boolean;
   ref: Ref<ShellTerminalHandle>;
   onState(error: string, exitCode?: number): void;
   sessionId?: string;
+  tabId: string;
 }) {
   const action = <T,>(name: string, args?: Record<string, unknown>) =>
-    sendAction<T>(name, { ...args, __sessionId: sessionId });
+    sendAction<T>(name, { ...args, tabId, __sessionId: sessionId });
   const container = useRef<HTMLDivElement>(null);
   const controls = useRef<ShellTerminalHandle | null>(null);
   const state = useRef(onState);
@@ -50,6 +53,7 @@ export function ShellTerminal({
       minimumContrastRatio: 4.5,
       scrollback: 5000,
     });
+    installTerminalLinks(term, (reason) => state.current(String(reason)));
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(container.current!);
@@ -63,7 +67,8 @@ export function ShellTerminal({
       const fontFamily = styles.getPropertyValue("--ui-terminal-font").trim();
       if (term.options.fontFamily !== fontFamily) {
         term.options.fontFamily = fontFamily;
-        if (container.current?.clientWidth && container.current.clientHeight) fit.fit();
+        if (container.current?.clientWidth && container.current.clientHeight)
+          fit.fit();
       }
     };
     theme();

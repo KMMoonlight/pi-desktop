@@ -116,3 +116,39 @@
   background: #536fe0;
   outline: 0;
 }
+
+.terminal-sources {
+  min-width: 0;
+  overflow-x: auto;
+}
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+}
+.terminal-tab:has([aria-pressed="true"]) {
+  background: var(--ui-hover);
+}
+.terminal-tab > button,
+.terminal-sources > button {
+  white-space: nowrap;
+}
+.terminal-tab > button {
+  font-size: 12px;
+  color: var(--ui-muted);
+  padding: 3px 6px;
+}
+.terminal-tab > button[aria-pressed="true"] {
+  color: var(--ui-ink);
+}
+.terminal-tab > button[aria-label] {
+  min-width: 22px;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+}
+.terminal-tab > button[aria-label] svg {
+  width: 12px;
+  height: 12px;
+}

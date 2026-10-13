@@ -26,7 +26,11 @@ export class TerminalHost extends EventEmitter {
   private lastEffect = { sequence: 0, index: 0 };
   private firstTitle = true;
   private pty?: IPty;
-  private shell?: ShellTerminal;
+  private shells = new Map<string, ShellTerminal>();
+  private disposeShells() {
+    for (const shell of this.shells.values()) shell.dispose();
+    this.shells.clear();
+  }
   private channel?: Socket;
   private ready: Promise<void>;
   private pending = new Map<
@@ -116,18 +120,20 @@ export class TerminalHost extends EventEmitter {
               const packet = JSON.parse(line);
               if (packet.event) {
                 const event = snapshots.decode(packet.event);
-                if (!event) throw new Error("SDK snapshot stream lost its baseline");
+                if (!event)
+                  throw new Error("SDK snapshot stream lost its baseline");
                 if (event.type === "snapshot") {
                   this.latest = event.data;
-                  if (this.shell && this.shell.cwd !== event.data.cwd) {
-                    this.shell.dispose();
-                    this.shell = undefined;
+                  for (const [id, shell] of this.shells) {
+                    if (shell.cwd !== event.data.cwd) {
+                      shell.dispose();
+                      this.shells.delete(id);
+                    }
                   }
                 }
                 if (event.type === "workspace_closed") {
                   this.latest = undefined;
-                  this.shell?.dispose();
-                  this.shell = undefined;
+                  this.disposeShells();
                 }
                 if (event.type === "dialog")
                   this.dialogs.set(event.data.id, event.data);
@@ -201,7 +207,7 @@ export class TerminalHost extends EventEmitter {
         this.emit("event", { type: "terminal_output", ...chunk });
       });
       this.pty.onExit(({ exitCode }) => {
-        this.shell?.dispose();
+        this.disposeShells();
         this.exitCode = exitCode;
         this.closed = true;
         workerCleanup.delete(cleanup);
@@ -239,7 +245,8 @@ export class TerminalHost extends EventEmitter {
       return null;
     }
     if (request.action === "fonts.list") {
-      if (this.closed || this.disposal) throw new Error("Pi SDK terminal has exited");
+      if (this.closed || this.disposal)
+        throw new Error("Pi SDK terminal has exited");
       return listSystemFonts(request.args?.refresh === true);
     }
     await this.ready;
@@ -249,26 +256,31 @@ export class TerminalHost extends EventEmitter {
         throw new Error("Pi SDK terminal has exited");
       const cwd = this.latest?.cwd;
       if (!cwd) throw new Error("Select a workspace first");
+      if (request.action === "shell.list") return [...this.shells.keys()];
+      const tabId = args.tabId ?? "default";
+      if (typeof tabId !== "string" || !tabId || tabId.length > 100)
+        throw new Error("Invalid shell tab");
+      let shell = this.shells.get(tabId);
+      if (request.action === "shell.close") {
+        shell?.dispose();
+        this.shells.delete(tabId);
+        return null;
+      }
       if (
         request.action === "shell.snapshot" ||
         request.action === "shell.restart"
       ) {
-        if (
-          !this.shell ||
-          this.shell.cwd !== cwd ||
-          request.action === "shell.restart"
-        ) {
-          this.shell?.dispose();
-          this.shell = undefined;
-          this.shell = new ShellTerminal(cwd, (event) =>
-            this.emit("event", event),
-          );
+        if (!shell || shell.cwd !== cwd || request.action === "shell.restart") {
+          shell?.dispose();
+          this.shells.delete(tabId);
+          shell = new ShellTerminal(cwd, (event) => this.emit("event", event));
+          this.shells.set(tabId, shell);
         }
-        return this.shell.snapshot();
+        return shell.snapshot();
       }
-      if (!this.shell || this.shell.cwd !== cwd)
+      if (!shell || shell.cwd !== cwd)
         throw new Error("Shell terminal changed");
-      return this.shell.action(request.action, args);
+      return shell.action(request.action, args);
     }
     if (request.action === "terminal.snapshot")
       return {
@@ -365,7 +377,7 @@ export class TerminalHost extends EventEmitter {
   }
   dispose(): Promise<void> {
     return (this.disposal ??= Promise.resolve().then(async () => {
-      this.shell?.dispose();
+      this.disposeShells();
       let failure: unknown;
       try {
         await this.ready;
