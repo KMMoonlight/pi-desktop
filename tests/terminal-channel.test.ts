@@ -93,7 +93,9 @@ export default async function () {
       assert.equal(child.exitCode, null, stderr);
       assert.equal((await fetch(base + "/api/token")).status, 200);
       assert.ok((await action("terminal.snapshot")).data);
-      const late = await action("snapshot");
+      // HTTP snapshots may be served from the supervisor's last frame. A live
+      // SDK operation must still reject once the worker channel is gone.
+      const late = await action("models.catalog");
       assert.match(late.error ?? "", /connection closed|terminal has exited/i);
       const shutdown = await action("shutdown");
       assert.equal(shutdown.error, undefined);

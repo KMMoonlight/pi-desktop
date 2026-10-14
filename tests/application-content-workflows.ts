@@ -51,7 +51,7 @@ export async function verifyApplicationContent(
     );
     if (mode === "header") {
       expect(initial.classes).toEqual(["Spacer", "BuiltInHeader", "Spacer"]);
-      await expect(surface).toContainText("v1.0.0");
+      await expect(surface).toContainText("v1.2.0");
       await expect(surface).toContainText("full startup help");
       const expanded = await probe("expand");
       expect(expanded.instancesSame).toBe(true);
@@ -113,7 +113,7 @@ export async function verifyApplicationContent(
       const themed = await probe("theme");
       expect(themed.instancesSame).toBe(true);
       await expect(surface).toContainText(
-        mode === "header" ? "v1.0.0" : "[Extensions]",
+        mode === "header" ? "v1.2.0" : "[Extensions]",
       );
     } else if (mode === "pending") {
       await probe("clear");

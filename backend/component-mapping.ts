@@ -187,6 +187,7 @@ export async function createMappedComponent(
       },
       setTitle: presentation.setTitle,
       setProgress: presentation.setProgress,
+      setProgramStatus: presentation.setProgramStatus,
     },
     {
       signal,
@@ -1164,6 +1165,9 @@ export async function createMappedComponent(
         typeof Constructor === "function"
           ? Reflect.get(Reflect.get(Constructor, "prototype"), "render")
           : undefined;
+      const embeddedStatus = kind === "CustomEditor" && slot === "editor" &&
+        !!sdk.session.extensionRunner.getUIContext().getEditorComponent() &&
+        state(target, "embedWorkingStatus") === true && !!state(target, "workingStatusIndicator");
       const interactive = isInteractive(target);
       const replaceContent =
         interactive ||
@@ -1174,7 +1178,7 @@ export async function createMappedComponent(
         kind !== "VisualLinePreview" &&
         kind !== "FooterComponent" &&
         typeof standardRender === "function" &&
-        (componentHasCustomRender(
+        (embeddedStatus || componentHasCustomRender(
           target,
           Reflect.get(Constructor, "prototype"),
         ) ||
@@ -1190,7 +1194,7 @@ export async function createMappedComponent(
           ? withKeys(() => {
               const frame = componentRenderBaselineFrame(
                 target,
-                Reflect.get(Constructor, "prototype"),
+                embeddedStatus ? api.Editor.prototype : Reflect.get(Constructor, "prototype"),
                 width,
                 kind,
               );
@@ -2253,6 +2257,7 @@ export async function createMappedComponent(
             : new runtime.transcript.CustomEntryComponent(
                 source.value,
                 source.renderer,
+                source.context.outputPad ?? sdk.settingsManager.getOutputPad(),
               );
         callComponentMethod(
           transcriptRenderer,
@@ -2283,6 +2288,8 @@ export async function createMappedComponent(
           );
           setComponentField(transcriptRenderer, "markdownTheme", markdownTheme);
         }
+        if (source.kind === "entry")
+          setComponentField(transcriptRenderer, "outputPad", source.context.outputPad ?? sdk.settingsManager.getOutputPad());
         callComponentMethod(transcriptRenderer, "rebuild");
       }
       return transcriptRenderer;
@@ -3525,7 +3532,7 @@ export async function createMappedComponent(
     };
     const filtered = input?.terminalFiltered
       ? { consume: false, data }
-      : inputScope.run(data, () => stopped || paused);
+      : withKeys(() => inputScope.run(data, () => stopped || paused));
     if (filtered.consume) return browserReply({ consume: true });
     data = filtered.data ?? data;
     const routed = sharedRuntime.dispatch(runtimeEndpoint, data, _event);

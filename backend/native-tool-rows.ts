@@ -15,6 +15,7 @@ import {
   type PiComponent,
 } from "./component-runtime.ts";
 import { createToolFallback } from "./tool-rendering.ts";
+import { resolveToolRenderers } from "./tool-renderers.ts";
 import type { DesktopRenderSource } from "./desktop-ui.ts";
 import type { DesktopSdkContext } from "./sdk-access.ts";
 import type { DesktopTui } from "./tui-api.ts";
@@ -66,7 +67,7 @@ export class NativeToolRow {
   get staticViewRevision(): number | undefined {
     const result = this.sources.get("toolResult");
     if (!result || result.context.isPartial || this.retired) return;
-    const definition = this.context().session.getToolDefinition(
+    const definition = resolveToolRenderers(this.context().session,
       result.context.toolName!,
     );
     if (isBuiltinToolPresentation(definition)) return this.viewRevision;
@@ -111,7 +112,7 @@ export class NativeToolRow {
   }
   private construct(source: DesktopRenderSource) {
     const sdk = this.context();
-    const definition = sdk.session.getToolDefinition(source.context.toolName!);
+    const definition = resolveToolRenderers(sdk.session, source.context.toolName!);
     const call = definition?.renderCall,
       result = definition?.renderResult;
     const renderers: Renderers | undefined = definition && {
@@ -169,6 +170,7 @@ export class NativeToolRow {
       {
         showImages: sdk.settingsManager.getShowImages(),
         imageWidthCells: sdk.settingsManager.getImageWidthCells(),
+        outputPad: sdk.settingsManager.getOutputPad(),
       },
       renderers,
       this.tui,
@@ -225,6 +227,9 @@ export class NativeToolRow {
       this.change("imageWidth", sdk.settingsManager.getImageWidthCells(), () =>
         original.setImageWidthCells(sdk.settingsManager.getImageWidthCells()),
       );
+      this.change("outputPad", sdk.settingsManager.getOutputPad(), () =>
+        original.setOutputPad(sdk.settingsManager.getOutputPad()),
+      );
       this.change("argsComplete", source.context.argsComplete, () => {
         if (source.context.argsComplete) original.setArgsComplete();
       });
@@ -235,7 +240,7 @@ export class NativeToolRow {
       if (result)
         this.change(
           "result",
-          [result.value, result.context.isPartial, result.context.isError],
+          [result.value, result.context.isPartial, result.context.isError, result.context.durationMs],
           () =>
             original.updateResult(
               {
@@ -243,6 +248,7 @@ export class NativeToolRow {
                   ToolExecutionComponent["updateResult"]
                 >[0]),
                 isError: result.context.isError,
+                durationMs: result.context.durationMs,
               },
               result.context.isPartial,
             ),

@@ -12,6 +12,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { DesktopSdkContext } from "./sdk-access.ts";
 import type { DesktopTui } from "./tui-api.ts";
+import { getKeybindings, setKeybindings } from "@earendil-works/pi-tui";
 import { NativeToolRows } from "./native-tool-rows.ts";
 import { NativeBashRows } from "./native-bash-rows.ts";
 import { ConversationNotices } from "./conversation-notices.ts";
@@ -35,6 +36,7 @@ type CachedMessage = {
 
 /** Native application objects share the workspace lifetime of their TUI. */
 export class ApplicationComponents {
+  readonly programStatus;
   private workingTui: DesktopTui;
   readonly tools: NativeToolRows;
   readonly conversationNotices: ConversationNotices;
@@ -97,21 +99,35 @@ export class ApplicationComponents {
     // Its native 80 ms timer must not redraw every completed tool and message.
     // Supplied terminals and extension editors retain native animation ticks.
     this.workingTui = new Proxy(tui, {
-      get: (target, key) => key === "requestRender"
-        ? (force?: boolean) => {
-            if (nativeStatusAnimation || context().session.extensionRunner.getUIContext().getEditorComponent())
-              target.requestRender(force);
-          }
-        : Reflect.get(target, key),
+      get: (target, key) =>
+        key === "requestRender"
+          ? (force?: boolean) => {
+              if (
+                nativeStatusAnimation ||
+                context()
+                  .session.extensionRunner.getUIContext()
+                  .getEditorComponent()
+              )
+                target.requestRender(force);
+            }
+          : Reflect.get(target, key),
     });
     const sdk = context();
+    this.programStatus = new runtime.status.ProgramStatusReporter(
+      () => tui.terminal,
+      () => this.context().session.sessionManager.getSessionName(),
+    );
     this.content = new ApplicationContent(context, runtime, tui);
     this.conversationNotices = new ConversationNotices(
       () => this.context().session,
       runtime,
     );
     this.tools = new NativeToolRows(tui, context);
-    this.bash = new NativeBashRows(tui, () => tui.requestRender());
+    this.bash = new NativeBashRows(
+      tui,
+      () => tui.requestRender(),
+      () => this.context().settingsManager.getOutputPad(),
+    );
     this.footerData = new runtime.footer.FooterDataProvider(sdk.runtime.cwd);
     this.footerData.onBranchChange(() => tui.requestRender());
     this.footer = new FooterComponent(sdk.session, this.footerData);
@@ -127,6 +143,7 @@ export class ApplicationComponents {
     const sdk = this.context();
     if (this.boundSession !== sdk.session) {
       this.boundSession = sdk.session;
+      this.programStatus.reset();
       this.footer.setSession(sdk.session);
     }
     if (this.autoCompact !== sdk.session.autoCompactionEnabled) {
@@ -158,6 +175,7 @@ export class ApplicationComponents {
 
   event(event: AgentSessionEvent) {
     if (this.disposed) return;
+    this.programStatus.handleEvent(event);
     this.conversationNotices.event(event);
     if (
       (event.type === "message_start" ||
@@ -198,6 +216,7 @@ export class ApplicationComponents {
     if (this.disposed) return [];
     const sdk = this.context();
     const pad = sdk.settingsManager.getOutputPad();
+    if (this.padding !== pad) this.bash.setOutputPad(pad);
     const hide = sdk.settingsManager.getHideThinkingBlock();
     const mode = sdk.settingsManager.getMermaidRenderingMode();
     const extensions = sdk.session.extensionRunner.getMarkdownTransformers();
@@ -282,8 +301,8 @@ export class ApplicationComponents {
         }
         if (
           this.padding !== pad &&
-          (component instanceof AssistantMessageComponent ||
-            component instanceof UserMessageComponent)
+          "setOutputPad" in component &&
+          typeof component.setOutputPad === "function"
         )
           component.setOutputPad(pad);
         if (
@@ -335,6 +354,7 @@ export class ApplicationComponents {
         const component = new SkillInvocationMessageComponent(
           skill,
           this.markdownTheme,
+          settings.getOutputPad(),
         );
         component.setExpanded(expanded);
         return [
@@ -366,6 +386,7 @@ export class ApplicationComponents {
         const component = new CompactionSummaryMessageComponent(
           message,
           this.markdownTheme,
+          settings.getOutputPad(),
         );
         component.setExpanded(expanded);
         return [component];
@@ -374,6 +395,7 @@ export class ApplicationComponents {
         const component = new BranchSummaryMessageComponent(
           message,
           this.markdownTheme,
+          settings.getOutputPad(),
         );
         component.setExpanded(expanded);
         return [component];
@@ -385,6 +407,7 @@ export class ApplicationComponents {
           message.command,
           this.tui,
           message.excludeFromContext,
+          settings.getOutputPad(),
         );
         if (message.output) component.appendOutput(message.output);
         component.setComplete(
@@ -415,6 +438,25 @@ export class ApplicationComponents {
   ) {
     if (this.disposed) return [];
     const session = this.context().session;
+    const setter = editor && Reflect.get(editor, "setWorkingStatusIndicator");
+    const embeds =
+      !!editor &&
+      Reflect.get(editor, "embedWorkingStatus") === true &&
+      typeof setter === "function";
+    const color = embeds
+      ? (text: string) => {
+          const current =
+            this.context().desktop.nativeComponent("editor") ?? editor;
+          const border = current && Reflect.get(current, "borderColor");
+          return typeof border === "function"
+            ? (Reflect.apply(border, current, [text]) as string)
+            : session.extensionRunner
+                .getUIContext()
+                .theme.getThinkingBorderColor(session.thinkingLevel || "off")(
+                text,
+              );
+        }
+      : undefined;
     const kind = session.isIdle
       ? undefined
       : this.retry
@@ -448,26 +490,38 @@ export class ApplicationComponents {
       this.workingMessage = undefined;
       this.workingOptions = undefined;
       const api = this.runtime.status;
-      if (kind === "working")
-        this.status = new api.WorkingStatusIndicator(
-          this.workingTui,
-          options.message ?? "Working...",
-          options.indicator,
-        );
-      if (kind === "retry")
-        this.status = new api.RetryStatusIndicator(
-          this.tui,
-          this.retry!.attempt,
-          this.retry!.maxAttempts,
-          this.retry!.delayMs,
-        );
-      if (kind === "compaction")
-        this.status = new api.CompactionStatusIndicator(
-          this.tui,
-          this.compaction,
-        );
-      if (kind === "branchSummary")
-        this.status = new api.BranchSummaryStatusIndicator(this.tui);
+      // Native status labels resolve their cancel hint during construction.
+      const previousKeys = getKeybindings();
+      const statusKeys = this.runtime.keys.KeybindingsManager.create(
+        this.context().host.agentDir,
+      );
+      setKeybindings(statusKeys as Parameters<typeof setKeybindings>[0]);
+      try {
+        if (kind === "working")
+          this.status = new api.WorkingStatusIndicator(
+            this.workingTui,
+            options.message ?? "Working...",
+            options.indicator,
+            color,
+          );
+        if (kind === "retry")
+          this.status = new api.RetryStatusIndicator(
+            this.tui,
+            this.retry!.attempt,
+            this.retry!.maxAttempts,
+            this.retry!.delayMs,
+          );
+        if (kind === "compaction")
+          this.status = new api.CompactionStatusIndicator(
+            this.tui,
+            this.compaction,
+            color,
+          );
+        if (kind === "branchSummary")
+          this.status = new api.BranchSummaryStatusIndicator(this.tui);
+      } finally {
+        setKeybindings(previousKeys);
+      }
       if (this.status) this.idle = undefined;
     }
     if (this.status?.kind === "working") {
@@ -483,11 +537,6 @@ export class ApplicationComponents {
       }
     }
     if (editor !== this.statusEditor) this.detachEditor();
-    const setter = editor && Reflect.get(editor, "setWorkingStatusIndicator");
-    const embeds =
-      !!editor &&
-      Reflect.get(editor, "embedWorkingStatus") === true &&
-      typeof setter === "function";
     if (embeds && !this.embedded) {
       Reflect.apply(setter, editor, [this.status]);
       this.statusEditor = editor;

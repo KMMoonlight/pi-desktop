@@ -25,7 +25,7 @@ let resolver:
 
 /** Pi's bootstrap resolver is internal; delegate to the pinned original implementation. */
 export async function resolveProjectTrusted(options: TrustOptions) {
-  if (VERSION !== "1.0.0")
+  if (VERSION !== "1.2.0")
     throw new Error(
       `Pi ${VERSION}: the desktop project trust bridge requires a compatibility update`,
     );

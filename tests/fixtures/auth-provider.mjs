@@ -26,7 +26,10 @@ export default function ({ session }, { operation, scenario = "success" }) {
           if (!/^[0-9a-f-]{36}$/i.test(deviceId ?? ""))
             throw new Error("Fixture login requires a device ID");
           records.push({ type: "device", value: deviceId });
-          if (scenario === "late-notify") {
+          if (scenario === "copy-url") {
+            interaction.notify({ type: "auth_url", url: "https://example.invalid/authorize?state=fixture-state&code_challenge=fixture-challenge" });
+            await interaction.prompt({ type: "manual_code", message: "Fixture callback code", placeholder: "callback URL" });
+          } else if (scenario === "late-notify") {
             interaction.notify({
               type: "auth_url",
               url: "https://example.invalid/active",

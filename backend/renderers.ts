@@ -10,6 +10,7 @@ import type {
 import type { DesktopUIRegistry, DesktopRenderSource } from "./desktop-ui.ts";
 import { defaultToolRenderer } from "./tool-rendering.ts";
 import { isBuiltinToolPresentation } from "./native-tool-rows.ts";
+import { resolveToolRenderers } from "./tool-renderers.ts";
 
 // Renderer identity keeps extension-provided edit tools on their own presentation.
 const nativeEdit = createEditToolDefinition(".");
@@ -19,6 +20,7 @@ export interface ToolRenderPhase {
   executionStarted: boolean;
   isPartial: boolean;
   isError: boolean;
+  durationMs?: number;
 }
 
 function defaultMessageRenderer() {
@@ -30,10 +32,10 @@ export function describeTool(
   id: string,
   name: string,
   expanded: boolean,
-  phase: Pick<ToolRenderPhase, "isPartial" | "isError">,
+  phase: Pick<ToolRenderPhase, "isPartial" | "isError" | "durationMs">,
   hasResult: boolean,
 ): ToolPresentation {
-  const definition = session.getToolDefinition(name);
+  const definition = resolveToolRenderers(session, name);
   return {
     sessionId: session.sessionId,
     shell: definition ? (definition.renderShell ?? "default") : "generic",
@@ -46,6 +48,7 @@ export function describeTool(
     expanded,
     state: phase.isPartial ? "pending" : phase.isError ? "error" : "success",
     hasResult,
+    durationMs: phase.isPartial ? undefined : phase.durationMs,
   };
 }
 
@@ -115,6 +118,7 @@ export function connectRenderers(
     argsComplete: true,
     executionStarted: false,
     showImages: session.settingsManager.getShowImages(),
+    outputPad: session.settingsManager.getOutputPad(),
   };
   const toolPhase = (id: string): ToolRenderPhase => {
     const phase = phases.get(id);
@@ -125,6 +129,7 @@ export function connectRenderers(
         phase?.executionStarted ?? activeTools.some((tool) => tool.id === id),
       isPartial: result ? false : (phase?.isPartial ?? true),
       isError: result ? result.isError === true : (phase?.isError ?? false),
+      durationMs: result?.durationMs ?? phase?.durationMs,
     };
   };
   const toolExpanded = (id: string) => toolExpansions.get(id) ?? expanded;
@@ -144,7 +149,7 @@ export function connectRenderers(
     for (const block of message.content) {
       if (block.type === "toolCall" && block.id && block.name) {
         calls.set(block.id, block);
-        const definition = session.getToolDefinition(block.name);
+        const definition = resolveToolRenderers(session, block.name);
         block.toolRenderShell = definition?.renderShell;
         block.toolPresentation = describeTool(
           session,
@@ -223,7 +228,7 @@ export function connectRenderers(
       message.toolCallId &&
       message.toolName
     ) {
-      const definition = session.getToolDefinition(message.toolName);
+      const definition = resolveToolRenderers(session, message.toolName);
       message.toolRenderShell = definition?.renderShell;
       message.toolPresentation = describeTool(
         session,
@@ -273,7 +278,7 @@ export function connectRenderers(
   messages.forEach((message) => render(message, false));
   if (streaming) render(streaming, true);
   for (const tool of activeTools) {
-    const definition = session.getToolDefinition(tool.name);
+    const definition = resolveToolRenderers(session, tool.name);
     if (!calls.has(tool.id))
       add(
         `render:call:${tool.id}`,

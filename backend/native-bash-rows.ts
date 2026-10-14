@@ -32,6 +32,7 @@ export class NativeBashRows {
   constructor(
     private tui: DesktopTui,
     private changed: () => void,
+    private outputPad: () => number = () => 1,
   ) {}
   begin(command: string, exclude: boolean, pending: boolean) {
     const execution: NativeBashExecution = {
@@ -40,7 +41,7 @@ export class NativeBashRows {
       exclude,
       pending,
       adopted: false,
-      component: new BashExecutionComponent(command, this.tui, exclude),
+      component: new BashExecutionComponent(command, this.tui, exclude, this.outputPad()),
     };
     this.executions.push(execution);
     this.changed();
@@ -98,6 +99,9 @@ export class NativeBashRows {
   setExpanded(expanded: boolean) {
     for (const entry of this.executions)
       if (!entry.adopted) entry.component.setExpanded(expanded);
+  }
+  setOutputPad(pad: number) {
+    for (const entry of this.executions) entry.component.setOutputPad(pad);
   }
   invalidate() {
     for (const entry of this.executions)

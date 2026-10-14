@@ -269,7 +269,7 @@ for (const kind of ["stdio", "native", "http-sdk", "http-pty"] as const)
           assert.deepEqual((await draining).data, {
             aborted: true,
             sessionAlive: true,
-            version: "1.0.0",
+            version: "1.2.0",
           });
           assert.equal(
             child.exitCode,

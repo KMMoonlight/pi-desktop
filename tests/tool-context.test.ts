@@ -260,11 +260,17 @@ for (const mode of ["success", "error", "nested", "abort"])
         isError: mode === "error" || mode === "abort",
       });
       const restored = host.desktopUI.toolState(id);
+      // Pi may refresh its system context on resume; rendering must preserve
+      // the resumed file and all original conversation/tool entries.
+      const resumed = await readFile(sessionFile, "utf8");
+      const history = (source: string) => source.trim().split("\n").map(line => JSON.parse(line))
+        .filter(entry => entry.message?.role !== "system" && entry.type !== "session_info");
+      assert.deepEqual(history(resumed), history(persisted));
       const component = restored.callComponent;
       await control({ action: "stale" });
       assert.equal(restored.callComponent, component);
       assert.equal(restored.tick, undefined);
-      assert.equal(await readFile(sessionFile, "utf8"), persisted);
+      assert.deepEqual(history(await readFile(sessionFile, "utf8")), history(resumed));
     } finally {
       await close();
     }

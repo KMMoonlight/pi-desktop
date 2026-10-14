@@ -53,7 +53,7 @@ import type {
   TranscriptMarkdown,
   ContentBlock,
 } from "../shared/types";
-import { IconButton } from "./ui";
+import { IconButton, number } from "./ui";
 import { CodeBlock } from "./CodeBlock";
 import { EditReview } from "./EditReview";
 import {
@@ -345,6 +345,9 @@ function ToolExecutionView({
               className={`tool-chevron${toolExpanded ? " is-expanded" : ""}`}
             />
           </button>
+          {presentation?.durationMs !== undefined && Number.isFinite(presentation.durationMs) && (
+            <span className="tool-duration">{t("用时 {value1} 秒", { value1: number(presentation.durationMs / 1000) })}</span>
+          )}
           <span className={`tool-state-label ${state}`}>
             {state === "pending" ? (
               <LoaderCircle className="spin" size={12} />
@@ -922,6 +925,26 @@ function MessagesView({
       });
     turns[turns.length - 1].rows.push(row);
   }
+  const firstTurnId = turns[0]?.id;
+  useEffect(() => {
+    const scroll = (event: Event) => {
+      const request = (event as CustomEvent<{ sessionId: string; position: string }>).detail;
+      const element = scroller.current;
+      if (!element || request?.sessionId !== sessionId) return;
+      if (request.position === "bottom") {
+        setNavigation(undefined);
+        resumeFollowing();
+      } else if (request.position === "top") {
+        follow.current = false;
+        setAway(element.scrollHeight > element.clientHeight);
+        setNavigation(firstTurnId ? { sessionId, turnId: firstTurnId } : undefined);
+        element.scrollTop = 0;
+        scrollSize.current = { height: element.scrollHeight, viewport: element.clientHeight, top: 0 };
+      }
+    };
+    window.addEventListener("pi:transcript-scroll", scroll);
+    return () => window.removeEventListener("pi:transcript-scroll", scroll);
+  }, [sessionId, firstTurnId, resumeFollowing]);
   useLayoutEffect(() => {
     if (!navigation || navigation.sessionId !== sessionId || !scroller.current) return;
     const element = scroller.current;

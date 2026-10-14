@@ -8,6 +8,36 @@ import { callComponentMethod } from "../backend/component-runtime.ts";
 import type { DesktopNode } from "../shared/desktop-ui.ts";
 import { createFixture } from "./fixture.ts";
 import { InteractiveMode } from "@earendil-works/pi-coding-agent";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+
+test("native viewport shortcuts use current bindings, suppress releases and retire notifications when mode changes", async () => {
+  const f = await fixture();
+  const positions: unknown[] = [];
+  f.host.on("event", event => {
+    if (event.type === "activity" && event.name === "transcript_scroll" && event.data && typeof event.data === "object" && "position" in event.data) positions.push(event.data.position);
+  });
+  try {
+    await f.host.action({ action: "settings.save", args: { scope: "global", settings: { ...f.host.snapshot().globalSettings, tuiMode: "fullscreen" } } });
+    const renderer = Reflect.get(f.host.desktopUI.terminalRuntime.capture(), "renderer");
+    await f.send("editor", "\x1b[1;5H");
+    await f.send("editor", "\x1b[1;5:3H");
+    await f.send("editor", "\x1b[1;5F");
+    assert.deepEqual(positions, ["top", "bottom"]);
+    const path = join(f.host.agentDir, "keybindings.json");
+    await writeFile(path, JSON.stringify({ ...JSON.parse(await readFile(path, "utf8")), "tui.altScreen.top": "ctrl+alt+up", "tui.altScreen.bottom": "ctrl+alt+down" }));
+    await f.host.action({ action: "resources.reload" });
+    await f.send("editor", "\x1b[1;5H");
+    assert.equal(positions.length, 2);
+    await f.send("editor", "\x1b[1;7A");
+    await f.send("editor", "\x1b[1;7B");
+    assert.deepEqual(positions, ["top", "bottom", "top", "bottom"]);
+    await f.host.action({ action: "settings.save", args: { scope: "global", settings: { ...f.host.snapshot().globalSettings, tuiMode: "regular" } } });
+    callComponentMethod(renderer, "scrollToTop");
+    await f.send("editor", "\x1b[1;7A");
+    assert.equal(positions.length, 4);
+  } finally { await f.close(); }
+});
 
 const debugKey = "\x1b[100;6u";
 const releaseKey = "\x1b[120;1:3u";

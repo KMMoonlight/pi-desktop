@@ -35,6 +35,11 @@ export async function createFixture(
   const agentDir = join(root, "agent");
   await mkdir(cwd, { recursive: true });
   await mkdir(join(agentDir, "extensions"), { recursive: true });
+  // Keep keyboard fixtures deterministic on macOS, Windows and Linux.
+  await writeFile(join(agentDir, "keybindings.json"), JSON.stringify({
+    "tui.editor.undo": "ctrl+z",
+    "app.clipboard.pasteImage": "alt+v",
+  }));
   if (options.toolDisplay)
     await cp(
       new URL("./fixtures/tool-display-extension.mjs", import.meta.url),
@@ -499,6 +504,7 @@ export async function createFixture(
     `export default function (pi) {
     let unsubscribe;
     pi.on("before_agent_start", async event => {
+      if (event.messageType !== "user") return;
       if (event.prompt.includes("slow-preflight-probe"))
         await new Promise(resolve => setTimeout(resolve, 1800));
     });

@@ -57,14 +57,14 @@ export async function verifyStartup(
           "Text",
           "DynamicBorder",
         ]);
-        await expect(surface).toContainText("Updated to v1.0.0");
+        await expect(surface).toContainText("Updated to v1.2.0");
         await expect(surface).toContainText("/changelog");
       } else if (mode === "expanded") {
         expect(seeded.classes).toContain("Markdown");
         await expect(surface).toContainText("What's New");
-        await expect(surface).toContainText("Fullscreen by default");
+        await expect(surface).toContainText("Per-key OpenRouter model lists");
         await expect(
-          surface.locator('a[href*="/v1.0.0/"]').first(),
+          surface.locator('a[href*="/v1.2.0/"]').first(),
         ).toBeVisible();
       } else {
         for (const text of [

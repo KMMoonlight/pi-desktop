@@ -1,4 +1,14 @@
 export type RecordValue = Record<string, unknown>;
+export interface McpSettingsSnapshot {
+  servers: { name: string; config: RecordValue; inherited: boolean; overridden: boolean }[];
+  errors: string[];
+}
+export interface ProgramStatus {
+  state: "idle" | "working" | "blocked" | "done" | "error" | "clear";
+  app?: string;
+  kind?: "permission" | "question" | "auth";
+  message?: string;
+}
 export interface ManagedToolsSnapshot {
   state: "idle" | "preparing" | "settled" | "failed" | "closed";
   paths: { fd: string | null; rg: string | null };
@@ -38,6 +48,7 @@ export interface ToolPresentation {
   expanded: boolean;
   state: "pending" | "success" | "error";
   hasResult: boolean;
+  durationMs?: number;
 }
 export interface TranscriptMarkdown {
   blockIndices: number[];
@@ -68,6 +79,7 @@ export interface ChatMessage {
   timestamp: number;
   toolName?: string;
   toolCallId?: string;
+  durationMs?: number;
   isError?: boolean;
   errorMessage?: string;
   stopReason?: string;
@@ -241,6 +253,7 @@ export interface DesktopSnapshot {
     };
     windowTitle: string;
     windowProgress: boolean;
+    programStatus?: ProgramStatus;
     inputListeners: number;
     shortcuts: string[];
     /** Custom key bindings that can turn printable input into editor commands. */
@@ -295,7 +308,7 @@ export type DesktopEvent =
       append?: boolean;
       selection?: import("./desktop-ui.ts").DesktopSelection;
     }
-  | { type: "auth_url"; url: string; message?: string; id?: string; desktopCopy?: boolean }
+  | { type: "auth_url"; url: string; message?: string; id?: string; desktopCopy?: boolean; copyKeys?: string[] }
   | { type: "activity"; name: string; data?: unknown };
 export interface ActionRequest {
   action: string;

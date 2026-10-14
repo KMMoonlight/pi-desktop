@@ -11,6 +11,7 @@ interface PresentationHost {
   ): ReturnType<DesktopTui["queryTerminalColors"]>;
   title(value: string): void;
   progress(owner: object, value: boolean): void;
+  programStatus?(value: Parameters<DesktopTui["terminal"]["setProgramStatus"]>[0]): void;
 }
 interface Binding {
   cursor(value: boolean): void;
@@ -53,6 +54,9 @@ export class TerminalPresentationScope {
   setProgress = (value: boolean) => {
     if (!this.controller.signal.aborted) this.host.progress(this.owner, value);
   };
+  setProgramStatus: DesktopTui["terminal"]["setProgramStatus"] = (value) => {
+    if (!this.controller.signal.aborted) this.host.programStatus?.(value);
+  };
 
   queryColors = (options: QueryOptions) =>
     this.host.query(options, this.controller.signal);
@@ -93,6 +97,7 @@ export class TerminalPresentationScope {
       tui.queryTerminalColors = this.queryColors;
       tui.terminal.setTitle = this.setTitle;
       tui.terminal.setProgress = this.setProgress;
+      tui.terminal.setProgramStatus = this.setProgramStatus;
     }
     return () => this.bindings.delete(binding);
   }

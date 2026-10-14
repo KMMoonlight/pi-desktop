@@ -32,6 +32,7 @@ async function originalTui() {
     clearScreen() {},
     setTitle() {},
     setProgress() {},
+    setProgramStatus() {},
   });
 }
 

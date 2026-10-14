@@ -38,7 +38,7 @@ for (const mode of ["result", "rejection", "package"] as const)
           entered.release();
           await release.promise;
           assert.equal(context.signal!.aborted, true);
-          assert.equal(context.sdk.VERSION, "1.0.0");
+          assert.equal(context.sdk.VERSION, "1.2.0");
           if (mode !== "package") assert.equal(context.session, host.session);
           order.push("operation");
           if (mode === "rejection") throw failure;
@@ -114,7 +114,7 @@ test(
       );
       release.release();
       assert.equal(await first, "sibling finished");
-      assert.equal(await second, "1.0.0");
+      assert.equal(await second, "1.2.0");
       assert.equal(host.runtime, undefined);
     } finally {
       release.release();
@@ -376,7 +376,7 @@ test(
       assert.deepEqual(await pending, {
         aborted: true,
         sessionAlive: true,
-        version: "1.0.0",
+        version: "1.2.0",
       });
       await shutdown;
       assert.equal(host.runtime, undefined);

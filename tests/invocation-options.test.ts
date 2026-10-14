@@ -239,6 +239,9 @@ test("custom Terminal retains receivers, results, input, resize and workspace li
     setProgress(active) {
       return result(`progress:${active}`, this);
     },
+    setProgramStatus(status) {
+      return result(`program:${status.state}`, this);
+    },
   };
   const originals = Object.getOwnPropertyDescriptors(terminal);
   const host = new DesktopHost(files.agentDir, {

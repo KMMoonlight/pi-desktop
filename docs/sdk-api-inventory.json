@@ -1,7 +1,7 @@
 {
   "package": "@earendil-works/pi-coding-agent",
-  "version": "1.0.0",
-  "declarationExports": 458,
+  "version": "1.2.0",
+  "declarationExports": 462,
   "runtimeExports": 156,
   "nativeExportIdentity": true,
   "publicClassStaticMembers": 16,
@@ -74,7 +74,7 @@
         },
         {
           "name": "setCacheWarmingMode",
-          "signature": "(mode: \"off\" | \"streaming\" | \"idle\") => void"
+          "signature": "(mode: CacheWarmingMode) => void"
         },
         {
           "name": "model",
@@ -545,12 +545,16 @@
       "name": "BashExecutionComponent",
       "runtime": true,
       "constructors": [
-        "(command: string, ui: TUI, excludeFromContext?: boolean): BashExecutionComponent"
+        "(command: string, ui: TUI, excludeFromContext?: boolean, outputPad?: number): BashExecutionComponent"
       ],
       "members": [
         {
           "name": "setExpanded",
           "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "setOutputPad",
+          "signature": "(outputPad: number) => void"
         },
         {
           "name": "invalidate",
@@ -628,11 +632,19 @@
       "runtime": false
     },
     {
+      "name": "BeforeAgentStartCustomEvent",
+      "runtime": false
+    },
+    {
       "name": "BeforeAgentStartEvent",
       "runtime": false
     },
     {
       "name": "BeforeAgentStartEventResult",
+      "runtime": false
+    },
+    {
+      "name": "BeforeAgentStartUserEvent",
       "runtime": false
     },
     {
@@ -725,12 +737,16 @@
       "name": "BranchSummaryMessageComponent",
       "runtime": true,
       "constructors": [
-        "(message: BranchSummaryMessage, markdownTheme?: MarkdownTheme): BranchSummaryMessageComponent"
+        "(message: BranchSummaryMessage, markdownTheme?: MarkdownTheme, outputPad?: number): BranchSummaryMessageComponent"
       ],
       "members": [
         {
           "name": "setExpanded",
           "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "setOutputPad",
+          "signature": "(outputPad: number) => void"
         },
         {
           "name": "invalidate",
@@ -755,6 +771,10 @@
         {
           "name": "setBgFn",
           "signature": "(bgFn?: (text: string) => string) => void"
+        },
+        {
+          "name": "setPaddingX",
+          "signature": "(paddingX: number) => void"
         },
         {
           "name": "handleMouse",
@@ -859,12 +879,16 @@
       "name": "CompactionSummaryMessageComponent",
       "runtime": true,
       "constructors": [
-        "(message: CompactionSummaryMessage, markdownTheme?: MarkdownTheme): CompactionSummaryMessageComponent"
+        "(message: CompactionSummaryMessage, markdownTheme?: MarkdownTheme, outputPad?: number): CompactionSummaryMessageComponent"
       ],
       "members": [
         {
           "name": "setExpanded",
           "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "setOutputPad",
+          "signature": "(outputPad: number) => void"
         },
         {
           "name": "invalidate",
@@ -889,6 +913,10 @@
         {
           "name": "setBgFn",
           "signature": "(bgFn?: (text: string) => string) => void"
+        },
+        {
+          "name": "setPaddingX",
+          "signature": "(paddingX: number) => void"
         },
         {
           "name": "handleMouse",
@@ -1303,7 +1331,7 @@
         },
         {
           "name": "actionHandlers",
-          "signature": "Map<keyof AppKeybindings, () => void>"
+          "signature": "Map<\"app.interrupt\" | \"app.clear\" | \"app.exit\" | \"app.suspend\" | \"app.thinking.cycle\" | \"app.thinking.save\" | \"app.model.cycleForward\" | \"app.model.cycleBackward\" | \"app.model.select\" | ... 33 more ... | \"app.tree.filter.cycleBackward\", () => void>"
         },
         {
           "name": "onEscape",
@@ -1327,7 +1355,7 @@
         },
         {
           "name": "onAction",
-          "signature": "(action: keyof AppKeybindings, handler: () => void) => void"
+          "signature": "(action: \"app.interrupt\" | \"app.clear\" | \"app.exit\" | \"app.suspend\" | \"app.thinking.cycle\" | \"app.thinking.save\" | \"app.model.cycleForward\" | \"app.model.cycleBackward\" | \"app.model.select\" | ... 33 more ... | \"app.tree.filter.cycleBackward\", handler: () => void) => void"
         },
         {
           "name": "handleInput",
@@ -1763,6 +1791,10 @@
         {
           "name": "registerEntryRenderer",
           "signature": "<T = unknown>(customType: string, renderer: EntryRenderer<T>) => void"
+        },
+        {
+          "name": "registerToolRenderer",
+          "signature": "(resolver: ToolRendererResolver) => void"
         },
         {
           "name": "sendMessage",
@@ -2254,6 +2286,10 @@
           "signature": "() => MarkdownTransformer[]"
         },
         {
+          "name": "resolveToolRenderers",
+          "signature": "(toolName: string, base: () => ToolRenderers) => ToolRenderers"
+        },
+        {
           "name": "getEntryRenderer",
           "signature": "(customType: string) => EntryRenderer"
         },
@@ -2335,7 +2371,7 @@
         },
         {
           "name": "emitBeforeAgentStart",
-          "signature": "(prompt: string, images: ImageContent[], systemPromptOptions: BuildSystemPromptOptions) => Promise<BeforeAgentStartCombinedResult>"
+          "signature": "(trigger: BeforeAgentStartTrigger, systemPromptOptions: BuildSystemPromptOptions) => Promise<BeforeAgentStartCombinedResult>"
         },
         {
           "name": "emitResourcesDiscover",
@@ -3504,7 +3540,7 @@
         },
         {
           "name": "resolveModel",
-          "signature": "(model: Model<Api>, messages: readonly Message[], options: { reason: ModelRouteReason; thinkingLevel: ModelThinkingLevel; signal?: AbortSignal; failed?: AssistantMessage; state?: unknown; }) => Promise<...>"
+          "signature": "(model: Model<Api>, messages: readonly Message[], options: { reason: ModelRouteReason; thinkingLevel: \"off\" | \"minimal\" | \"low\" | \"medium\" | \"high\" | \"xhigh\" | \"max\"; signal?: AbortSignal; failed?: AssistantMessage; state?: unknown; }) => Promise<...>"
         },
         {
           "name": "getPhysicalModel",
@@ -4654,11 +4690,11 @@
         },
         {
           "name": "getTransport",
-          "signature": "() => Transport"
+          "signature": "() => TransportSetting"
         },
         {
           "name": "setTransport",
-          "signature": "(transport: Transport) => void"
+          "signature": "(transport: TransportSetting) => void"
         },
         {
           "name": "getCompactionEnabled",
@@ -4710,11 +4746,11 @@
         },
         {
           "name": "getCacheWarmingMode",
-          "signature": "() => \"off\" | \"streaming\" | \"idle\""
+          "signature": "() => CacheWarmingMode"
         },
         {
           "name": "setCacheWarmingMode",
-          "signature": "(mode: \"off\" | \"streaming\" | \"idle\") => void"
+          "signature": "(mode: CacheWarmingMode) => void"
         },
         {
           "name": "getProviderRetrySettings",
@@ -4818,15 +4854,15 @@
         },
         {
           "name": "getPackages",
-          "signature": "() => PackageSource[]"
+          "signature": "() => (string | { extensions?: string[]; skills?: string[]; prompts?: string[]; themes?: string[]; autoload?: boolean; source: string; })[]"
         },
         {
           "name": "setPackages",
-          "signature": "(packages: PackageSource[]) => void"
+          "signature": "(packages: (string | { extensions?: string[]; skills?: string[]; prompts?: string[]; themes?: string[]; autoload?: boolean; source: string; })[]) => void"
         },
         {
           "name": "setProjectPackages",
-          "signature": "(packages: PackageSource[]) => void"
+          "signature": "(packages: (string | { extensions?: string[]; skills?: string[]; prompts?: string[]; themes?: string[]; autoload?: boolean; source: string; })[]) => void"
         },
         {
           "name": "getExtensionPaths",
@@ -4994,11 +5030,11 @@
         },
         {
           "name": "getDoubleEscapeAction",
-          "signature": "() => \"none\" | \"fork\" | \"tree\""
+          "signature": "() => \"fork\" | \"tree\" | \"none\""
         },
         {
           "name": "setDoubleEscapeAction",
-          "signature": "(action: \"none\" | \"fork\" | \"tree\") => void"
+          "signature": "(action: \"fork\" | \"tree\" | \"none\") => void"
         },
         {
           "name": "getTreeFilterMode",
@@ -5180,12 +5216,16 @@
       "name": "SkillInvocationMessageComponent",
       "runtime": true,
       "constructors": [
-        "(skillBlock: ParsedSkillBlock, markdownTheme?: MarkdownTheme): SkillInvocationMessageComponent"
+        "(skillBlock: ParsedSkillBlock, markdownTheme?: MarkdownTheme, outputPad?: number): SkillInvocationMessageComponent"
       ],
       "members": [
         {
           "name": "setExpanded",
           "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "setOutputPad",
+          "signature": "(outputPad: number) => void"
         },
         {
           "name": "invalidate",
@@ -5210,6 +5250,10 @@
         {
           "name": "setBgFn",
           "signature": "(bgFn?: (text: string) => string) => void"
+        },
+        {
+          "name": "setPaddingX",
+          "signature": "(paddingX: number) => void"
         },
         {
           "name": "handleMouse",
@@ -5246,7 +5290,7 @@
       "name": "Theme",
       "runtime": true,
       "constructors": [
-        "(fgColors: Record<\"error\" | \"warning\" | \"accent\" | \"border\" | \"borderAccent\" | \"borderMuted\" | \"success\" | \"muted\" | \"dim\" | \"text\" | \"thinkingText\" | \"userMessageText\" | \"customMessageText\" | ... 31 more ... | \"bashMode\", string | number> & Partial<...>, bgColors: Record<...> & Partial<...>, mode: TerminalColorMode, options?: { ...; }): Theme"
+        "(fgColors: Pick<ThemeColorValues<string | number>, ThemeColor>, bgColors: Pick<ThemeColorValues<string | number>, ThemeBg>, mode: TerminalColorMode, options?: { ...; }): Theme"
       ],
       "members": [
         {
@@ -5267,7 +5311,7 @@
         },
         {
           "name": "colors",
-          "signature": "Readonly<Record<ThemeToken, Color>>"
+          "signature": "Readonly<Record<\"error\" | \"warning\" | \"accent\" | \"border\" | \"borderAccent\" | \"borderMuted\" | \"success\" | \"muted\" | \"dim\" | \"text\" | \"thinkingText\" | \"scrollbarTrack\" | \"scrollbarThumb\" | ... 42 more ... | \"bashMode\", Color>>"
         },
         {
           "name": "style",
@@ -5509,6 +5553,10 @@
           "signature": "ToolNamespace"
         },
         {
+          "name": "reachesTools",
+          "signature": "(input: Record<string, unknown>) => \"all\" | readonly string[]"
+        },
+        {
           "name": "annotations",
           "signature": "ToolAnnotations"
         },
@@ -5559,11 +5607,15 @@
         },
         {
           "name": "updateResult",
-          "signature": "(result: { content: { type: string; text?: string; data?: string; mimeType?: string; }[]; details?: any; isError: boolean; }, isPartial?: boolean) => void"
+          "signature": "(result: { content: { type: string; text?: string; data?: string; mimeType?: string; }[]; details?: any; isError: boolean; durationMs?: number; }, isPartial?: boolean) => void"
         },
         {
           "name": "setExpanded",
           "signature": "(expanded: boolean) => void"
+        },
+        {
+          "name": "setOutputPad",
+          "signature": "(outputPad: number) => void"
         },
         {
           "name": "setShowImages",
@@ -5642,6 +5694,14 @@
     },
     {
       "name": "ToolNamespace",
+      "runtime": false
+    },
+    {
+      "name": "ToolRendererResolver",
+      "runtime": false
+    },
+    {
+      "name": "ToolRenderers",
       "runtime": false
     },
     {

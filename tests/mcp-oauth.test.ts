@@ -7,6 +7,7 @@ import { createFixture } from "./fixture.ts";
 import { createMcpOAuthFixture } from "./mcp-oauth-fixture.ts";
 import type { DesktopEvent } from "../shared/types.ts";
 import type { DesktopNode } from "../shared/desktop-ui.ts";
+import { mcpSignInInput, submitMcpRedirect } from "./mcp-ui.ts";
 
 function nodes(node: DesktopNode): DesktopNode[] {
   return [
@@ -61,7 +62,7 @@ test(
       pending = host.session
         .prompt("/mcp login oauth_peer")
         .catch((error) => error);
-      await until(() => urls.length === 1 && host.pendingDialogs.length === 1);
+      await until(() => urls.length === 1 && !!mcpSignInInput(host));
       assert.equal((await fetch(urls[0].url)).status, 200);
       await pending;
       const credentials = async () =>
@@ -231,11 +232,7 @@ for (const entry of ["slash", "manager"] as const)
             () =>
               urls.length === 1 &&
               (transition === "immediate" ||
-                (entry === "slash"
-                  ? host.pendingDialogs.length === 1
-                  : host.desktopUI.surfaces.some((surface) =>
-                      nodes(surface.view).some((node) => node.kind === "input"),
-                    ))),
+                (!!mcpSignInInput(host))),
           );
           if (transition === "failure")
             assert.equal(completed.includes(ids[0]), false);
@@ -379,7 +376,7 @@ test(
         args: { name: "oauth_peer", operation: "login" },
       });
       void login.catch(() => {});
-      await until(() => urls.length === 1 && host.pendingDialogs.length === 1);
+      await until(() => urls.length === 1 && !!mcpSignInInput(host));
       const callback = await fetch(urls[0]);
       assert.equal(callback.status, 200);
       await login;
@@ -419,7 +416,7 @@ test(
         args: { name: "oauth_peer", operation: "login" },
       });
       void cancelled.catch(() => {});
-      await until(() => urls.length === 2 && host.pendingDialogs.length === 1);
+      await until(() => urls.length === 2 && !!mcpSignInInput(host));
       const unrelated = host.ask({ kind: "input", title: "Unrelated request" });
       await host.action({ action: "auth.cancel" });
       await until(() => host.pendingDialogs.length === 1);
@@ -449,7 +446,7 @@ test(
             (error) => error,
           );
         await until(
-          () => urls.length === count + 1 && host.pendingDialogs.length === 1,
+          () => urls.length === count + 1 && !!mcpSignInInput(host),
         );
         const completedBefore = completions;
         if (transition === "dispose") await host.dispose();
@@ -500,13 +497,13 @@ test(
         });
         void login.catch(() => {});
         await until(
-          () => urls.length > count && host.pendingDialogs.length === 1,
+          () => urls.length > count && !!mcpSignInInput(host),
         );
         const response = await fetch(urls.at(-1)!, { redirect: "manual" });
         assert.equal(response.status, 302);
         const redirect = new URL(response.headers.get("location")!);
         if (!valid) redirect.searchParams.set("state", "wrong-fixture-state");
-        host.answer(host.pendingDialogs[0].id, redirect.href);
+        await submitMcpRedirect(host, redirect.href);
         await login;
         assert.equal(host.pendingDialogs.length, 0);
         assert.equal(peer.grants.length, valid ? 1 : 0);

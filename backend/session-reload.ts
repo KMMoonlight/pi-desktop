@@ -5,6 +5,7 @@ export function bindSessionReload(
   session: AgentSession,
   lifecycle: {
     current(): boolean;
+    beforeReload?(): void;
     beforeSessionStart(): Promise<void>;
     afterReload(): Promise<void>;
   },
@@ -20,6 +21,7 @@ export function bindSessionReload(
     if (this !== session || !active || !lifecycle.current())
       return original.call(this, options);
     const request = ++generation;
+    lifecycle.beforeReload?.();
     const current = () =>
       active && request === generation && lifecycle.current();
     const requireCurrent = () => {

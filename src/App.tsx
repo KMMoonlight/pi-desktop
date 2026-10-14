@@ -1,4 +1,6 @@
 import { t, useLocale, localizeText } from "./i18n";
+import { ProgramStatusIndicator } from "./ProgramStatus";
+import { useAuthCopy } from "./useAuthCopy";
 import {
   startTransition,
   useCallback,
@@ -192,22 +194,6 @@ const labels: Record<string, string> = {
   const [inspector, setInspector] = useState(false);
   const [menu, setMenu] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  useEffect(() => {
-    const shortcut = (event: KeyboardEvent) => {
-      if (
-        !(event.ctrlKey || event.metaKey) ||
-        event.key !== "," ||
-        event.isComposing
-      )
-        return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      setSettingsOpen(true);
-    };
-    // Register the host shortcut before the SDK editor's capture listener.
-    window.addEventListener("keydown", shortcut, true);
-    return () => window.removeEventListener("keydown", shortcut, true);
-  }, []);
   const menuTrigger = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!menu) return;
@@ -226,12 +212,7 @@ const labels: Record<string, string> = {
   const [localDialog, setLocalDialog] = useState<LocalDialog>();
   const [dialogs, setDialogs] = useState<DialogRequest[]>([]);
   const [answer, setAnswer] = useState("");
-  const [authLink, setAuthLink] = useState<{
-    url: string;
-    message?: string;
-    id?: string;
-    desktopCopy?: boolean;
-  }>();
+  const [authLink, setAuthLink] = useState<Extract<import("../shared/types").DesktopEvent, { type: "auth_url" }>>();
   const [notices, setNotices] = useState<Notice[]>([]);
   const [localSubmitting, setSubmitting] = useState(false);
   const [promotingMessages, setPromotingMessages] = useState<Set<string>>(() => new Set());
@@ -352,6 +333,23 @@ const labels: Record<string, string> = {
   }, [connected, !!snapshot, settingsOpen, run]);
   const workspaceReady =
     connected && !booting && !!snapshot && !snapshot.changing && !selectedSession;
+  const authCopy = useAuthCopy(connected ? authLink : undefined, run);
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (
+        !(event.ctrlKey || event.metaKey) ||
+        event.key !== "," ||
+        event.isComposing
+      )
+        return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setSettingsOpen(true);
+    };
+    // Sign-in keys take priority; host shortcuts still precede the SDK editor.
+    window.addEventListener("keydown", shortcut, true);
+    return () => window.removeEventListener("keydown", shortcut, true);
+  }, []);
   const unreadSessions = useSessionActivity(snapshot, workspaceReady && tab === "chat" && !settingsOpen);
   useExtensionInput(connected ? snapshot : undefined, run, (value) =>
     sendEditor.current(value, queueMode === "steer" ? "followUp" : "steer"),
@@ -438,8 +436,10 @@ const labels: Record<string, string> = {
           );
           setTab("chat");
         } else if (event.type === "auth_url")
-          setAuthLink({ url: event.url, message: event.message, id: event.id, desktopCopy: event.desktopCopy });
+          setAuthLink(event);
         else if (event.type === "activity") {
+          if (event.name === "transcript_scroll")
+            window.dispatchEvent(new CustomEvent("pi:transcript-scroll", { detail: event.data }));
           if (event.name === "desktop_session_selected") {
             setAuthLink(undefined);
             setPendingSelection(undefined);
@@ -1238,20 +1238,11 @@ const labels: Record<string, string> = {
                   />
                 </>
               )}
-              {!selectedSession && snapshot?.running ? (
-                <span className="status-tag running">
-                  <span />
-                  {snapshot.compacting
-                    ? t("压缩中")
-                    : snapshot.retrying
-                      ? t("重试中")
-                      : t("执行中")}
-                </span>
-              ) : !connected && !booting ? (
+              {!connected && !booting ? (
                 <span className="status-tag disconnected" role="status">
                   {t("连接断开")}
                 </span>
-              ) : null}
+              ) : !selectedSession && snapshot ? <ProgramStatusIndicator snapshot={snapshot} /> : null}
               {snapshot && !inspector && !settingsOpen && !selectedSession && (
                 <IconButton
                   icon={PanelRightOpen}
@@ -2356,7 +2347,9 @@ const labels: Record<string, string> = {
             <div>
               <strong>{t("账号授权")}</strong>
               {authLink.message && <span>{authLink.desktopCopy ? localizeText(authLink.message) : authLink.message}</span>}
+              {authCopy.feedback && <span role="status" className={authCopy.feedback.copied ? "auth-copy-success" : "auth-copy-error"}>{authCopy.feedback.copied ? t("已复制授权链接") : localizeText(authCopy.feedback.message ?? "")}</span>}
             </div>
+            {authLink.copyKeys !== undefined && <Button icon={Copy} size="small" onClick={() => { void authCopy.copy(); }}>{t("复制授权链接")}</Button>}
             <Button
               icon={ExternalLink}
               size="small"

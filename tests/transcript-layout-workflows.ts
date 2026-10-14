@@ -156,7 +156,10 @@ export async function verifyTranscriptLayout(page: Page, screenshot: string) {
     const final = await sdkAction<DesktopSnapshot>(page, "snapshot");
     await sdkAction(page, "session.new");
     await sdkAction(page, "session.switch", { path: final.sessionFile });
-    await assistant.locator(".thinking-block summary").click();
+    const thinking = assistant.locator(".thinking-block");
+    if ((await thinking.getAttribute("open")) === null)
+      await thinking.locator("summary").click();
+    await expect(thinking).toHaveAttribute("open", "");
     await assertWidths(page);
     expect(
       await sdkAction(page, "transcript.layout", {

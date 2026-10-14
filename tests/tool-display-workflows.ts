@@ -74,7 +74,12 @@ export async function verifyToolDisplay(page: Page, screenshot: string) {
       ).toHaveCount(2);
     await expect(row("display-fallback")).toContainText("4 more lines");
     await expect(row("display-fallback")).not.toContainText("line 11");
+    await expect(row("display-unknown")).toContainText("4 more lines");
+    await expect(row("display-unknown")).not.toContainText("line 14");
+    await row("display-unknown").getByRole("button", { name: "展开 display_unknown 输出", exact: true }).click();
+    await expanded("display-unknown", true);
     await expect(row("display-unknown")).toContainText("line 14");
+    await expanded("display-fallback", false);
     await expect(page.locator(".tool-execution > summary")).toHaveCount(0);
     await expect(
       row("display-fallback").locator(".tool-images img"),
@@ -154,15 +159,18 @@ export async function verifyToolDisplay(page: Page, screenshot: string) {
       exact: true,
     });
     await selfInput.click();
+    await expect(selfInput).not.toHaveAttribute("data-pointer-pending", /.+/);
     await expanded("display-self", false);
     await selfInput.fill("Desktop display input");
+    await expanded("display-self", false);
     await selfInput.press("Enter");
     await expect
       .poll(async () => (await state("display-self"))["display-self"].submitted)
       .toBe("Desktop display input");
+    await expanded("display-self", false);
     await row("display-self")
       .getByText("display_self consumed click", { exact: true })
-      .click();
+      .click({ position: { x: 6, y: 6 } });
     await expect
       .poll(async () => (await state("display-self"))["display-self"].consumed)
       .toBe(1);
@@ -187,6 +195,7 @@ export async function verifyToolDisplay(page: Page, screenshot: string) {
     await page.screenshot({ path: screenshot, animations: "disabled" });
     await page.reload();
     await expanded("display-custom", false);
+    await page.locator(".process-group > summary").click();
     await expect(selfInput).toHaveValue("Desktop display input");
     const saved = await sdkAction<DesktopSnapshot>(page, "snapshot");
     await sdkAction(page, "resources.reload");
@@ -201,6 +210,9 @@ export async function verifyToolDisplay(page: Page, screenshot: string) {
       "data-tool-state",
       "pending",
     );
+    // This fixture injects activeTools without starting a real agent run.
+    // Its newly created process group therefore starts collapsed.
+    await page.locator(".process-group:not([open]) > summary").last().click();
     await label("display-partial", "call").click({ position: { x: 6, y: 6 } });
     // The pending call's expansion is unchanged, so wait for its actual release reply.
     await expect

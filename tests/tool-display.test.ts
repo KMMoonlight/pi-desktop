@@ -136,9 +136,10 @@ test("tool rows retain per-call expansion, native click policy, global no-op sem
           );
           const contentBox = componentField(native, "contentBox");
           assert.ok(contentBox && typeof contentBox === "object");
-          const expected =
-            variant === "unknown"
-              ? (callComponentMethod(native, "formatToolExecution") as string)
+          const expected = variant === "unknown"
+              ? ["createCallFallback", "createResultFallback"].flatMap(method =>
+                  (callComponentMethod(native, method) as { render(width: number): string[] }).render(120))
+                  .map(line => line.trimEnd()).join("\n")
               : (
                   componentField(contentBox, "children") as {
                     render(width: number): string[];
@@ -159,7 +160,12 @@ test("tool rows retain per-call expansion, native click policy, global no-op sem
         }
       });
     assert.ok(text(surface("display-fallback").view).includes("4 more lines"));
-    assert.ok(text(surface("display-unknown").view).includes("line 14"));
+    assert.ok(text(surface("display-unknown").view).includes("4 more lines"));
+    assert.ok(!text(surface("display-unknown").view).includes("line 14"));
+    await click(surface("display-unknown"));
+    await until(() => text(surface("display-unknown").view).includes("line 14"));
+    assert.equal(expanded("display-unknown"), true);
+    assert.equal(expanded("display-fallback"), false);
     await click(surface("display-fallback"), "right");
     assert.equal(expanded("display-fallback"), false);
     await click(surface("display-fallback"));

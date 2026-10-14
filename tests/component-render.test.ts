@@ -2250,6 +2250,8 @@ test("unchanged official border-status editor preserves its rendered model and c
     join(setup.agentDir, "extensions", "renamed-border-extension.ts"),
   );
   const host = new DesktopHost(setup.agentDir);
+  // Long POSIX temp paths otherwise get truncated by the original editor.
+  host.desktopUI.setViewport(240, 40);
   try {
     await host.initialize(setup.cwd);
     const surface = () =>

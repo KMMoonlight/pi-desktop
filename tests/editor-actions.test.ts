@@ -44,6 +44,8 @@ for (const modal of [false, true])
         await writeFile(
           join(fixture.agentDir, "keybindings.json"),
           JSON.stringify({
+            "app.clipboard.pasteImage": "alt+v",
+            "app.message.dequeue": "alt+q",
             "tui.editor.historyPrevious": "ctrl+p",
             "tui.editor.historyNext": "ctrl+n",
             "app.session.new": "ctrl+alt+n",

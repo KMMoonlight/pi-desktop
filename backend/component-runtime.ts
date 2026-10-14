@@ -7,6 +7,7 @@ import {
   CustomMessageComponent,
   getPackageDir,
   VERSION,
+  type AgentSessionEvent,
   type AgentSession,
   type SessionEntry,
 } from "@earendil-works/pi-coding-agent";
@@ -32,6 +33,12 @@ export type PiMouseEvent = Parameters<
 export type PiKeybindings = Parameters<
   Parameters<ExtensionUIContext["custom"]>[0]
 >[2];
+export interface NativeProgramStatusReporter {
+  handleEvent(event: AgentSessionEvent): void;
+  setBlocked(source: string, status: { kind: "permission" | "question" | "auth"; message: string } | undefined): void;
+  reset(): void;
+  report(): void;
+}
 export interface FooterProvider extends ReadonlyFooterDataProvider {
   setExtensionStatus(key: string, text: string | undefined): void;
   setAvailableProviderCount(count: number): void;
@@ -157,6 +164,10 @@ interface ComponentRuntime {
     Spacer: new (lines: number) => PiComponent;
   };
   status: {
+    ProgramStatusReporter: new (
+      getTerminal: () => DesktopTui["terminal"],
+      getSessionName: () => string | undefined,
+    ) => NativeProgramStatusReporter;
     WorkingStatusIndicator: new (
       tui: DesktopTui,
       message: string,
@@ -172,6 +183,7 @@ interface ComponentRuntime {
     CompactionStatusIndicator: new (
       tui: DesktopTui,
       reason: "manual" | "threshold" | "overflow",
+      color?: (text: string) => string,
     ) => NativeStatusIndicator;
     BranchSummaryStatusIndicator: new (
       tui: DesktopTui,
@@ -183,6 +195,7 @@ interface ComponentRuntime {
     CustomEntryComponent: new (
       entry: unknown,
       renderer: Function,
+      outputPad?: number,
     ) => PiComponent;
   };
   markdown: {
@@ -268,14 +281,17 @@ interface ComponentRuntime {
       gap: number,
     ): number[];
   };
-  keys: { KeybindingsManager: { create(agentDir: string): PiKeybindings } };
+  keys: { KeybindingsManager: {
+    create(agentDir: string): PiKeybindings;
+    loadFromFile(path: string): ReturnType<PiKeybindings["getEffectiveConfig"]>;
+  } };
   footer: { FooterDataProvider: new (cwd: string) => FooterProvider };
 }
 let runtime: Promise<ComponentRuntime> | undefined;
 
 // Pi exposes no native component descriptors. Keep all version-bound access here.
 export function loadComponentRuntime(): Promise<ComponentRuntime> {
-  if (VERSION !== "1.0.0")
+  if (VERSION !== "1.2.0")
     throw new Error(
       `Pi ${VERSION}: the desktop component bridge requires a compatibility update`,
     );
@@ -334,7 +350,7 @@ export function loadComponentRuntime(): Promise<ComponentRuntime> {
             "modes",
             "interactive",
             "theme",
-            "theme-json.js",
+            "theme-schema.js",
           ),
         ).href
       ),
@@ -427,7 +443,7 @@ export function loadComponentRuntime(): Promise<ComponentRuntime> {
         ).href
       ),
     ]);
-    const [mode, cache, themeController] = await Promise.all([
+    const [mode, cache, themeController, programStatus] = await Promise.all([
       import(
         pathToFileURL(
           join(getPackageDir(), "dist/modes/interactive/interactive-mode.js"),
@@ -442,6 +458,7 @@ export function loadComponentRuntime(): Promise<ComponentRuntime> {
           ),
         ).href
       ),
+      import(pathToFileURL(join(getPackageDir(), "dist/modes/interactive/program-status-reporter.js")).href),
     ]);
     theme.setThemeJsonValidator(themeJSON.validateThemeJson);
     return {
@@ -478,6 +495,8 @@ export function loadComponentRuntime(): Promise<ComponentRuntime> {
           receiver.extensionWidgetsAbove = new Map();
           receiver.extensionWidgetsBelow = new Map();
           receiver.renderer = tui;
+          // Header capture does not own the live session's status reporter.
+          receiver.programStatus = { report() {} };
           const call = (name: string, ...args: unknown[]) =>
             Reflect.apply(
               Reflect.get(mode.InteractiveMode.prototype, name),
@@ -715,7 +734,7 @@ export function loadComponentRuntime(): Promise<ComponentRuntime> {
       interactive: { ...interactive, ...viewport },
       keys,
       footer,
-      status,
+      status: { ...status, ...programStatus },
       notice: {
         ThemedText: themedText.ThemedText,
         Spacer: spacer.Spacer,
@@ -972,7 +991,7 @@ export function resolveComponentOverlayLayout(
   height: number,
   viewport: { width: number; height: number },
 ): { width: number; row: number; col: number; maxHeight?: number } {
-  if (VERSION !== "1.0.0")
+  if (VERSION !== "1.2.0")
     throw new Error(
       `Pi ${VERSION}: overlay layout requires a compatibility update`,
     );

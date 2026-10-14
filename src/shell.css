@@ -201,6 +201,9 @@ body {
   font-size: 11px;
   color: var(--ui-muted);
 }
+.header-tools .status-tag[data-program-state] {
+  display: flex;
+}
 .status-tag > span {
   background: #73a185;
 }
@@ -209,6 +212,16 @@ body {
 }
 .status-tag.running > span {
   background: var(--ui-action);
+}
+.status-tag.blocked > span,
+.status-tag.error > span {
+  background: var(--ui-action);
+}
+.tool-duration {
+  flex-shrink: 0;
+  color: var(--ui-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 .workspace-tabs {
   display: none;

@@ -10,6 +10,7 @@ import {
   ChevronUp,
   LogOut,
   RefreshCw,
+  RotateCcw,
   Plus,
   Trash2,
   Package,
@@ -19,7 +20,7 @@ import {
   Settings2, Palette, Bot, Folder, SlidersHorizontal, Blocks, X,
 } from "lucide-react";
 import { Field, SelectField, IconButton, Empty, Hint, baseName } from "./ui";
-import type { DesktopSettingsSnapshot, DesktopSnapshot, RecordValue } from "../shared/types";
+import type { DesktopSettingsSnapshot, DesktopSnapshot, McpSettingsSnapshot, RecordValue } from "../shared/types";
 import type { Run } from "./Workspace";
 import { ResourcesView } from "./Resources";
 import { CustomProviders } from "./CustomProviders";
@@ -81,6 +82,12 @@ export function SettingsView({
   }, [configError]);
   const [configName, setConfigName] = useState("models.json");
   const [mcp, setMcp] = useState<RecordValue>({});
+  const [mcpView, setMcpView] = useState<McpSettingsSnapshot>({ servers: [], errors: [] });
+  const mcpContext = `${scope}:${snapshot.cwd}`;
+  const currentMcpContext = useRef(mcpContext);
+  currentMcpContext.current = mcpContext;
+  const [mcpLoadedContext, setMcpLoadedContext] = useState<string>();
+  const mcpReady = mcpLoadedContext === mcpContext;
   const [mcpStatus, setMcpStatus] = useState("");
   const [serverName, setServerName] = useState("");
   const [serverType, setServerType] = useState("stdio");
@@ -144,20 +151,26 @@ export function SettingsView({
       void run<typeof packages>("packages.list").then((data) => {
         if (data) setPackages(data);
       });
-    if (tab === "mcp")
-      void run<string>("config.read", {
-        name: "mcp.json",
-        local: scope === "project",
-      }).then((data) => {
-        if (data) {
-          try {
-            setMcp(object(JSON.parse(data)));
-          } catch {
-            setValidation(t("MCP 配置不是有效的 JSON"));
-          }
-        }
-      });
   }, [tab, scope, snapshot.resources.length]);
+  useEffect(() => {
+    if (tab !== "mcp" || !open) return;
+    let active = true;
+    setMcpLoadedContext(undefined);
+    setMcp({});
+    setMcpView({ servers: [], errors: [] });
+    void Promise.all([
+      run<string>("config.read", { name: "mcp.json", local: scope === "project" }),
+      run<McpSettingsSnapshot>("mcp.config", { local: scope === "project" }),
+    ]).then(([raw, view]) => {
+      if (!active) return;
+      if (view) setMcpView(view);
+      if (raw !== undefined) {
+        try { setMcp(object(JSON.parse(raw))); if (view) setMcpLoadedContext(mcpContext); }
+        catch { setValidation(t("MCP 配置不是有效的 JSON")); }
+      }
+    });
+    return () => { active = false; };
+  }, [tab, scope, snapshot.cwd, snapshot.resources.length, open]);
   useEffect(() => {
     if (tab === "advanced")
       void run<string>("config.read", {
@@ -207,23 +220,47 @@ export function SettingsView({
         content: JSON.stringify(value),
         local: scope === "project",
       });
-      if (data) setMcp(value);
+      if (data) {
+        const view = await run<McpSettingsSnapshot>("mcp.config", { local: scope === "project" });
+        if (currentMcpContext.current === mcpContext) {
+          setMcp(value);
+          if (view) setMcpView(view);
+        }
+      }
       return data !== undefined;
     } finally {
       setPending(false);
     }
   }
+  async function changeMcp(name: string, patch: RecordValue) {
+    setPending(true);
+    try {
+      const view = await run<McpSettingsSnapshot>("mcp.configure", { name, local: scope === "project", ...patch });
+      if (!view || currentMcpContext.current !== mcpContext) return;
+      setMcpView(view);
+      const raw = await run<string>("config.read", { name: "mcp.json", local: scope === "project" });
+      if (raw !== undefined && currentMcpContext.current === mcpContext) setMcp(object(JSON.parse(raw)));
+    } finally { setPending(false); }
+  }
   const refreshMcp = async () => {
     const value = await run<string>("mcp.status");
-    if (value !== undefined) setMcpStatus(value);
+    if (value === undefined || currentMcpContext.current !== mcpContext) return;
+    setMcpStatus(value);
+    const [view, raw] = await Promise.all([
+      run<McpSettingsSnapshot>("mcp.config", { local: scope === "project" }),
+      run<string>("config.read", { name: "mcp.json", local: scope === "project" }),
+    ]);
+    if (currentMcpContext.current !== mcpContext) return;
+    if (view) setMcpView(view);
+    if (raw !== undefined) setMcp(object(JSON.parse(raw)));
   };
   if (!open) return null;
   return (
     <Modal key={open ? "open" : "closed"} active={open} onClose={onClose}
       size="960px" padding={0} className="settings-modal" ariaLabel={t("设置")}
       attributes={{ "data-desktop-native-input": "" }}>
-    <section className="settings-view grid h-full min-h-0 w-full overflow-hidden" ref={formRoot} data-category={tab}>
-      <nav className="settings-tabs flex min-h-0 flex-col gap-1 overflow-y-auto border-r border-line bg-soft px-3 py-6" aria-label={t("设置分类")}>
+    <section className="settings-view grid h-full min-h-0 w-full grid-cols-1 overflow-hidden md:grid-cols-[160px_minmax(0,1fr)] min-[901px]:grid-cols-[188px_minmax(0,1fr)]" ref={formRoot} data-category={tab}>
+      <nav className="settings-tabs hidden min-h-0 flex-col gap-1 overflow-y-auto border-r border-line bg-soft px-3 py-6 md:flex" aria-label={t("设置分类")}>
         <h2>{t("设置")}</h2>
         {categories.map(([key, label], index) => {
           const Icon = categoryIcons[index];
@@ -642,10 +679,12 @@ export function SettingsView({
                 {t("检查连接")}
               </Button>
             </div>
-            {!addMcp && !Object.keys(object(mcp.mcpServers)).length && <Empty icon={Server} title={t("尚未配置 MCP 服务器")} />}
+            {scope === "project" && !snapshot.trusted && <p className="setting-help">{t("请先信任此项目")}</p>}
+            {mcpView.errors.map(error => <p className="error-inline" role="alert" key={error}>{error}</p>)}
+            {!addMcp && !mcpView.servers.length && <Empty icon={Server} title={t("尚未配置 MCP 服务器")} />}
             {mcpStatus && <pre className="mcp-status">{mcpStatus}</pre>}
             <div className="server-list">
-              {Object.entries(object(mcp.mcpServers)).map(([name, config]) => {
+              {mcpView.servers.map(({ name, config, inherited, overridden }) => {
                 const c = object(config);
                 return (
                   <div className="server-row" key={name}>
@@ -653,6 +692,7 @@ export function SettingsView({
                     <div className="server-identity">
                       <strong>{name}</strong>
                       <small className="server-address">{String(c.url ?? c.command ?? "")}</small>
+                      <small className="server-scope">{overridden ? t("项目覆盖") : inherited ? t("继承全局配置") : scope === "project" ? t("项目配置") : t("全局配置")}</small>
                       <Hint text={String(c.url ?? c.command ?? "")}>
                         <span tabIndex={0}>{c.url ? "HTTP" : t("本地进程")}</span>
                       </Hint>
@@ -661,28 +701,31 @@ export function SettingsView({
                     <Switch
                       name={`mcp-${name}`}
                       checked={c.enabled !== false}
-                      disabled={pending || snapshot.busy}
+                      disabled={!mcpReady || pending || snapshot.busy || (scope === "project" && !snapshot.trusted)}
                       onChange={({ checked }) => {
-                        void saveMcp({
-                          ...mcp,
-                          mcpServers: {
-                            ...object(mcp.mcpServers),
-                            [name]: { ...c, enabled: checked },
-                          },
-                        });
+                        void changeMcp(name, { enabled: checked });
                       }}
                     />
-                    <IconButton
-                      icon={Trash2}
+                    <div className="server-exposure">
+                      <SelectField name={t("{value1} 的工具可见性", { value1: name })} appearance="embedded"
+                        value={String(c.exposure ?? "codemode")}
+                        disabled={!mcpReady || pending || snapshot.busy || (scope === "project" && !snapshot.trusted)}
+                        onChange={exposure => { void changeMcp(name, { exposure }); }}>
+                        <option value="codemode">codemode</option>
+                        <option value="deferred">{t("按需加载")}</option>
+                        <option value="direct">{t("直接使用")}</option>
+                        <option value="hidden">{t("隐藏")}</option>
+                      </SelectField>
+                    </div>
+                    {(!inherited || overridden) && <IconButton
+                      icon={inherited ? RotateCcw : Trash2}
                       color="critical"
-                      label={t("移除 {value1}", { value1: name })}
-                      disabled={pending || snapshot.busy}
+                      label={inherited ? t("恢复 {value1} 的全局配置", { value1: name }) : t("移除 {value1}", { value1: name })}
+                      disabled={!mcpReady || pending || snapshot.busy || (scope === "project" && !snapshot.trusted)}
                       onClick={() => {
-                        const servers = { ...object(mcp.mcpServers) };
-                        delete servers[name];
-                        void saveMcp({ ...mcp, mcpServers: servers });
+                        void changeMcp(name, { remove: true });
                       }}
-                    />
+                    />}
                     <IconButton
                       icon={RefreshCw}
                       label={t("重新连接 {value1}", { value1: name })}
@@ -772,6 +815,8 @@ export function SettingsView({
                 disabled={
                   !serverName.trim() ||
                   !serverAddress.trim() ||
+                  !mcpReady ||
+                  (scope === "project" && !snapshot.trusted) ||
                   pending ||
                   snapshot.busy
                 }

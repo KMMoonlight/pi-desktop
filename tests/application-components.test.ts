@@ -15,6 +15,130 @@ import { loadComponentRuntime } from "../backend/component-runtime.ts";
 import { loadTuiApi } from "../backend/tui-api.ts";
 import { createFixture } from "./fixture.ts";
 
+for (const presentation of ["border", "thinking", "standalone"] as const)
+  test(`compaction indicator uses native ${presentation} colors and retires cleanly`, async () => {
+    const f = await fixture();
+    const original = f.host.session.agent.streamFunction;
+    let release: (() => void) | undefined;
+    let pending: Promise<unknown> | undefined;
+    try {
+      await f.host.session.prompt("First compaction color turn");
+      await f.host.session.prompt("Second compaction color turn");
+      f.host.sdk.settingsManager.applyOverrides({
+        compaction: { keepRecentTokens: 1, reserveTokens: 100 },
+      });
+      const border = (text: string) => `\x1b[38;2;11;122;99m${text}\x1b[0m`;
+      const ui = f.host.session.extensionRunner.getUIContext();
+      const before = f.host.desktopUI.nativeComponent("editor");
+      ui.setEditorComponent((tui, theme, keys) => {
+        if (presentation === "thinking") {
+          let text = "",
+            indicator: any;
+          return {
+            embedWorkingStatus: true,
+            setWorkingStatusIndicator(value: any) {
+              indicator = value;
+            },
+            getText: () => text,
+            setText: (value: string) => {
+              text = value;
+            },
+            render: (width: number) => [
+              indicator?.renderInBorder(width) ?? "",
+              text,
+            ],
+            handleInput() {},
+            invalidate() {},
+          };
+        }
+        return new CustomEditor(tui, { ...theme, borderColor: border }, keys, {
+          embedWorkingStatus: presentation !== "standalone",
+        });
+      });
+      await until(
+        () =>
+          f.host.desktopUI.nativeComponent("editor") !== undefined &&
+          f.host.desktopUI.nativeComponent("editor") !== before,
+      );
+      let entered = false;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      f.host.session.agent.streamFunction = async (...args) => {
+        entered = true;
+        await gate;
+        return original(...args);
+      };
+      pending = f.host.session.compact();
+      void pending.catch(() => {});
+      await until(() => entered);
+      const snapshot = f.host.snapshot();
+      const editor = f.host.desktopUI.nativeComponent("editor")!;
+      const runtime = await loadComponentRuntime();
+      const status =
+        presentation === "standalone"
+          ? f.children(f.scope.tui.children[2]!)[0]
+          : (Reflect.get(editor, "workingStatusIndicator") ??
+            Reflect.get(editor, "indicator"));
+      const actual =
+        presentation === "thinking"
+          ? editor.render(100)[0]
+          : Reflect.get(status, "renderInBorder").call(status, 100);
+      const color =
+        presentation === "border"
+          ? border
+          : presentation === "thinking"
+            ? ui.theme.getThinkingBorderColor(
+                f.host.session.thinkingLevel || "off",
+              )
+            : undefined;
+      const tuiApi = await loadTuiApi();
+      const previousKeys = tuiApi.getKeybindings();
+      tuiApi.setKeybindings(
+        runtime.keys.KeybindingsManager.create(f.host.agentDir),
+      );
+      const expected = new runtime.status.CompactionStatusIndicator(
+        f.scope.tui,
+        "manual",
+        color,
+      );
+      tuiApi.setKeybindings(previousKeys);
+      try {
+        const normalize = (text: string) =>
+          text.replace(/[⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏]/g, "spinner");
+        assert.equal(
+          normalize(actual),
+          normalize(expected.renderInBorder(100)),
+        );
+        assert.ok(actual.includes("escape to cancel"));
+        if (presentation === "border") {
+          const view = JSON.stringify(
+            snapshot.desktopSurfaces.find((surface) => surface.id === "editor")
+              ?.view,
+          );
+          assert.ok(view.includes("Compacting context"));
+          assert.ok(view.includes("rgb(11, 122, 99)"));
+        }
+      } finally {
+        expected.dispose();
+      }
+      release!();
+      await pending;
+      f.host.snapshot();
+      assert.ok(
+        !JSON.stringify(
+          f.host.snapshot().desktopSurfaces.find((s) => s.id === "editor")
+            ?.view,
+        ).includes("Compacting context"),
+      );
+    } finally {
+      release?.();
+      await pending?.catch(() => {});
+      f.host.session.agent.streamFunction = original;
+      await f.close();
+    }
+  });
+
 async function until(check: () => boolean) {
   const deadline = Date.now() + 15000;
   while (!check()) {

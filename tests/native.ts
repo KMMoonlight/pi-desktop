@@ -527,7 +527,7 @@ try {
             "utf8",
           ),
         ),
-      ).toEqual({ aborted: true, sessionAlive: true, version: "1.0.0" });
+      ).toEqual({ aborted: true, sessionAlive: true, version: "1.2.0" });
       expect(await readFile(shutdownMarker, "utf8")).toBe(
         shutdownFromWindow ? "started\nquit\n" : "quit\n",
       );

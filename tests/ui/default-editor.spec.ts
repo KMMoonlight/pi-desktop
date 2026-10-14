@@ -1,17 +1,24 @@
 import { test, expect } from "@playwright/test";
 import { sdkAction, verifyDefaultEditor } from "../editor-workflows.ts";
 
-test("typing is visible before backend acknowledgement and queued editing stays ordered", async ({ page }) => {
+test("typing is visible before backend acknowledgement and queued editing stays ordered", async ({
+  page,
+}) => {
   await page.goto("/");
   const composer = page.getByRole("textbox", { name: "消息", exact: true });
   await expect(composer).toBeVisible();
   await sdkAction(page, "session.new");
   let release!: () => void;
-  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   let held = false;
   await page.route("**/api/action", async (route) => {
     const request = route.request().postDataJSON();
-    if (request.action === "desktop.input" && request.args?.event?.key === "a") {
+    if (
+      request.action === "desktop.input" &&
+      request.args?.event?.key === "a"
+    ) {
       held = true;
       await pending;
     }
@@ -44,18 +51,19 @@ function textAction(
       action?: string;
       value?: { text?: string };
     };
-  },
+  } | null,
   value: string,
 ) {
   return (
-    (request.action === "desktop.input" &&
+    !!request &&
+    ((request.action === "desktop.input" &&
       request.args?.surfaceId === "editor" &&
       (request.args.data === value ||
         request.args.data === `\x1b[200~${value}\x1b[201~`)) ||
-    (request.action === "desktop.action" &&
-      request.args?.id === "editor" &&
-      /^component:\d+$/.test(request.args.action ?? "") &&
-      request.args.value?.text === value)
+      (request.action === "desktop.action" &&
+        request.args?.id === "editor" &&
+        /^component:\d+$/.test(request.args.action ?? "") &&
+        request.args.value?.text === value))
   );
 }
 

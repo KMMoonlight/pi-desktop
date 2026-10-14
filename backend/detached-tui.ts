@@ -6,7 +6,7 @@ let themeInitialized = false;
 /** Physical terminal ownership is shared by renderer replacements and raw extension programs. */
 export async function createDesktopTerminal(
   geometry = { columns: 120, rows: 40 },
-  window?: Pick<DesktopTui["terminal"], "setTitle" | "setProgress"> & {
+  window?: Pick<DesktopTui["terminal"], "setTitle" | "setProgress"> & Partial<Pick<DesktopTui["terminal"], "setProgramStatus">> & {
     activate?(): void;
   },
   appearance?: {
@@ -55,6 +55,7 @@ export async function createDesktopTerminal(
     clearScreen: unsupported,
     setTitle: window?.setTitle ?? unsupported,
     setProgress: window?.setProgress ?? unsupported,
+    setProgramStatus: window?.setProgramStatus ?? (() => {}),
   };
   const { ProcessTerminal } = await loadTuiApi();
   let actualTerminal = terminal;
@@ -87,6 +88,7 @@ export async function createDesktopTerminal(
     };
     if (window?.setTitle) native.setTitle = window.setTitle;
     if (window?.setProgress) native.setProgress = window.setProgress;
+    if (window?.setProgramStatus) native.setProgramStatus = window.setProgramStatus;
     appearance?.signal.addEventListener("abort", () => native.stop(), {
       once: true,
     });
@@ -99,7 +101,7 @@ export async function createDesktopTerminal(
 export async function createDetachedTui(
   invalidate: () => void,
   geometry = { columns: 120, rows: 40 },
-  window?: Pick<DesktopTui["terminal"], "setTitle" | "setProgress"> & {
+  window?: Pick<DesktopTui["terminal"], "setTitle" | "setProgress"> & Partial<Pick<DesktopTui["terminal"], "setProgramStatus">> & {
     activate?(): void;
   },
   appearance?: {

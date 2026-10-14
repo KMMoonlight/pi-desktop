@@ -1,12 +1,16 @@
 # SDK API Audit
 
-## Current accepted status (2026-10-07)
+## Current accepted status (2026-10-14)
 
 **Complete within [the agreed acceptance scope](sdk-acceptance.md).** The fixed
-Pi 1.0.0 inventory contains **458 declaration exports / 156 unchanged runtime
+Pi 1.2.0 inventory contains **462 declaration exports / 156 unchanged runtime
 exports**, **38 public constructors**, **16 declared static members** and **15
 runtime static members**. All **28 ExtensionUIContext members** have host
 implementations; all **11 InteractiveModeOptions fields** are accepted.
+
+The upgrade's compatibility changes and fresh validation are recorded in
+[pi-1.2.0-upgrade.md](pi-1.2.0-upgrade.md). Earlier category records describe the
+1.0.0 integration and retain their original test counts.
 
 `backend/sdk-access.ts` re-exports the original SDK, and hosted native objects,
 callbacks, streams and custom factories remain available through Node operations.

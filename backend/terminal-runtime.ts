@@ -172,6 +172,7 @@ export class TerminalRuntimeScope {
           },
           setTitle: this.presentation.setTitle,
           setProgress: this.presentation.setProgress,
+          setProgramStatus: this.presentation.setProgramStatus,
         },
         { signal: this.signal, queryColors: this.presentation.queryColors },
       ));
@@ -201,6 +202,7 @@ export class TerminalRuntimeScope {
             },
             setTitle: this.presentation.setTitle,
             setProgress: this.presentation.setProgress,
+            setProgramStatus: this.presentation.setProgramStatus,
           }
         : undefined,
     );
@@ -315,6 +317,19 @@ export class TerminalRuntimeScope {
   }
   private bindRenderer(renderer: DesktopTui) {
     const active = () => !this.signal.aborted && this.renderer === renderer;
+    for (const [method, position] of [["scrollToTop", "top"], ["scrollToBottom", "bottom"]] as const) {
+      const original = Reflect.get(renderer, method);
+      if (typeof original !== "function") continue;
+      const scope = this;
+      Reflect.set(renderer, method, function (this: DesktopTui, ...args: unknown[]) {
+        const result = Reflect.apply(original, this, args);
+        if (this === renderer && active()) {
+          const context = scope.host.context();
+          context.host.emitEvent({ type: "activity", name: "transcript_scroll", data: { sessionId: context.session.sessionId, position } });
+        }
+        return result;
+      });
+    }
     this.driver!.bind(
       renderer,
       () => {

@@ -12,6 +12,8 @@ import {
   forgetDesktopSession,
 } from "./session-history.ts";
 import { GlobalSettings, globalSettingsActions } from "./global-settings.ts";
+import { migratePi120Config, migratePi120ProjectSettings } from "./pi-config-migration.ts";
+import { readMcpSettings, changeMcpSettings } from "./mcp-settings.ts";
 import { restoreToolPreferences, saveToolPreferences } from "./tool-preferences.ts";
 import { readToolsExpanded, saveToolsExpanded } from "./display-preferences.ts";
 import { followUpMessageIds, promoteFollowUp } from "./queue-promotion.ts";
@@ -30,6 +32,7 @@ import { createDialogTextCommands } from "./dialog-editor.ts";
 import { runExternalEditor } from "./external-editor.ts";
 import { DefaultEditorSource } from "./default-editor.ts";
 import { clipboardImage, systemClipboard } from "./clipboard.ts";
+import { authCopyKeys } from "./auth-copy.ts";
 import {
   parseTerminalEffect,
   type TerminalEffect,
@@ -174,6 +177,7 @@ export function messageView(
     timestamp: Number(m.timestamp) || Date.now(),
     toolName: typeof m.toolName === "string" ? m.toolName : undefined,
     toolCallId: typeof m.toolCallId === "string" ? m.toolCallId : undefined,
+    durationMs: typeof m.durationMs === "number" ? m.durationMs : undefined,
     isError: m.isError === true,
     errorMessage:
       typeof m.errorMessage === "string" ? m.errorMessage : undefined,
@@ -230,7 +234,10 @@ export class DesktopHost extends EventEmitter {
   private workspaceDraft?: SessionManager;
   private sessionLifetime = new AbortController();
   private readonly authorizations = new AuthorizationScopes(
-    (event) => this.emitEvent(event),
+    (event) => {
+      this.emitEvent(event);
+      this.refreshSoon();
+    },
     (error) => this.notice(errorMessage(error), "error"),
   );
   private clipboardOverride?: NativeClipboard;
@@ -250,6 +257,7 @@ export class DesktopHost extends EventEmitter {
   private turnToolCalls = new Set<string>();
   private authAbort?: AbortController;
   private authId?: string;
+  private authCopy?: { id: string; url: string; keys: DesktopKeybindings };
   private changing = false;
   private shuttingDown = false;
   private disposal?: Promise<void>;
@@ -285,6 +293,7 @@ export class DesktopHost extends EventEmitter {
   private hiddenThinkingLabel?: string;
   private workingIndicator?: { frames?: string[]; intervalMs?: number };
   private windowTitle = "Pi Desktop";
+  private programStatus?: import("../shared/types.ts").ProgramStatus;
   private windowProgressOwners = new Set<object>();
   private readonly terminalWindowOwner = {};
   readonly desktopUI: DesktopUIRegistry = new DesktopUIRegistry(
@@ -478,6 +487,12 @@ export class DesktopHost extends EventEmitter {
     this.emitEvent({ type: "activity", name: "title", data: title });
     this.refreshSoon();
   }
+  setProgramStatus(status: import("../shared/types.ts").ProgramStatus) {
+    if (JSON.stringify(this.programStatus) === JSON.stringify(status)) return;
+    this.programStatus = status.state === "clear" ? undefined : { ...status };
+    this.emitEvent({ type: "activity", name: "program_status", data: this.programStatus });
+    this.refreshSoon();
+  }
   setWindowProgress(owner: object, active: boolean) {
     const previous = this.windowProgressOwners.size > 0;
     if (active) this.windowProgressOwners.add(owner);
@@ -603,6 +618,9 @@ export class DesktopHost extends EventEmitter {
         resolve: resolveValue,
         timer,
       });
+      this.desktopUI.terminalRuntime.capture().application?.programStatus.setBlocked(
+        id, { kind: this.authAbort || this.authorizations.authorizing ? "auth" : request.kind === "confirm" ? "permission" : "question", message: request.title },
+      );
       signal?.addEventListener("abort", cancel, { once: true });
       this.emitEvent({ type: "dialog", data });
     }).finally(() => signal?.removeEventListener("abort", cancel));
@@ -613,6 +631,7 @@ export class DesktopHost extends EventEmitter {
     this.dialogEditors.get(id)?.controller.abort();
     clearTimeout(pending.timer);
     this.dialogs.delete(id);
+    this.desktopUI.terminalRuntime.capture().application?.programStatus.setBlocked(id, undefined);
     pending.resolve(
       pending.request.kind === "editor" && typeof value === "string"
         ? value.trim()
@@ -726,10 +745,13 @@ export class DesktopHost extends EventEmitter {
   }
   private async loadKeybindings(current = () => true) {
     try {
-      const keybindings = JSON.parse(
+      JSON.parse(
         await readFile(join(this.agentDir, "keybindings.json"), "utf8"),
       );
-      if (current()) this.keybindings = keybindings;
+      if (current()) {
+        const runtime = await loadComponentRuntime();
+        if (current()) this.keybindings = runtime.keys.KeybindingsManager.loadFromFile(join(this.agentDir, "keybindings.json"));
+      }
     } catch (error) {
       if (!current()) return;
       if ((error as NodeJS.ErrnoException).code !== "ENOENT")
@@ -1057,6 +1079,10 @@ export class DesktopHost extends EventEmitter {
     this.startupPolicies.observeModel();
     this.authorizations.refreshPresentations();
     if (!this.runtime) return;
+    const dialog = this.desktopUI.activeDialog;
+    this.desktopUI.terminalRuntime.capture().application?.programStatus.setBlocked(
+      "desktop-dialog", dialog ? { kind: this.authAbort || this.authorizations.authorizing ? "auth" : "question", message: dialog.title ?? "" } : undefined,
+    );
     const data = this.snapshot();
     this.emitEvent({ type: "snapshot", data });
     return data;
@@ -1106,6 +1132,8 @@ export class DesktopHost extends EventEmitter {
     sessionStartEvent,
     projectTrustContext,
   }) => {
+    migratePi120Config(this.agentDir);
+    if (this.initialProjectTrust(cwd)) migratePi120ProjectSettings(cwd);
     const settingsManager = SettingsManager.create(cwd, this.agentDir, {
       projectTrusted: this.initialProjectTrust(cwd),
     });
@@ -1134,6 +1162,7 @@ export class DesktopHost extends EventEmitter {
               });
               this.hostLifetime.signal.throwIfAborted();
               this.projectTrustByCwd.set(cwd, trusted);
+              if (trusted) migratePi120ProjectSettings(cwd);
               return trusted;
             },
           }
@@ -1451,6 +1480,9 @@ export class DesktopHost extends EventEmitter {
         this.notice(`Bash command failed: ${errorMessage(error)}`, "error"),
     );
     this.restoreSessionReload = bindSessionReload(session, {
+      // Pi 1.2's mapped MCP sign-in can settle during session_shutdown,
+      // before beforeSessionStart runs. Retire its desktop lifetime first.
+      beforeReload: () => this.sessionLifetime.abort(),
       current: () => this.runtime?.session === session,
       beforeSessionStart: () => this.prepareReload(),
       afterReload: async () => {
@@ -1555,6 +1587,7 @@ export class DesktopHost extends EventEmitter {
       Object.assign(phase(event.toolCallId), {
         isPartial: false,
         isError: event.isError,
+        durationMs: event.durationMs,
       });
       this.toolResults.delete(event.toolCallId);
       this.activeTools = this.activeTools.filter(
@@ -2485,6 +2518,7 @@ export class DesktopHost extends EventEmitter {
           ),
         },
         windowTitle: this.windowTitle,
+        programStatus: this.programStatus,
         windowProgress: this.windowProgressOwners.size > 0,
         inputListeners: this.inputListeners.size,
         editorCommandKeys: this.editorFactory ? undefined :
@@ -2534,6 +2568,7 @@ export class DesktopHost extends EventEmitter {
       "packages.update",
       "config.save",
       "mcp.command",
+      "mcp.configure",
       "mcp.status",
       "context.refresh",
       "context.edit",
@@ -2783,6 +2818,23 @@ export class DesktopHost extends EventEmitter {
       this.authAbort?.abort();
       this.authorizations.cancel();
       return null;
+    }
+    if (request.action === "auth.copy") {
+      const current = this.authCopy;
+      if (!current || a.id !== current.id || this.authAbort?.signal.aborted)
+        return { copied: false };
+      if (a.event) {
+        const event = a.event as DesktopKeyEvent;
+        const data = encodeDesktopKey(event);
+        if (event.type === "release" || !data || !current.keys.matches(data, "app.message.copy"))
+          return { copied: false };
+      }
+      const clipboard = this.clipboardOverride ?? (await systemClipboard());
+      if (this.authCopy !== current || this.authAbort?.signal.aborted)
+        return { copied: false };
+      if (!clipboard?.setText) throw new Error("System clipboard is unavailable");
+      await clipboard.setText(current.url);
+      return { copied: true };
     }
     if (request.action === "sdk.cancel") {
       this.sdkOperations.get(required(a.id, "Operation ID"))?.abort();
@@ -3702,6 +3754,13 @@ export class DesktopHost extends EventEmitter {
         lifetime.signal.throwIfAborted();
         break;
       }
+      case "mcp.config":
+        return readMcpSettings(this.agentDir, this.runtime!.cwd, a.local === true, session.settingsManager.isProjectTrusted());
+      case "mcp.configure": {
+        await changeMcpSettings(this.agentDir, this.runtime!.cwd, a.local === true, session.settingsManager.isProjectTrusted(), a);
+        await this.reloadResources();
+        return readMcpSettings(this.agentDir, this.runtime!.cwd, a.local === true, session.settingsManager.isProjectTrusted());
+      }
       case "mcp.status": {
         const lifetime = this.sessionLifetime;
         if (
@@ -3798,7 +3857,10 @@ export class DesktopHost extends EventEmitter {
       lifetime,
     ]);
     this.authAbort = controller;
+    const reporter = this.desktopUI.terminalRuntime.capture().application?.programStatus;
+    reporter?.setBlocked(authorizationId, { kind: "auth", message: text(a.provider) });
     try {
+      const keys = (await loadComponentRuntime()).keys.KeybindingsManager.create(this.agentDir);
       await modelRuntime.login(
         required(a.provider, "提供商"),
         a.method === "api_key" ? "api_key" : "oauth",
@@ -3840,14 +3902,17 @@ export class DesktopHost extends EventEmitter {
             if (loginSignal.aborted) return;
             this.emitEvent({ type: "activity", name: "auth", data: event });
             if (loginSignal.aborted) return;
-            if (event.type === "auth_url")
+            if (event.type === "auth_url") {
+              this.authCopy = { id: authorizationId, url: event.url, keys };
               this.emitEvent({
                 type: "auth_url",
                 id: authorizationId,
                 url: event.url,
                 message: event.instructions,
+                copyKeys: authCopyKeys(keys),
               });
-            else if (event.type === "device_code")
+            } else if (event.type === "device_code") {
+              this.authCopy = undefined;
               this.emitEvent({
                 type: "auth_url",
                 id: authorizationId,
@@ -3855,6 +3920,7 @@ export class DesktopHost extends EventEmitter {
                 message: `授权码：${event.userCode}`,
                 desktopCopy: true,
               });
+            }
             else this.notice(event.message);
           },
         },
@@ -3863,7 +3929,9 @@ export class DesktopHost extends EventEmitter {
         },
       );
     } finally {
+      reporter?.setBlocked(authorizationId, undefined);
       if (this.authAbort === controller) {
+        this.authCopy = undefined;
         this.authAbort = undefined;
         this.authId = undefined;
       }

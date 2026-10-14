@@ -23,15 +23,16 @@ async function archives() {
       const binary =
         located.includes("\\") || located.includes("/")
           ? located
-          : execFileSync("where.exe", [located], { encoding: "utf8" })
+          : execFileSync(process.platform === "win32" ? "where.exe" : "which", [located], { encoding: "utf8" })
               .trim()
               .split(/\r?\n/)[0]!;
       const tree = join(root, tool, "nested");
       await mkdir(tree, { recursive: true });
-      await cp(binary, join(tree, `${tool}.exe`));
-      await cp(binary, join(assets, `${tool}.exe`));
+      const name = tool + (process.platform === "win32" ? ".exe" : "");
+      await cp(binary, join(tree, name));
+      await cp(binary, join(assets, name));
       const quote = (value: string) => "'" + value.replaceAll("'", "''") + "'";
-      execFileSync(
+      if (process.platform === "win32") execFileSync(
         "powershell.exe",
         [
           "-NoProfile",
@@ -41,6 +42,7 @@ async function archives() {
         ],
         { windowsHide: true },
       );
+      else execFileSync("tar", ["-czf", join(assets, `${tool}.tar.gz`), "-C", join(root, tool), "nested"]);
     }
     return { root, assets };
   })());
@@ -81,10 +83,10 @@ for (const mode of [
             PI_MANAGED_ASSETS: assets,
             PI_OFFLINE: mode === "offline" ? "true" : "0",
             PI_TELEMETRY: "0",
-            PATH: [
+            PATH: process.platform === "win32" ? [
               join(systemRoot, "System32"),
               join(systemRoot, "System32", "WindowsPowerShell", "v1.0"),
-            ].join(";"),
+            ].join(";") : "/usr/bin:/bin",
           },
         },
       );

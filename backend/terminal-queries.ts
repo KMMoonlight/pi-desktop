@@ -30,6 +30,7 @@ export class TerminalQueries {
       columns: 80,
       rows: 24,
       kittyProtocolActive: false,
+      setProgramStatus: noop,
       start: (receive) => {
         input = receive;
       },

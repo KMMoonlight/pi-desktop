@@ -125,10 +125,8 @@ test("settings use one content scroller without compressing dense lists or overl
   await selectSettingsCategory(modal, "高级");
   await modal.getByRole("textbox", { name: "配置 JSON", exact: true }).fill("{ invalid-json");
   await modal.getByRole("button", { name: "保存配置", exact: true }).click();
-  const notifications = page.locator(".notice-list");
-  await expect(notifications.getByRole("alert")).toBeVisible();
-  await notifications.getByRole("button", { name: "关闭通知", exact: true }).click();
-  await expect(notifications).toHaveCount(0);
+  await expect(modal.locator(".config-file-error")).toBeVisible();
+  await expect(modal.locator(".config-file-error")).not.toHaveText("");
   await modal.getByRole("button", { name: "关闭设置", exact: true }).click();
   await expect(editor).toHaveValue("设置布局草稿");
   expect(errors).toEqual([]);

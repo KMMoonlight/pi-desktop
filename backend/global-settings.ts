@@ -12,6 +12,9 @@ import type {
   RecordValue,
 } from "../shared/types.ts";
 
+import { migratePi120Config } from "./pi-config-migration.ts";
+import { readMcpSettings, changeMcpSettings } from "./mcp-settings.ts";
+
 export const globalSettingsActions = new Set([
   "settings.snapshot",
   "settings.save",
@@ -21,6 +24,8 @@ export const globalSettingsActions = new Set([
   "auth.logout",
   "config.read",
   "config.save",
+  "mcp.config",
+  "mcp.configure",
   "theme.set",
   "display.thinking",
   "packages.list",
@@ -43,6 +48,7 @@ export class GlobalSettings {
     ) => Promise<void>,
     private notify: (message: string) => void,
   ) {
+    migratePi120Config(agentDir);
     this.settings = SettingsManager.create(agentDir, agentDir, {
       projectTrusted: false,
     });
@@ -107,6 +113,11 @@ export class GlobalSettings {
     if (args.local === true || args.scope === "project")
       throw new Error("请先选择工作区");
     switch (action) {
+      case "mcp.config":
+        return readMcpSettings(this.agentDir, this.agentDir, false, false);
+      case "mcp.configure":
+        await changeMcpSettings(this.agentDir, this.agentDir, false, false, args);
+        return readMcpSettings(this.agentDir, this.agentDir, false, false);
       case "settings.snapshot":
         return this.snapshot();
       case "settings.save": {

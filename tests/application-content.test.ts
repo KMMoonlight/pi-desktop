@@ -87,7 +87,7 @@ for (const quiet of [false, "header", true] as const)
         (entry) => entry.component.constructor.name === "BuiltInHeader",
       )?.component;
       if (native) {
-        assert.ok(f.render(entries).join("\n").includes("v1.0.0"));
+        assert.ok(f.render(entries).join("\n").includes("v1.2.0"));
         assert.ok(f.render(entries).join("\n").includes("full startup help"));
         f.content.headerEntries(undefined, true);
         assert.ok(f.render(entries).join("\n").includes("to queue follow-up"));

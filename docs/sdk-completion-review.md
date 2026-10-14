@@ -1,6 +1,15 @@
 # Completion review
 
-## Current conclusion (2026-10-07)
+## Current conclusion (2026-10-14)
+
+The Pi 1.2.0 upgrade is complete within the requested dependency, compatibility,
+desktop presentation and test scope. The [upgrade record](pi-1.2.0-upgrade.md)
+documents the changes and final passing evidence: 1,315 source cases, 32 affected
+browser scenarios, type/export checks, production build and staged runtime
+verification. External accounts, Windows installers and a published installer
+were not validated in this upgrade.
+
+## Accepted integration baseline (2026-10-07)
 
 **The current pinned SDK feature integration is complete under
 [sdk-acceptance.md](sdk-acceptance.md).** The final bounded review checks public

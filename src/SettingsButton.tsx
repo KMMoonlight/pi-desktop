@@ -12,7 +12,7 @@ export function SettingsButton({
   return (
     <Button
       {...props}
-      size="medium"
+      size="small"
       color={color}
       variant={variant ?? (color === "primary" || color === "critical" ? "solid" : "outline")}
       className={["settings-action", className, attributes?.className].filter(Boolean).join(" ")}

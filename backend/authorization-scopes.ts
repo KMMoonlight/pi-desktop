@@ -60,6 +60,9 @@ export class AuthorizationScopes {
       ? AbortSignal.any([scope.signal, scope.authorization.controller.signal])
       : scope?.signal;
   }
+  get authorizing() {
+    return this.pending.size > 0;
+  }
 
   open(url: string) {
     const scope = this.storage.getStore();

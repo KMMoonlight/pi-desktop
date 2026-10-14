@@ -211,7 +211,7 @@ test("defined tools without callbacks use shared fallback policy with shell meta
       text(
         host
           .snapshot()
-          .desktopSurfaces.find((surface) => surface.id === missing.id)!.view,
+          .desktopSurfaces.find((surface) => surface.id === missing.id)?.view ?? { kind: "text", text: "" },
       ).includes("line 14"),
     );
     await host.action({
@@ -237,7 +237,7 @@ test("defined tools without callbacks use shared fallback policy with shell meta
       text(
         host
           .snapshot()
-          .desktopSurfaces.find((surface) => surface.id === missing.id)!.view,
+          .desktopSurfaces.find((surface) => surface.id === missing.id)?.view ?? { kind: "text", text: "" },
       ).includes("line 14"),
     );
     await host.action({ action: "session.new" });

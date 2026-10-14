@@ -1762,7 +1762,7 @@ button.session-row {
   display: flex;
   gap: 14px;
   align-items: center;
-  z-index: 60;
+  z-index: 1100;
   max-width: calc(100vw - 30px);
 }
 .auth-banner > div {
@@ -1777,6 +1777,8 @@ button.session-row {
   font-size: 11px;
   overflow-wrap: anywhere;
 }
+.auth-banner .auth-copy-success { color: var(--pi-success, var(--text)); }
+.auth-banner .auth-copy-error { color: var(--pi-error, var(--danger)); }
 .spin {
   animation: spin 1.1s linear infinite;
 }

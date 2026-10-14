@@ -4,7 +4,7 @@ import type { AgentSession } from "@earendil-works/pi-coding-agent";
 type Message = Parameters<AgentSession["agent"]["steer"]>[0];
 const identifiers = new WeakMap<object, string>();
 
-// Pi 1.0.0 has no public operation to move a single queued message. Keep the
+// Pi 1.2.0 has no public operation to move a single queued message. Keep the
 // version-specific access here, validate it before writing, and move the actual
 // message so images, timestamps and input-hook transformations remain intact.
 function queues(session: AgentSession) {

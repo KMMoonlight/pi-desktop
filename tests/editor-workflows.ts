@@ -1,5 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import type { DesktopSnapshot } from "../shared/types.ts";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 
 export async function sdkAction<T>(
   page: Page,
@@ -37,126 +39,143 @@ export async function sdkAction<T>(
 export async function verifyDefaultEditor(page: Page, screenshot: string) {
   await sdkAction(page, "session.new");
   const initial = await sdkAction<DesktopSnapshot>(page, "snapshot");
-  const composer = page.getByRole("textbox", { name: "消息", exact: true });
-  const send = page.getByRole("button", { name: "发送消息", exact: true });
-  await expect(composer).toHaveValue("");
-  await composer.fill("Default draft");
-  await expect(send).toBeEnabled();
-  await composer.press("Control+c");
-  await composer.pressSequentially("Ordered clear");
-  await expect(composer).toHaveValue("Ordered clear");
-  await composer.press("Control+l");
-  const dialog = page.getByRole("dialog");
-  await expect(
-    dialog.getByRole("heading", { name: "选择模型", exact: true }),
-  ).toBeVisible();
-  await dialog
-    .getByRole("button", { name: "desktop-test/desktop-test", exact: true })
-    .click();
-  await expect(dialog).toBeHidden();
-  await composer.press("Control+t");
-  await expect
-    .poll(
-      async () =>
-        (await sdkAction<DesktopSnapshot>(page, "snapshot")).settings
-          .hideThinkingBlock,
-    )
-    .toBe(true);
-  await composer.press("Control+t");
-  await sdkAction(page, "sdk.run", {
-    path: `${initial.agentDir}/desktop/clipboard-fixture.mjs`,
-    args: { text: "Clipboard draft" },
-  });
-  await composer.selectText();
-  await composer.press("Alt+v");
-  await expect(composer).toHaveValue("Clipboard draft");
-  const image =
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEElEQVR4AQEFAPr/ACiqeP8EkgJKJCPrYwAAAABJRU5ErkJggg==";
-  await sdkAction(page, "sdk.run", {
-    path: `${initial.agentDir}/desktop/clipboard-fixture.mjs`,
-    args: { image },
-  });
-  await composer.press("Alt+v");
-  await expect(
-    page.getByRole("img", { name: "Clipboard image", exact: true }),
-  ).toBeVisible();
-  await expect(send).toBeEnabled();
-  await page.screenshot({ path: screenshot, animations: "disabled" });
-  await composer.fill("Default controls prompt");
-  await composer.press("Enter");
-  await expect(composer).toHaveValue("");
-  await expect
-    .poll(
-      async () => !(await sdkAction<DesktopSnapshot>(page, "snapshot")).busy,
-    )
-    .toBe(true);
-  const completed = await sdkAction<DesktopSnapshot>(page, "snapshot");
-  expect(
-    completed.messages.some(
-      (message) =>
-        message.role === "user" &&
-        message.content.some(
-          (block) => block.type === "image" && block.data === image,
-        ),
-    ),
-  ).toBe(true);
+  const keysPath = join(initial.agentDir, "keybindings.json");
+  const originalKeys = await readFile(keysPath, "utf8");
+  const bindings = {
+    ...JSON.parse(originalKeys),
+    "app.clipboard.pasteImage": "alt+v",
+    "app.message.followUp": "ctrl+q",
+    "app.message.dequeue": "alt+q",
+  };
   await sdkAction(page, "sdk.run", {
     path: `${initial.agentDir}/desktop/editor-action.mjs`,
-    args: {
-      action: "bindings",
-      bindings: {
-        "tui.editor.historyPrevious": "ctrl+p",
-        "tui.editor.historyNext": "ctrl+n",
+    args: { action: "bindings", bindings },
+  });
+  try {
+    const composer = page.getByRole("textbox", { name: "消息", exact: true });
+    const send = page.getByRole("button", { name: "发送消息", exact: true });
+    await expect(composer).toHaveValue("");
+    await composer.fill("Default draft");
+    await expect(send).toBeEnabled();
+    await composer.press("Control+c");
+    await composer.pressSequentially("Ordered clear");
+    await expect(composer).toHaveValue("Ordered clear");
+    await composer.press("Control+l");
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("heading", { name: "选择模型", exact: true }),
+    ).toBeVisible();
+    await dialog
+      .getByRole("button", { name: "desktop-test/desktop-test", exact: true })
+      .click();
+    await expect(dialog).toBeHidden();
+    await composer.press("Control+t");
+    await expect
+      .poll(
+        async () =>
+          (await sdkAction<DesktopSnapshot>(page, "snapshot")).settings
+            .hideThinkingBlock,
+      )
+      .toBe(true);
+    await composer.press("Control+t");
+    await sdkAction(page, "sdk.run", {
+      path: `${initial.agentDir}/desktop/clipboard-fixture.mjs`,
+      args: { text: "Clipboard draft" },
+    });
+    await composer.selectText();
+    await composer.press("Alt+v");
+    await expect(composer).toHaveValue("Clipboard draft");
+    const image =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAEElEQVR4AQEFAPr/ACiqeP8EkgJKJCPrYwAAAABJRU5ErkJggg==";
+    await sdkAction(page, "sdk.run", {
+      path: `${initial.agentDir}/desktop/clipboard-fixture.mjs`,
+      args: { image },
+    });
+    await composer.press("Alt+v");
+    await expect(
+      page.getByRole("img", { name: "Clipboard image", exact: true }),
+    ).toBeVisible();
+    await expect(send).toBeEnabled();
+    await page.screenshot({ path: screenshot, animations: "disabled" });
+    await composer.fill("Default controls prompt");
+    await composer.press("Enter");
+    await expect(composer).toHaveValue("");
+    await expect
+      .poll(
+        async () => !(await sdkAction<DesktopSnapshot>(page, "snapshot")).busy,
+      )
+      .toBe(true);
+    const completed = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    expect(
+      completed.messages.some(
+        (message) =>
+          message.role === "user" &&
+          message.content.some(
+            (block) => block.type === "image" && block.data === image,
+          ),
+      ),
+    ).toBe(true);
+    await sdkAction(page, "sdk.run", {
+      path: `${initial.agentDir}/desktop/editor-action.mjs`,
+      args: {
+        action: "bindings",
+        bindings: {
+          ...bindings,
+          "tui.editor.historyPrevious": "ctrl+p",
+          "tui.editor.historyNext": "ctrl+n",
+        },
       },
-    },
-  });
-  const reloaded = await sdkAction<DesktopSnapshot>(page, "snapshot");
-  const editor = reloaded.desktopSurfaces.find(
-    (surface) => surface.slot === "editor",
-  );
-  if (!editor) throw new Error("Reloaded default editor is unavailable");
-  await expect(page.locator('[data-surface-id="editor"]')).toHaveAttribute(
-    "data-instance-id",
-    editor.instanceId,
-  );
-  await composer.fill("Unfinished draft");
-  await composer.press("Control+p");
-  await expect(composer).toHaveValue("Default controls prompt");
-  await composer.press("Control+n");
-  await expect(composer).toHaveValue("Unfinished draft");
-  await composer.fill("slow-response");
-  await composer.press("Enter");
-  await expect
-    .poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).busy)
-    .toBe(true);
-  await composer.fill("Queued follow-up");
-  await composer.press("Control+q");
-  await expect
-    .poll(
-      async () =>
-        (await sdkAction<DesktopSnapshot>(page, "snapshot")).queue.followUp,
-    )
-    .toEqual(["Queued follow-up"]);
-  await expect(composer).toHaveValue("");
-  await composer.fill("Current draft");
-  await composer.press("Alt+q");
-  await expect(composer).toHaveValue("Queued follow-up\n\nCurrent draft");
-  await composer.press("Escape");
-  await expect
-    .poll(
-      async () => !(await sdkAction<DesktopSnapshot>(page, "snapshot")).busy,
-    )
-    .toBe(true);
-  await expect(composer).toHaveValue("Queued follow-up\n\nCurrent draft");
-  const saved = await sdkAction<DesktopSnapshot>(page, "snapshot");
-  await sdkAction(page, "session.new");
-  await expect(composer).toHaveValue("");
-  await sdkAction(page, "session.switch", { path: saved.sessionFile });
-  await expect(composer).toHaveValue("Queued follow-up\n\nCurrent draft");
-  await sdkAction(page, "sdk.run", {
-    path: `${initial.agentDir}/desktop/editor-action.mjs`,
-    args: { action: "bindings", bindings: {} },
-  });
+    });
+    const reloaded = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    const editor = reloaded.desktopSurfaces.find(
+      (surface) => surface.slot === "editor",
+    );
+    if (!editor) throw new Error("Reloaded default editor is unavailable");
+    await expect(page.locator('[data-surface-id="editor"]')).toHaveAttribute(
+      "data-instance-id",
+      editor.instanceId,
+    );
+    await composer.fill("Unfinished draft");
+    await composer.press("Control+p");
+    await expect(composer).toHaveValue("Default controls prompt");
+    await composer.press("Control+n");
+    await expect(composer).toHaveValue("Unfinished draft");
+    await composer.fill("slow-response");
+    await composer.press("Enter");
+    await expect
+      .poll(
+        async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).busy,
+      )
+      .toBe(true);
+    await composer.fill("Queued follow-up");
+    await composer.press("Control+q");
+    await expect
+      .poll(
+        async () =>
+          (await sdkAction<DesktopSnapshot>(page, "snapshot")).queue.followUp,
+      )
+      .toEqual(["Queued follow-up"]);
+    await expect(composer).toHaveValue("");
+    await composer.fill("Current draft");
+    await composer.press("Alt+q");
+    await expect(composer).toHaveValue("Queued follow-up\n\nCurrent draft");
+    await composer.press("Escape");
+    await expect
+      .poll(
+        async () => !(await sdkAction<DesktopSnapshot>(page, "snapshot")).busy,
+      )
+      .toBe(true);
+    await expect(composer).toHaveValue("Queued follow-up\n\nCurrent draft");
+    const saved = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    await sdkAction(page, "session.new");
+    await expect(composer).toHaveValue("");
+    await sdkAction(page, "session.switch", { path: saved.sessionFile });
+    await expect(composer).toHaveValue("Queued follow-up\n\nCurrent draft");
+  } finally {
+    await sdkAction(page, "abort");
+    await writeFile(keysPath, originalKeys);
+    await sdkAction(page, "resources.reload");
+  }
 }
 
 export async function verifyModalEditor(page: Page, screenshot: string) {

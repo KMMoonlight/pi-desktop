@@ -48,7 +48,7 @@ export interface StartupPolicyRuntime {
 }
 let loaded: Promise<StartupPolicyRuntime> | undefined;
 export function loadStartupPolicyRuntime(): Promise<StartupPolicyRuntime> {
-  if (VERSION !== "1.0.0")
+  if (VERSION !== "1.2.0")
     throw new Error(
       `Pi ${VERSION}: startup policy integration requires a compatibility update`,
     );

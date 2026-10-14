@@ -202,7 +202,7 @@ test("full changelog uses the original command result without advancing startup 
         "text",
       ),
     );
-    assert.ok(full.markdown?.includes("v1.0.0/"));
+    assert.ok(full.markdown?.includes("v1.2.0/"));
     assert.equal(
       host.session.settingsManager.getLastChangelogVersion(),
       version,

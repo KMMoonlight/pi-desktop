@@ -25,6 +25,7 @@ export class RendererTerminal {
       input(data: string): void;
       setTitle(title: string): void;
       setProgress(active: boolean): void;
+      setProgramStatus?: Terminal["setProgramStatus"];
     },
   ) {
     this.virtual = {
@@ -72,6 +73,7 @@ export class RendererTerminal {
       clearScreen: () => output("\x1b[2J\x1b[H"),
       setTitle: (title) => this.terminal.setTitle(title),
       setProgress: (active) => this.terminal.setProgress(active),
+      setProgramStatus: (status) => this.terminal.setProgramStatus(status),
     };
     this.terminal = new Proxy(physical, {
       get: (_target, key) => {
@@ -82,18 +84,15 @@ export class RendererTerminal {
           const target = this.drawing ? this.virtual : physical;
           // Title/progress always reach the supplied Terminal with its receiver;
           // observing the result also updates the desktop window presentation.
-          if (key === "setTitle" || key === "setProgress") {
+          if (key === "setTitle" || key === "setProgress" || key === "setProgramStatus") {
             const result = Reflect.apply(
               Reflect.get(physical, key),
               physical,
               args,
             );
-            if (this.injected)
-              Reflect.apply(
-                Reflect.get(this.injected, key),
-                this.injected,
-                args,
-              );
+            const observe = this.injected && Reflect.get(this.injected, key);
+            if (typeof observe === "function")
+              Reflect.apply(observe, this.injected, args);
             return result;
           }
           if (this.injected && target === physical && key === "start") {

@@ -156,7 +156,7 @@ test(
       await action("terminal.input", { data: "q" });
       await running;
       await until(output, (value) => value.includes("PTY_INPUT:71"));
-      const state = await action("snapshot");
+      const state = await until(() => action("snapshot"), value => value.statuses["pty-result"] !== undefined);
       assert.equal(state.statuses["pty-result"], "PTY_EXIT:7");
       assert.ok(!(await output()).includes("SHELL_INDEPENDENT"));
       await action("shell.input", {
@@ -183,10 +183,7 @@ test(
       );
       await action("terminal.input", { data: "\x03" });
       await cancelled;
-      assert.equal(
-        (await action("snapshot")).statuses["pty-result"],
-        "PTY_EXIT:130",
-      );
+      await until(() => action("snapshot"), value => value.statuses["pty-result"] === "PTY_EXIT:130");
       const raw = action("prompt", { message: "/raw-terminal-probe" });
       await until(output, (value) => value.includes("RAW_READY"));
       await action("terminal.input", { data: "z" });

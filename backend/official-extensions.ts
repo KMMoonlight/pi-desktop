@@ -53,7 +53,7 @@ interface QuestionnaireParams {
   questions: Question[];
 }
 
-// Audited SDK 1.0.0 examples. Changed files need a new conversion audit.
+// Audited SDK 1.2.0 examples. Changed files need a new conversion audit.
 const sourceHashes: Record<
   QuestionKind | OfficialWorkflowKind | "modal-editor",
   string

@@ -54,6 +54,7 @@ export interface DesktopRenderSource {
     isError: boolean;
     argsComplete: boolean;
     executionStarted: boolean;
+    durationMs?: number;
     toolCallId?: string;
     toolName?: string;
     args?: unknown;
@@ -264,6 +265,7 @@ export class DesktopUIRegistry {
       title: (value) => this.context().host.setWindowTitle(value),
       progress: (owner, value) =>
         this.context().host.setWindowProgress(owner, value),
+      programStatus: (value) => this.context().host.setProgramStatus(value),
     });
     this.terminalRuntime = new TerminalRuntimePipeline(
       {
@@ -359,6 +361,12 @@ export class DesktopUIRegistry {
     };
     const surface = this.surfaces.find((surface) => surface.id === id);
     return !!surface && contains(surface.view);
+  }
+  get activeDialog() {
+    const mounted = [...this.mounted.values()].reverse().find(item =>
+      item.slot === "dialog" && item.component && !item.detached && !item.overlay?.hidden,
+    );
+    return mounted ? { title: mounted.component?.title } : undefined;
   }
   get surfaces(): DesktopSurface[] {
     return [...this.mounted].flatMap(([id, mounted]) => {

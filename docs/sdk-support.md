@@ -1,6 +1,15 @@
 # Full SDK Support Work
 
-## Current accepted status (2026-10-07)
+## Current accepted status (2026-10-14)
+
+The desktop now pins Pi 1.2.0. The upgrade preserves the integration below and
+adds provider migration, native tool renderer resolution, program status,
+duration and output padding. See [the upgrade record](pi-1.2.0-upgrade.md) for
+compatibility changes and final verification: 1,315 passing source cases,
+32 passing affected browser scenarios, type/export checks, production build
+and staged runtime verification. The installer was not rebuilt or published.
+
+## Accepted integration baseline (2026-10-07)
 
 **The pinned SDK integration is complete within the user's agreed scope.**
 [sdk-acceptance.md](sdk-acceptance.md) defines the current requirements, generic

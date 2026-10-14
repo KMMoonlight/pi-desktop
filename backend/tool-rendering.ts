@@ -15,10 +15,7 @@ export function createToolFallback(
     {
       toolName: source.context.toolName,
       args: source.context.args ?? source.value,
-      expanded:
-        source.context.toolDefinitionAvailable === false
-          ? true
-          : source.context.expanded,
+      expanded: source.context.expanded,
       showImages: source.context.showImages,
       result: source.kind === "toolResult" ? source.value : undefined,
     },
@@ -35,15 +32,6 @@ export function createToolFallback(
     receiver,
     source.kind === "toolCall" ? "createCallFallback" : "createResultFallback",
   ) as PiComponent | undefined;
-  if (source.context.toolDefinitionAvailable === false && component)
-    callComponentMethod(
-      component,
-      "setText",
-      callComponentMethod(
-        receiver,
-        source.kind === "toolCall" ? "formatToolExecution" : "getTextOutput",
-      ),
-    );
   return component;
 }
 

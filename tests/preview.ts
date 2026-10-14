@@ -13,6 +13,12 @@ const fixture = await createFixture({
   toolShell: true,
   toolDisplay: true,
   transcriptRenderers: true,
+  modelTools: {
+    "pi-120-image": {
+      name: "codemode",
+      args: { code: "const result = await tools.read({path: 'pi-120-image.png'}); image(result);" },
+    },
+  },
 });
 process.env.PI_DESKTOP_AGENT_DIR = fixture.agentDir;
 process.env.PI_DESKTOP_LEGACY_EXAMPLE_ADAPTERS ??= "1";

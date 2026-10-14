@@ -53,7 +53,7 @@ export async function verifySdkDrain(page: Page, reject: boolean) {
       expect(await probe.pending).toEqual({
         aborted: true,
         sessionAlive: true,
-        version: "1.0.0",
+        version: "1.2.0",
       });
     await page
       .getByRole("textbox", { name: "消息", exact: true })

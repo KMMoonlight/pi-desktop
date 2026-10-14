@@ -1,6 +1,9 @@
 # Pi Desktop — 开发与兼容性说明
 
-A graphical Pi Agent workspace built with Tauri 2, React 19, Tailwind CSS 4 and the official Pi SDK. The application uses `@earendil-works/pi-coding-agent@1.0.0`; it does not contain a fork of Pi. Standard components map to desktop controls; xterm.js and a real PTY support terminal-dependent extensions. Resource reload and session changes retain the original shared TUI, default editor/history and direct registrations; see [the lifecycle contract](runtime-lifecycle.md). Original regular/fullscreen renderers now supply native redraw, viewport and lifecycle state through a desktop drawing backend; see [renderer modes and terminal ownership](renderer-modes.md).
+A graphical Pi Agent workspace built with Tauri 2, React 19, Tailwind CSS 4 and the official Pi SDK. The application uses `@earendil-works/pi-coding-agent@1.2.0`; it does not contain a fork of Pi. Standard components map to desktop controls; xterm.js and a real PTY support terminal-dependent extensions. Resource reload and session changes retain the original shared TUI, default editor/history and direct registrations; see [the lifecycle contract](runtime-lifecycle.md). Original regular/fullscreen renderers now supply native redraw, viewport and lifecycle state through a desktop drawing backend; see [renderer modes and terminal ownership](renderer-modes.md).
+
+See [the Pi 1.2.0 upgrade](pi-1.2.0-upgrade.md) for configuration migration,
+recorded tool durations, native MCP sign-in and desktop program status.
 
 Native cache-warming/cache-miss, summary billing and dropped-thinking notices use Pi's original policies and components; see [the notice contract](conversation-notices.md). The pinned SDK integration is complete within [the agreed acceptance scope](sdk-acceptance.md); evidence and explicit compatibility boundaries are in [the completion review](sdk-completion-review.md).
 
@@ -199,4 +202,6 @@ Integration tests use the real Pi SDK with an isolated agent directory and a loc
 
 Real provider OAuth accounts, paid model requests, external MCP services and third-party packages need validation against their actual services. Their controls are implemented, but they are not claimed as tested against every provider or extension.
 
-`npm audit` currently reports an inherited high-severity denial-of-service advisory in `brace-expansion@5.0.9`, bundled inside Pi SDK 1.0.0. Root npm overrides and `npm audit fix` do not replace that bundled copy. The application does not patch Pi's installed source. This remains an upstream dependency issue to resolve before a public release.
+Pi 1.2.0 removes the older bundled dependency tree. The production runtime install
+on 2026-10-14 reported zero vulnerabilities; the desktop retains its
+`brace-expansion` override and does not patch Pi's installed source.

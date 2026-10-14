@@ -43,7 +43,7 @@ export function TranscriptLayout({
       element.style.right = `${scrollbar}px`;
       const widths: Record<string, number> = {};
       for (const sample of samples) {
-        const body = sample.parentElement!;
+        const body = sample.closest<HTMLElement>(".transcript-markdown-body")!;
         // A zero-height child reports the browser's used content width, including
         // subpixel padding rounding, rather than subtracting computed CSS values.
         const available = body
@@ -153,23 +153,44 @@ export function TranscriptLayout({
       <div className="transcript-inner">
         <div className="message message-user">
           <div className="message-body transcript-user-measure">
-            <div className="markdown transcript-markdown-body">
+            <div className="markdown desktop-markdown transcript-markdown-body">
               <span className="transcript-content-width" />
-              <span data-transcript-measure="user">{"0".repeat(32)}</span>
+              <p>
+                <span
+                  className="desktop-markdown-inline-code"
+                  data-transcript-measure="user"
+                >
+                  {"0".repeat(10)}
+                </span>
+              </p>
             </div>
           </div>
         </div>
         <div className="message">
           <div className="message-avatar" />
           <div className="message-body">
-            <div className="markdown transcript-markdown-body">
+            <div className="markdown desktop-markdown transcript-markdown-body">
               <span className="transcript-content-width" />
-              <span data-transcript-measure="text">{"0".repeat(32)}</span>
+              <p>
+                <span
+                  className="desktop-markdown-inline-code"
+                  data-transcript-measure="text"
+                >
+                  {"0".repeat(10)}
+                </span>
+              </p>
             </div>
             <div className="thinking-block">
-              <div className="transcript-markdown-body">
+              <div className="desktop-markdown transcript-markdown-body">
                 <span className="transcript-content-width" />
-                <span data-transcript-measure="thinking">{"0".repeat(32)}</span>
+                <p>
+                  <span
+                    className="desktop-markdown-inline-code"
+                    data-transcript-measure="thinking"
+                  >
+                    {"0".repeat(10)}
+                  </span>
+                </p>
               </div>
             </div>
           </div>

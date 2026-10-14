@@ -26,6 +26,7 @@ test("desktop SDK workflows and editable settings", async ({ page }) => {
   await expect(
     page.getByText("SDK desktop tool verified.", { exact: true }),
   ).toBeVisible();
+  await page.locator(".process-group > summary").first().click();
   await expect(
     page.locator('.tool-execution[data-tool-state="success"]').first(),
   ).toBeVisible();
@@ -36,11 +37,12 @@ test("desktop SDK workflows and editable settings", async ({ page }) => {
   await page
     .getByRole("textbox", { name: "消息", exact: true })
     .fill("first-session-draft");
+  const saved = await sdkAction<DesktopSnapshot>(page, "snapshot");
   await page.getByRole("button", { name: "新建会话", exact: true }).click();
   await expect(
     page.getByRole("textbox", { name: "消息", exact: true }),
   ).toHaveValue("");
-  await page.getByRole("button", { name: /run-tool Attached file/ }).click();
+  await page.locator(`[data-session-id="${saved.sessionId}"] button`).first().click();
   await expect(
     page.getByRole("textbox", { name: "消息", exact: true }),
   ).toHaveValue("first-session-draft");

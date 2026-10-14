@@ -11,17 +11,19 @@ const { ManagedTools, loadManagedTools } =
 const api = await loadManagedTools();
 const sdk = await import("@earendil-works/pi-coding-agent");
 const bin = join(process.env.PI_CODING_AGENT_DIR, "bin");
+const binary = tool => tool + (process.platform === "win32" ? ".exe" : "");
+const archive = tool => `${tool}.${process.platform === "win32" ? "zip" : "tar.gz"}`;
 await mkdir(bin, { recursive: true });
 if (mode === "preinstalled")
   for (const tool of ["fd", "rg"])
-    await cp(join(assets, `${tool}.exe`), join(bin, `${tool}.exe`));
+    await cp(join(assets, binary(tool)), join(bin, binary(tool)));
 assert.equal(
   api.getToolPath("fd"),
-  mode === "preinstalled" ? join(bin, "fd.exe") : null,
+  mode === "preinstalled" ? join(bin, binary("fd")) : null,
 );
 assert.equal(
   api.getToolPath("rg"),
-  mode === "preinstalled" ? join(bin, "rg.exe") : null,
+  mode === "preinstalled" ? join(bin, binary("rg")) : null,
 );
 const requests = [];
 let failed = mode === "failure-retry";
@@ -48,7 +50,7 @@ const server = createServer(async (req, res) => {
     await held;
   }
   res.writeHead(200, { "Content-Type": "application/zip" });
-  res.end(await readFile(join(assets, `${tool}.zip`)));
+  res.end(await readFile(join(assets, archive(tool))));
 });
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const originalFetch = globalThis.fetch;
@@ -109,8 +111,8 @@ try {
     }
     if (mode !== "offline") {
       assert.deepEqual(result, {
-        fd: join(bin, "fd.exe"),
-        rg: join(bin, "rg.exe"),
+        fd: join(bin, binary("fd")),
+        rg: join(bin, binary("rg")),
       });
       for (const tool of ["fd", "rg"])
         assert.ok(
@@ -146,7 +148,7 @@ try {
       await host.initialize(fixture.cwd);
       assert.equal(
         host.managedTools.fdPath,
-        mode === "download" ? join(bin, "fd.exe") : undefined,
+        mode === "download" ? join(bin, binary("fd")) : undefined,
       );
       if (mode === "offline") {
         const app = host.desktopUI.terminalRuntime.capture().application;

@@ -7,6 +7,141 @@ import { DesktopHost } from "../backend/host.ts";
 import { createFixture } from "./fixture.ts";
 import type { DesktopEvent } from "../shared/types.ts";
 import { createMcpOAuthFixture } from "./mcp-oauth-fixture.ts";
+import { mcpSignInInput } from "./mcp-ui.ts";
+import { authCopyKeys } from "../backend/auth-copy.ts";
+import { loadComponentRuntime } from "../backend/component-runtime.ts";
+
+for (const bindings of [
+  {},
+  { "app.message.copy": ["f2", "ctrl++"] },
+  { "app.message.copy": [] },
+])
+  test(`provider URL copy follows native bindings and authorization lifetime: ${JSON.stringify(bindings)}`, async () => {
+    const fixture = await createFixture();
+    const copied: string[] = [];
+    const host = new DesktopHost(fixture.agentDir, {
+      clipboard: {
+        getText: async () => null,
+        getImage: async () => null,
+        setText: async (text) => {
+          copied.push(text);
+        },
+      },
+    });
+    const urls: Extract<DesktopEvent, { type: "auth_url" }>[] = [];
+    host.on("event", (event) => {
+      if (event.type === "auth_url") urls.push(event);
+    });
+    let pending: Promise<unknown> | undefined;
+    try {
+      await writeFile(
+        join(fixture.agentDir, "keybindings.json"),
+        JSON.stringify(bindings),
+      );
+      await host.initialize(fixture.cwd);
+      await host.action({
+        action: "sdk.run",
+        args: {
+          path: join(fixture.agentDir, "desktop", "auth-provider.mjs"),
+          args: { operation: "install", scenario: "copy-url" },
+        },
+      });
+      pending = host
+        .action({
+          action: "auth.login",
+          args: { provider: "desktop-auth-test" },
+        })
+        .catch((e) => e);
+      await until(() => urls.length === 1 && host.pendingDialogs.length === 1);
+      const url = urls[0];
+      const runtime = await loadComponentRuntime();
+      const keys = runtime.keys.KeybindingsManager.create(fixture.agentDir);
+      assert.deepEqual(url.copyKeys, authCopyKeys(keys));
+      if (!Object.hasOwn(bindings, "app.message.copy"))
+        assert.ok(url.copyKeys?.includes("ctrl+x"));
+      if (bindings["app.message.copy"]?.includes("ctrl++"))
+        assert.ok(url.copyKeys?.includes("ctrl+shift++"));
+      assert.deepEqual(
+        await host.action({ action: "auth.copy", args: { id: "retired" } }),
+        { copied: false },
+      );
+      assert.deepEqual(
+        await host.action({
+          action: "auth.copy",
+          args: {
+            id: url.id,
+            event: { key: "x", ctrlKey: true, type: "release" },
+          },
+        }),
+        { copied: false },
+      );
+      assert.deepEqual(
+        await host.action({
+          action: "auth.copy",
+          args: { id: url.id, event: { key: "F3" } },
+        }),
+        { copied: false },
+      );
+      assert.equal(copied.length, 0);
+      assert.deepEqual(
+        await host.action({ action: "auth.copy", args: { id: url.id } }),
+        { copied: true },
+      );
+      for (const event of [
+        { key: "x", ctrlKey: true },
+        { key: "F2" },
+        { key: "+", ctrlKey: true, shiftKey: true },
+      ]) {
+        const key =
+          "key" in event && event.key === "x"
+            ? "ctrl+x"
+            : event.key === "F2"
+              ? "f2"
+              : "ctrl+shift++";
+        const expected = url.copyKeys!.includes(key);
+        assert.deepEqual(
+          await host.action({
+            action: "auth.copy",
+            args: { id: url.id, event },
+          }),
+          { copied: expected },
+        );
+      }
+      assert.ok(copied.every((text) => text === url.url));
+      host.answer(host.pendingDialogs[0].id, "fixture callback");
+      assert.ok(!((await pending) instanceof Error));
+      assert.deepEqual(
+        await host.action({ action: "auth.copy", args: { id: url.id } }),
+        { copied: false },
+      );
+      await host.action({
+        action: "auth.logout",
+        args: { provider: "desktop-auth-test" },
+      });
+      pending = host
+        .action({
+          action: "auth.login",
+          args: { provider: "desktop-auth-test" },
+        })
+        .catch((e) => e);
+      await until(() => urls.length === 2 && host.pendingDialogs.length === 1);
+      assert.notEqual(urls[1].id, url.id);
+      assert.deepEqual(
+        await host.action({ action: "auth.copy", args: { id: url.id } }),
+        { copied: false },
+      );
+      await host.action({ action: "auth.cancel", args: { id: urls[1].id } });
+      assert.deepEqual(
+        await host.action({ action: "auth.copy", args: { id: urls[1].id } }),
+        { copied: false },
+      );
+      await pending;
+    } finally {
+      await host.dispose();
+      await pending;
+      await fixture.close();
+    }
+  });
 
 async function until(check: () => boolean) {
   const deadline = Date.now() + 10_000;
@@ -15,6 +150,60 @@ async function until(check: () => boolean) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 }
+
+test("provider authorization copies without initializing a workspace", async () => {
+  const fixture = await createFixture();
+  const copied: string[] = [];
+  const host = new DesktopHost(fixture.agentDir, {
+    clipboard: {
+      getText: async () => null,
+      getImage: async () => null,
+      setText: async (value) => {
+        copied.push(value);
+      },
+    },
+  });
+  let pending: Promise<unknown> | undefined;
+  let url: Extract<DesktopEvent, { type: "auth_url" }> | undefined;
+  host.on("event", (event) => {
+    if (event.type === "auth_url") url = event;
+  });
+  try {
+    await host.action({ action: "settings.snapshot" });
+    const global = Reflect.get(host, "globalSettings");
+    const modelRuntime = await Reflect.get(global, "modelRuntime").call(global);
+    const probe = await import(
+      pathToFileURL(join(fixture.agentDir, "desktop", "auth-provider.mjs")).href
+    );
+    probe.default(
+      { session: { modelRuntime } },
+      { operation: "install", scenario: "copy-url" },
+    );
+    pending = host
+      .action({ action: "auth.login", args: { provider: "desktop-auth-test" } })
+      .catch((error) => error);
+    await until(() => !!url && host.pendingDialogs.length === 1);
+    assert.deepEqual(
+      await host.action({
+        action: "auth.copy",
+        args: { id: url!.id, event: { key: "x", ctrlKey: true } },
+      }),
+      { copied: true },
+    );
+    assert.deepEqual(copied, [url!.url]);
+    assert.equal(host.runtime, undefined);
+    await host.action({ action: "auth.cancel", args: { id: url!.id } });
+    await pending;
+    assert.deepEqual(
+      await host.action({ action: "auth.copy", args: { id: url!.id } }),
+      { copied: false },
+    );
+  } finally {
+    await host.dispose();
+    await pending;
+    await fixture.close();
+  }
+});
 
 for (const operation of [
   "complete-provider",
@@ -29,6 +218,8 @@ for (const operation of [
     host.on("event", (event) => events.push(event));
     let providerLogin: Promise<unknown> | undefined;
     let mcpLogin: Promise<unknown> | undefined;
+    const prompts = () =>
+      host.pendingDialogs.length + Number(!!mcpSignInInput(host));
     try {
       await writeFile(
         join(fixture.agentDir, "mcp.json"),
@@ -59,7 +250,7 @@ for (const operation of [
       await until(
         () =>
           events.filter((event) => event.type === "auth_url").length === 2 &&
-          host.pendingDialogs.length === 2,
+          prompts() === 2,
       );
       const authorizations = events.filter(
         (event) => event.type === "auth_url",
@@ -76,14 +267,14 @@ for (const operation of [
         if (operation === "cancel-provider")
           assert.ok((await providerLogin) instanceof Error);
         else await mcpLogin;
-        assert.equal(host.pendingDialogs.length, 1);
+        assert.equal(prompts(), 1);
         assert.equal(
-          host.pendingDialogs[0].title === "Fixture account",
+          host.pendingDialogs[0]?.title === "Fixture account",
           operation === "cancel-mcp",
         );
         await host.action({ action: "auth.cancel", args: { id } });
         assert.equal(
-          host.pendingDialogs.length,
+          prompts(),
           1,
           "A stale cancel must not affect the other authorization",
         );
@@ -104,7 +295,7 @@ for (const operation of [
         );
       }
       assert.ok(!((await providerLogin) instanceof Error));
-      assert.equal(host.pendingDialogs.length, 1);
+      assert.equal(prompts(), 1);
       const completions = events.filter(
         (event) => event.type === "activity" && event.name === "auth_complete",
       );

@@ -27,7 +27,7 @@ export async function desktopMcpOptions(
   openUrl: NonNullable<McpOptions["openUrl"]>,
   captureCompletion?: () => () => void,
 ): Promise<McpOptions> {
-  if (VERSION !== "1.0.0")
+  if (VERSION !== "1.2.0")
     throw new Error(
       `Pi ${VERSION}: MCP directory binding requires a compatibility update`,
     );
@@ -59,7 +59,7 @@ export async function desktopMcpOptions(
         },
         save: async (state: Parameters<typeof store.save>[0]) => {
           const complete = captureCompletion?.();
-          // Pi 1.0.0 preserves the loaded token object in metadata updates and
+          // Pi 1.2.0 preserves the loaded token object in metadata updates and
           // replaces it in saveTokens(), even when a grant repeats its values.
           // Observe that replacement without changing stored state or Pi code.
           const issuedTokens = state.tokens && !loadedTokens.has(state.tokens);

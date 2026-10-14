@@ -32,8 +32,7 @@ test("folder selection browses outside cwd and only creates a named child", asyn
       "..",
       "bad/name",
       "C:\\outside",
-      "CON",
-      "bad.",
+      ...(process.platform === "win32" ? ["CON", "bad."] : []),
     ])
       await assert.rejects(createDirectory(root, invalid));
     await assert.rejects(browseDirectories(join(root, "file.txt")), /文件夹/);

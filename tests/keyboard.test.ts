@@ -13,3 +13,18 @@ test("desktop function keys are recognized by the installed Pi parser", async ()
     assert.equal(api.parseKey(data), key.toLowerCase());
   }
 });
+test("desktop shifted symbols retain Pi's logical and physical key matches", async () => {
+  const api = await loadTuiApi();
+  for (const phase of [undefined, "release"] as const) {
+    const symbol = encodeDesktopKey({
+      key: "+",
+      ctrlKey: true,
+      shiftKey: true,
+      type: phase,
+    });
+    assert.ok(symbol);
+    assert.equal(api.matchesKey(symbol, "ctrl++"), true);
+    assert.equal(api.matchesKey(symbol, "ctrl+shift++"), true);
+    assert.equal(api.matchesKey(symbol, "ctrl+x"), false);
+  }
+});

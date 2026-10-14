@@ -31,6 +31,12 @@ const names: Record<string, string> = {
   Insert: "insert",
   " ": "space",
 };
+// Kitty reports the logical symbol separately from the physical key when Shift is held.
+const shiftedSymbols = new Set("~!@#$%^&*()_+|{}:<>?");
+const kittyCode = (code: number, event: DesktopKeyEvent) =>
+  event.shiftKey && shiftedSymbols.has(event.key)
+    ? `${code}:${event.key.codePointAt(0)}`
+    : String(code);
 export function desktopKeyFromId(
   id: string | undefined,
 ): DesktopKeyEvent | undefined {
@@ -138,7 +144,9 @@ export function encodeDesktopKey(event: DesktopKeyEvent): string | undefined {
             : event.key
           ).codePointAt(0)
         : undefined);
-    return code === undefined ? undefined : `\x1b[${code};${phase}u`;
+    return code === undefined
+      ? undefined
+      : `\x1b[${kittyCode(code, event)};${phase}u`;
   }
   const plain: Record<string, string> = {
     Enter: "\r",
@@ -193,5 +201,7 @@ export function encodeDesktopKey(event: DesktopKeyEvent): string | undefined {
     (Array.from(event.key).length === 1
       ? event.key.toLowerCase().codePointAt(0)
       : undefined);
-  return code === undefined ? undefined : `\x1b[${code};${modifier}u`;
+  return code === undefined
+    ? undefined
+    : `\x1b[${kittyCode(code, event)};${modifier}u`;
 }

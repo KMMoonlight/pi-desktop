@@ -1,6 +1,6 @@
 {
   "name": "pi-agent-desktop",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "type": "module",
   "scripts": {
@@ -21,7 +21,7 @@
     "audit:sdk": "node scripts/audit-sdk.mjs"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "1.0.0",
+    "@earendil-works/pi-coding-agent": "1.2.0",
     "@tauri-apps/api": "2.12.1",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-opener": "^2.5.0",

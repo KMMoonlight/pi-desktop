@@ -49,6 +49,7 @@ function physical(geometry = { columns: 80, rows: 20 }) {
     clearScreen: () => writes.push("\x1b[2J\x1b[H"),
     setTitle: (s) => lifecycle.push(`title:${s}`),
     setProgress: (s) => lifecycle.push(`progress:${s}`),
+    setProgramStatus: (s) => lifecycle.push(`program:${s.state}`),
   };
   return { terminal, writes, lifecycle, geometry };
 }

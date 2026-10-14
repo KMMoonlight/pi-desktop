@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -18,7 +19,7 @@ export default async function (
       settings = session.settingsManager;
     state = {
       originalCwd: host.runtime.cwd,
-      workspace: join(host.runtime.cwd, "startup-content-workspace"),
+      workspace: join(host.runtime.cwd, `startup-content-workspace-${randomUUID()}`),
       previous: {
         version: settings.getLastChangelogVersion(),
         collapse: settings.getCollapseChangelog(),
@@ -103,7 +104,7 @@ export default async function (
     state: startup.snapshot(),
     classes: state.rows.map((component) => component.constructor.name),
     fullClasses: state.fullClasses,
-    fullHasPinnedLinks: state.fullText?.includes("/v1.0.0/"),
+    fullHasPinnedLinks: state.fullText?.includes("/v1.2.0/"),
     rendered: state.container?.render(60).join("\n"),
     userMessages: host.session.messages
       .filter((message) => message.role === "user")
