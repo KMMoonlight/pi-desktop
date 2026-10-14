@@ -20,7 +20,9 @@ import {
   type TranscriptRow,
   type ReplyRow,
   type ReplyGroup,
+  type TranscriptTurn,
 } from "./transcript-turns";
+import { TranscriptNavigation } from "./TranscriptNavigation";
 import { ImagePreview } from "./ImagePreview";
 import { MarkdownImage } from "./MarkdownImage";
 import ReactMarkdown, {
@@ -818,6 +820,7 @@ function MessagesView({
   const scrollSize = useRef({ height: 0, viewport: 0, top: 0 });
   const [away, setAway] = useState(false);
   const [expandedHistory, setExpandedHistory] = useState<string>();
+  const [navigation, setNavigation] = useState<{ sessionId: string; turnId: string }>();
   const resumeFollowing = useCallback(() => {
     follow.current = true;
     setAway(false);
@@ -836,6 +839,7 @@ function MessagesView({
     .filter(message => message.role === "user")
     .at(-1)?.id;
   useLayoutEffect(() => {
+    setNavigation(undefined);
     resumeFollowing();
   }, [sessionId, latestUserId, resumeFollowing]);
   const toolEntries = {
@@ -906,7 +910,7 @@ function MessagesView({
       name: tool.name,
       arguments: tool.arguments,
     });
-  const turns: { id: string; rows: typeof rows }[] = [];
+  const turns: TranscriptTurn[] = [];
   for (const row of rows) {
     if (
       !turns.length ||
@@ -918,6 +922,15 @@ function MessagesView({
       });
     turns[turns.length - 1].rows.push(row);
   }
+  useLayoutEffect(() => {
+    if (!navigation || navigation.sessionId !== sessionId || !scroller.current) return;
+    const element = scroller.current;
+    const target = [...element.querySelectorAll<HTMLElement>("[data-turn-id]")]
+      .find(turn => turn.dataset.turnId === navigation.turnId);
+    if (!target) return;
+    element.scrollTop += target.getBoundingClientRect().top - element.getBoundingClientRect().top - 24;
+    scrollSize.current = { height: element.scrollHeight, viewport: element.clientHeight, top: element.scrollTop };
+  }, [navigation, sessionId]);
   useLayoutEffect(() => {
     const element = scroller.current;
     if (!element) return;
@@ -1058,7 +1071,9 @@ function MessagesView({
           )}
           {turns.map((turn, index) => (
             <HistoryTurn key={`${sessionId}:${turn.id}`}
+              id={turn.id}
               eager={messages.length <= 100 || index >= turns.length - 3 || expandedHistory === sessionId ||
+                (navigation?.sessionId === sessionId && navigation.turnId === turn.id) ||
                 turn.rows.some(row => row.kind === "tool"
                   ? interactiveTools.has(row.call.id ?? "")
                   : row.kind === "message" && [row.message.desktopSurfaceId,
@@ -1104,6 +1119,12 @@ function MessagesView({
           )}
         </div>
       </div>
+      <TranscriptNavigation key={sessionId} turns={turns} scroller={scroller}
+        onNavigate={turnId => {
+          follow.current = false;
+          setAway(true);
+          setNavigation({ sessionId, turnId });
+        }} />
       {away && (
         <div className="scroll-bottom">
           <IconButton
@@ -1119,11 +1140,12 @@ function MessagesView({
 
 /** Mount passive history when it approaches the scroll viewport. Once visited,
  * retain it so selection, expanded output and extension state are not lost. */
-function HistoryTurn({ eager, render }: { eager: boolean; render: () => ReactNode }) {
+function HistoryTurn({ id, eager, render }: { id: string; eager: boolean; render: () => ReactNode }) {
   const element = useRef<HTMLElement>(null);
   const [visited, setVisited] = useState(eager);
   const visible = eager || visited;
   useEffect(() => {
+    if (eager && !visited) { setVisited(true); return; }
     if (visible || !element.current) return;
     if (typeof IntersectionObserver === "undefined") { setVisited(true); return; }
     const observer = new IntersectionObserver(entries => {
@@ -1134,8 +1156,9 @@ function HistoryTurn({ eager, render }: { eager: boolean; render: () => ReactNod
     }, { root: element.current.closest(".transcript"), rootMargin: "600px" });
     observer.observe(element.current);
     return () => observer.disconnect();
-  }, [visible]);
+  }, [eager, visible, visited]);
   return <section ref={element} className="conversation-turn"
+    data-turn-id={id}
     style={visible ? undefined : { minHeight: 600 }}
     aria-busy={!visible}>
     {visible ? render() : null}

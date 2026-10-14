@@ -10,6 +10,7 @@
 @import "./interaction-repairs.css" layer(components);
 @import "./design-system.css" layer(components);
 @import "./edit-review.css" layer(components);
+@import "./transcript-navigation.css" layer(components);
 
 @source "./**/*.{ts,tsx}";
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

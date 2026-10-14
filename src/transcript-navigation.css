@@ -1,0 +1,107 @@
+.transcript-navigation {
+  position: absolute;
+  z-index: 10;
+  inset: 24px auto 24px 6px;
+  width: 32px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.transcript-navigation-list {
+  position: relative;
+  width: 100%;
+  max-height: min(100%, 320px);
+  padding-block: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.transcript-navigation-list::-webkit-scrollbar {
+  display: none;
+}
+.transcript-navigation-tick {
+  display: flex;
+  align-items: center;
+  width: 32px;
+  height: 12px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+}
+.transcript-navigation-tick > span {
+  height: 2px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ui-muted) 38%, transparent);
+  transition:
+    width 0.15s,
+    background 0.15s;
+}
+.transcript-navigation-tick[aria-current] > span {
+  background: var(--ui-secondary);
+}
+.transcript-navigation-tick:is(:hover, :focus-visible) > span {
+  background: var(--ui-ink);
+}
+.transcript-navigation-tick:focus-visible {
+  outline-offset: -2px;
+}
+.chat-view:has(.transcript-navigation) .transcript-inner {
+  width: min(calc(100% - 80px), var(--chat-measure));
+}
+.transcript-preview {
+  position: fixed;
+  z-index: 1000;
+  width: min(340px, calc(100vw - 24px));
+  padding: 12px 14px;
+  border: 1px solid var(--ui-line);
+  border-radius: 12px;
+  background: var(--ui-input);
+  color: var(--ui-ink);
+  box-shadow:
+    var(--ui-shadow),
+    0 8px 24px rgb(0 0 0 / 8%);
+  font-family: var(--ui-font);
+  font-size: 13px;
+  line-height: 21px;
+}
+.transcript-preview-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.transcript-preview-heading > strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.transcript-preview-heading > svg {
+  flex-shrink: 0;
+  color: var(--ui-muted);
+}
+.transcript-preview-body {
+  max-height: min(132px, calc(100dvh - 100px));
+  margin-top: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  color: var(--ui-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.transcript-preview-body > p + p {
+  margin-top: 8px;
+}
+.transcript-preview-prompt {
+  color: var(--ui-secondary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .transcript-navigation-tick > span {
+    transition: none;
+  }
+}

@@ -19,6 +19,40 @@ export type TranscriptRow =
   | ToolRow;
 export type ReplyRow = Exclude<TranscriptRow, { kind: "notice" }>;
 export type ReplyGroup = { kind: "reply"; id: string; rows: ReplyRow[] };
+export type TranscriptTurn = { id: string; rows: TranscriptRow[] };
+
+/** Preview conversation content without exposing hidden reasoning or tool output. */
+export function transcriptTurnPreview(turn: TranscriptTurn) {
+  const messages = turn.rows.flatMap((row) =>
+    row.kind === "message" ? [row.message] : [],
+  );
+  const text = (message: ChatMessage) =>
+    message.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text ?? "")
+      .join("\n\n")
+      .trim();
+  const user = messages.find((message) => message.role === "user");
+  const replies = messages.filter((message) => message.role === "assistant");
+  return {
+    id: turn.id,
+    prompt: user ? text(user) : "",
+    reply: replies
+      .flatMap((message) => [
+        text(message),
+        message.completionNotice?.text ?? "",
+      ])
+      .filter(Boolean)
+      .join("\n\n"),
+    images: user?.content.filter((block) => block.type === "image").length ?? 0,
+    replyImages: replies.reduce(
+      (count, message) =>
+        count +
+        message.content.filter((block) => block.type === "image").length,
+      0,
+    ),
+  };
+}
 
 /** Keep SDK records intact while presenting a tool loop as one assistant reply. */
 export function groupTranscriptRows(
