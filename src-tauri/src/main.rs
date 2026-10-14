@@ -1,4 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod tray;
+
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
@@ -375,10 +377,51 @@ fn authenticate_channel(mut stream: TcpStream, token: &str) -> std::io::Result<O
 }
 #[tauri::command]
 fn updater_configured(app: tauri::AppHandle) -> bool {
-    app.config().plugins.0.get("updater")
+    app.config()
+        .plugins
+        .0
+        .get("updater")
         .and_then(|config| config.get("pubkey"))
         .and_then(|key| key.as_str())
         .is_some_and(|key| !key.trim().is_empty())
+}
+
+fn request_shutdown(app: &tauri::AppHandle) {
+    let backend = app.state::<Backend>();
+    if backend.shutdown_requested.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let backend = handle.state::<Backend>();
+        let request = {
+            let mut stdin = backend.stdin.lock().unwrap();
+            writeln!(stdin, "{}", json!({"id":"shutdown", "action":"shutdown"}))
+                .and_then(|_| stdin.flush())
+        };
+        let code = {
+            let mut child = backend.child.lock().unwrap();
+            if request.is_err() {
+                // The backend cannot accept cleanup when its input
+                // pipe is broken. Do not leave that child orphaned.
+                let _ = child.kill();
+                let _ = child.wait();
+                1
+            } else {
+                child
+                    .wait()
+                    .ok()
+                    .and_then(|status| status.code())
+                    .unwrap_or(1)
+            }
+        };
+        handle.exit(code);
+    });
+}
+
+#[tauri::command]
+fn quit_desktop(app: tauri::AppHandle) {
+    request_shutdown(&app);
 }
 
 fn main() {
@@ -388,11 +431,18 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            tray::setup(app)?;
             let backend = launch(app.handle())?;
             app.manage(backend);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![sdk_action, open_external_protocol, updater_configured])
+        .on_window_event(tray::on_window_event)
+        .invoke_handler(tauri::generate_handler![
+            sdk_action,
+            open_external_protocol,
+            updater_configured,
+            quit_desktop
+        ])
         .build(tauri::generate_context!())
         .expect("Failed to start Pi Desktop");
     app.run(|app, event| {
@@ -401,35 +451,11 @@ fn main() {
         } = &event
         {
             api.prevent_exit();
-            let backend = app.state::<Backend>();
-            if !backend.shutdown_requested.swap(true, Ordering::SeqCst) {
-                let handle = app.clone();
-                std::thread::spawn(move || {
-                    let backend = handle.state::<Backend>();
-                    let request = {
-                        let mut stdin = backend.stdin.lock().unwrap();
-                        writeln!(stdin, "{}", json!({"id":"shutdown", "action":"shutdown"}))
-                            .and_then(|_| stdin.flush())
-                    };
-                    let code = {
-                        let mut child = backend.child.lock().unwrap();
-                        if request.is_err() {
-                            // The backend cannot accept cleanup when its input
-                            // pipe is broken. Do not leave that child orphaned.
-                            let _ = child.kill();
-                            let _ = child.wait();
-                            1
-                        } else {
-                            child
-                                .wait()
-                                .ok()
-                                .and_then(|status| status.code())
-                                .unwrap_or(1)
-                        }
-                    };
-                    handle.exit(code);
-                });
-            }
+            request_shutdown(app);
+        }
+        #[cfg(target_os = "macos")]
+        if let tauri::RunEvent::Reopen { .. } = &event {
+            tray::restore_window(app);
         }
         if let tauri::RunEvent::Exit = event {
             let backend = app.state::<Backend>();

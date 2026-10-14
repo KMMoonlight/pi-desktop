@@ -120,7 +120,7 @@ export async function external(url: string) {
   else window.open(destination, "_blank", "noopener,noreferrer");
 }
 export async function closeDesktop() {
-  if (isTauri()) await getCurrentWindow().close();
+  if (isTauri()) await invoke("quit_desktop");
 }
 
 let windowStateQueue = Promise.resolve();

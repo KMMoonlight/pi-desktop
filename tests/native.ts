@@ -256,12 +256,13 @@ export default () => writeFileSync(${JSON.stringify(startupTrustMarker)}, "loade
 const shutdownMarker = join(fixture.root, "native-shutdown.txt");
 const shutdownFromTransport = process.argv.includes("--sdk-shutdown-overlap");
 const shutdownFromWindow = process.argv.includes("--sdk-shutdown-window");
+const testTray = process.argv.includes("--tray");
 const testShutdown =
   process.argv.includes("--sdk-shutdown") ||
   process.argv.includes("--sdk-drain") ||
   shutdownFromTransport ||
   shutdownFromWindow;
-if (testShutdown)
+if (testShutdown || testTray)
   await writeFile(
     join(fixture.agentDir, "extensions", "shutdown-probe.ts"),
     `
@@ -365,6 +366,7 @@ const child = spawn(executable, [], {
       process.argv.includes("--terminal-transition") ||
       process.argv.includes("--terminal-effects") ||
       testShutdown ||
+      testTray ||
       process.argv.includes("--links") ||
       process.argv.includes("--file-links") ||
       process.argv.includes("--file-association") ||
@@ -447,7 +449,7 @@ try {
               };
             }
           ).__TAURI_INTERNALS__;
-          await api.invoke("plugin:window|close", { label: "main" });
+          await api.invoke("quit_desktop", {});
         })
         .catch(() => {});
       await expect.poll(() => child.exitCode, { timeout: 15000 }).toBe(0);
@@ -492,7 +494,7 @@ try {
                 };
               }
             ).__TAURI_INTERNALS__;
-            await api.invoke("plugin:window|close", { label: "main" });
+            await api.invoke("quit_desktop", {});
           })
         : sdkAction(
             page,
@@ -558,7 +560,7 @@ try {
               };
             }
           ).__TAURI_INTERNALS__;
-          await api.invoke("plugin:window|close", { label: "main" });
+          await api.invoke("quit_desktop", {});
         })
         .catch(() => {});
     } else
@@ -586,6 +588,58 @@ try {
     page = undefined;
     console.log(
       "Native SDK shutdown awaited one session_shutdown hook and exited the desktop cleanly.",
+    );
+  } else if (testTray) {
+    const composer = page.getByRole("textbox", { name: "消息", exact: true });
+    await composer.waitFor();
+    await composer.fill("Tray keeps this unsent draft");
+    const before = await sdkAction<import("../shared/types.ts").DesktopSnapshot>(
+      page,
+      "snapshot",
+    );
+    await page.evaluate(async () => {
+      const api = (
+        window as unknown as {
+          __TAURI_INTERNALS__: {
+            invoke(command: string, args: unknown): Promise<unknown>;
+          };
+        }
+      ).__TAURI_INTERNALS__;
+      await api.invoke("plugin:window|close", { label: "main" });
+    });
+    await expect
+      .poll(() => page!.evaluate(() => {
+        const api = (
+          window as unknown as {
+            __TAURI_INTERNALS__: {
+              invoke(command: string, args: unknown): Promise<unknown>;
+            };
+          }
+        ).__TAURI_INTERNALS__;
+        return api.invoke("plugin:window|is_visible", { label: "main" });
+      }))
+      .toBe(false);
+    expect(child.exitCode).toBe(null);
+    expect(await readFile(shutdownMarker, "utf8").catch(() => "")).toBe("");
+    const after = await sdkAction<import("../shared/types.ts").DesktopSnapshot>(
+      page,
+      "snapshot",
+    );
+    expect(after.backendId).toBe(before.backendId);
+    expect(after.sessionId).toBe(before.sessionId);
+    await expect(composer).toHaveValue("Tray keeps this unsent draft");
+    await page
+      .evaluate(() => (
+        window as unknown as {
+          __TAURI_INTERNALS__: { invoke(command: string): Promise<unknown> };
+        }
+      ).__TAURI_INTERNALS__.invoke("quit_desktop"))
+      .catch(() => {});
+    await expect.poll(() => child.exitCode, { timeout: 15000 }).toBe(0);
+    expect(await readFile(shutdownMarker, "utf8")).toBe("quit\n");
+    page = undefined;
+    console.log(
+      "Native close-to-tray retained the SDK session and draft; explicit quit completed SDK cleanup.",
     );
   } else if (process.argv.includes("--project-trust")) {
     for (const mode of projectTrustModes) await verifyProjectTrust(page!, mode);
@@ -2227,7 +2281,7 @@ try {
               };
             }
           ).__TAURI_INTERNALS__;
-          await tauri.invoke("plugin:window|close", { label: "main" });
+          await tauri.invoke("quit_desktop");
         })
         .catch(() => {});
     await browser.close().catch(() => {});

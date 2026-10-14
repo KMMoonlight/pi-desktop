@@ -43,6 +43,15 @@ development uses the local Node installation and backend source, so no `runtime/
 directory or `runtime:stage` step is required. Release builds still stage and
 bundle the runtime through `beforeBuildCommand`.
 
+Closing the main window hides it to the system tray (the menu bar on macOS) while
+the WebView, SDK session and ongoing tasks remain alive. The tray's Open action
+restores and focuses the existing window; Windows also supports left click and
+double click, and macOS supports reopening from the Dock. Quit from the tray,
+the macOS application menu or the SDK editor performs the existing graceful SDK
+shutdown. Native QA `--tray` verifies hidden-window state, retained session and
+draft, and cleanup on explicit quit. `--sdk-shutdown-window` exercises the native
+quit command, since window close now keeps the application running.
+
 Starting the service does not select its working directory as a workspace.
 The app restores the last explicitly selected workspace and its last opened session,
 or shows the open-workspace screen on first launch. If no last-opened record exists,

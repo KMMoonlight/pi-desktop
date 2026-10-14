@@ -1,6 +1,6 @@
 [package]
 name = "pi-agent-desktop"
-version = "0.1.13"
+version = "0.1.14"
 description = "A graphical desktop workspace for Pi Agent"
 edition = "2021"
 
@@ -8,7 +8,7 @@ edition = "2021"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
