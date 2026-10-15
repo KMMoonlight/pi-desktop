@@ -53,7 +53,8 @@ import type {
   TranscriptMarkdown,
   ContentBlock,
 } from "../shared/types";
-import { IconButton, number } from "./ui";
+import { IconButton } from "./ui";
+import { formatDuration } from "./format-duration";
 import { CodeBlock } from "./CodeBlock";
 import { EditReview } from "./EditReview";
 import {
@@ -284,6 +285,7 @@ function ToolExecutionView({
     call.toolPresentation ??
     result?.toolPresentation ??
     active?.toolPresentation;
+  const duration = formatDuration(presentation?.durationMs);
   const self =
     (presentation?.shell ??
       call.toolRenderShell ??
@@ -345,8 +347,8 @@ function ToolExecutionView({
               className={`tool-chevron${toolExpanded ? " is-expanded" : ""}`}
             />
           </button>
-          {presentation?.durationMs !== undefined && Number.isFinite(presentation.durationMs) && (
-            <span className="tool-duration">{t("用时 {value1} 秒", { value1: number(presentation.durationMs / 1000) })}</span>
+          {duration !== undefined && (
+            <span className="tool-duration">{duration}</span>
           )}
           <span className={`tool-state-label ${state}`}>
             {state === "pending" ? (

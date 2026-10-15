@@ -1,6 +1,7 @@
 import { t, useLocale } from "./i18n";
 import type { ChatMessage } from "../shared/types";
 import { number } from "./ui";
+import { formatDuration } from "./format-duration";
 
 const tokenNumber = new Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -46,11 +47,12 @@ export function GenerationStatus({
   const estimatedRate = message.generation?.estimatedTokensPerSecond;
   const rate = reportedRate ?? estimatedRate;
   const estimated = reportedRate === undefined && estimatedRate !== undefined;
-  const elapsed =
-    message.generation?.elapsedMs ?? message.generation?.durationMs;
+  const elapsed = formatDuration(
+    message.generation?.elapsedMs ?? message.generation?.durationMs,
+  );
   const hasOutput =
     output !== undefined && output > 0 && Number.isFinite(output);
-  const hasElapsed = elapsed !== undefined && Number.isFinite(elapsed);
+  const hasElapsed = elapsed !== undefined;
   if (
     compact
       ? rate === undefined || !Number.isFinite(rate)
@@ -70,7 +72,7 @@ export function GenerationStatus({
         <span>{estimated ? "≈ " : ""}{number(rate)} tok/s</span>
       )}
       {!compact && hasElapsed && (
-        <span>{t("用时 {value1} 秒", { value1: number(elapsed / 1000) })}</span>
+        <span>{elapsed}</span>
       )}
       {!compact && hasOutput && <span>{number(output)} tokens</span>}
     </span>

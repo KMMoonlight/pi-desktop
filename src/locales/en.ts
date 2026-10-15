@@ -53,6 +53,8 @@ export const english = {
   "估算输出速率": "Estimated output rate",
   "输出用量与耗时": "Output usage and elapsed time",
   "用时 {value1} 秒": "Elapsed {value1}s",
+  "用时 {value1} 毫秒": "Elapsed {value1}ms",
+  "用时 <1 毫秒": "Elapsed <1ms",
   "放大查看 {value1}": "Enlarge {value1}",
   "图片预览": "Image preview",
   "关闭图片预览": "Close image preview",

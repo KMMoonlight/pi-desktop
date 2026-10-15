@@ -320,7 +320,7 @@ body {
   border-color: color-mix(in srgb, var(--ui-action) 45%, var(--ui-line));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-action) 7%, transparent);
 }
-.composer > textarea {
+.composer > .composer-input > textarea {
   height: 112px;
   min-height: 90px;
   padding: 19px 20px 12px;

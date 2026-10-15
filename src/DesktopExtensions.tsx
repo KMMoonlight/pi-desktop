@@ -1069,7 +1069,16 @@ function TextControl({
         >
           <NodeLabel node={node} />
         </span>
-        <div className="desktop-control-input">
+        <div
+          className={`desktop-control-input${node.appearance === "composer" ? " composer-input" : ""}`}
+          style={
+            node.appearance === "composer" && node.paddingX !== undefined
+              ? {
+                  "--composer-padding-inline": `min(${node.paddingX}ch, max(0px, calc(50% - 0.5ch)))`,
+                } as CSSProperties
+              : undefined
+          }
+        >
           {node.kind === "textarea" ? (
             <textarea
               ref={(element) => {
@@ -1136,6 +1145,9 @@ function TextControl({
               disabled={node.disabled}
               onChange={(event) => changed(event.target.value)}
             />
+          )}
+          {node.appearance === "composer" && (
+            <span className="composer-empty-caret" aria-hidden="true" />
           )}
           {richPlaceholder && !value && (
             <span className="desktop-rich-placeholder">

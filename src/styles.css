@@ -852,7 +852,7 @@ button.session-row {
   border-color: #77b19e;
   box-shadow: 0 0 0 2px #1583670a;
 }
-.composer > textarea {
+.composer > .composer-input > textarea {
   width: 100%;
   height: 89px;
   min-height: 65px;

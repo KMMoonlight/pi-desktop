@@ -1663,27 +1663,30 @@ const labels: Record<string, string> = {
                               run={run}
                             />
                           ) : (
-                            <textarea
-                              ref={composerRef}
-                              aria-label={t("消息")}
-                              data-message-composer
-                              placeholder={
-                                snapshot.running ? t("追加消息…") : t("描述你的任务…")
-                              }
-                              value={text}
-                              onChange={(e) => setText(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (
-                                  e.key === "Enter" &&
-                                  !e.shiftKey &&
-                                  e.nativeEvent.keyCode !== 229 &&
-                                  !e.nativeEvent.isComposing
-                                ) {
-                                  e.preventDefault();
-                                  void send();
+                            <div className="composer-input">
+                              <textarea
+                                ref={composerRef}
+                                aria-label={t("消息")}
+                                data-message-composer
+                                placeholder={
+                                  snapshot.running ? t("追加消息…") : t("描述你的任务…")
                                 }
-                              }}
-                            />
+                                value={text}
+                                onChange={(e) => setText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    !e.shiftKey &&
+                                    e.nativeEvent.keyCode !== 229 &&
+                                    !e.nativeEvent.isComposing
+                                  ) {
+                                    e.preventDefault();
+                                    void send();
+                                  }
+                                }}
+                              />
+                              <span className="composer-empty-caret" aria-hidden="true" />
+                            </div>
                           )}
                           <div className="composer-toolbar grid items-center gap-2 px-3 pb-3">
                             <div className="composer-options">

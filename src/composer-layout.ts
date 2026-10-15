@@ -83,6 +83,34 @@ export function resizeComposer(editor: HTMLTextAreaElement) {
 /** Width/font observation belongs to the mounted editor, not to each draft value. */
 export function observeComposer(editor: HTMLTextAreaElement) {
   let active = true;
+  let composing = false;
+  const setCaretActive = (enabled: boolean) => {
+    editor.toggleAttribute("data-composer-caret-active", enabled);
+    const caret = editor.parentElement?.querySelector<HTMLElement>(
+      ".composer-empty-caret",
+    );
+    // An inactive WKWebView may postpone invalidating the sibling selector.
+    // Hide the decoration directly when the window or IME owns the caret.
+    if (caret) caret.style.display = enabled ? "" : "none";
+  };
+  const updateCaret = () => {
+    setCaretActive(document.hasFocus() && !document.hidden && !composing);
+  };
+  const hideCaret = () => setCaretActive(false);
+  const compositionStart = () => {
+    composing = true;
+    updateCaret();
+  };
+  const compositionEnd = () => {
+    composing = false;
+    updateCaret();
+  };
+  updateCaret();
+  window.addEventListener("focus", updateCaret);
+  window.addEventListener("blur", hideCaret);
+  document.addEventListener("visibilitychange", updateCaret);
+  editor.addEventListener("compositionstart", compositionStart);
+  editor.addEventListener("compositionend", compositionEnd);
   const resize = () => {
     if (active && editor.isConnected) resizeComposer(editor);
   };
@@ -105,6 +133,12 @@ export function observeComposer(editor: HTMLTextAreaElement) {
   void document.fonts.ready.then(resize);
   return () => {
     active = false;
+    window.removeEventListener("focus", updateCaret);
+    window.removeEventListener("blur", hideCaret);
+    document.removeEventListener("visibilitychange", updateCaret);
+    editor.removeEventListener("compositionstart", compositionStart);
+    editor.removeEventListener("compositionend", compositionEnd);
+    hideCaret();
     observer.disconnect();
     appearance.disconnect();
     document.fonts.removeEventListener("loadingdone", resize);

@@ -106,7 +106,7 @@
 .composer-region { width: min(calc(100% - 16px), calc(var(--chat-measure) + 32px)); max-width: none; padding: 12px 0 16px; }
 .composer, [data-theme="dark"] .composer { border: 0; border-radius: 28px; box-shadow: var(--ui-shadow); }
 .composer:focus-within { box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-action) 55%, transparent), 0 2px 8px #00000008; }
-.composer > textarea { min-height: 0; max-height: 360px; padding: 12px 16px; font: 14px/24px var(--ui-font); resize: none; overflow-y: auto; }
+.composer > .composer-input > textarea { min-height: 0; max-height: 360px; padding: 12px 16px; font: 14px/24px var(--ui-font); resize: none; overflow-y: auto; }
 .composer .desktop-extension-editor:has([data-composer-input]) { padding: 0 16px; }
 .composer .desktop-extension-editor .desktop-textarea[data-composer-input] {
   min-height: 0; max-height: 360px; padding-block: 12px; border: 0;
@@ -207,32 +207,50 @@
   height: 0; margin-block: 20px; border: 0;
   border-top: 1px solid var(--ui-line);
 }
-.assistant-reply { padding-block: 10px; }
+.assistant-reply {
+  --reply-block-gap: 12px;
+  --reply-step-gap: 4px;
+  --reply-step-height: 28px;
+  padding-block: 10px;
+}
 .assistant-reply .message-heading:empty { display: none; }
-.assistant-reply .message-body > .markdown + .markdown { margin-top: 12px; }
+.assistant-reply > .message-body {
+  display: flex; flex-direction: column; gap: var(--reply-block-gap);
+}
+/* Containers own spacing between transcript items; content keeps its inner rhythm. */
+.assistant-reply > .message-body > :is(.markdown, .thinking-block, .process-group, .tool-execution, .inline-error) {
+  margin-block: 0;
+}
+.assistant-reply > .message-body > .markdown > .transcript-content-width + *,
+.assistant-reply .thinking-block > .transcript-markdown-body > .transcript-content-width + * { margin-top: 0; }
+.assistant-reply > .message-body > .markdown > :last-child,
+.assistant-reply .thinking-block > .transcript-markdown-body > :last-child { margin-bottom: 0; }
 .process-group {
   min-width: 0;
-  margin: 8px calc(var(--transcript-output-pad, 1) * .5rem) 12px;
+  margin-inline: calc(var(--transcript-output-pad, 1) * .5rem);
   color: var(--ui-secondary);
 }
 .process-group > summary {
   display: flex; align-items: center; gap: 7px;
-  width: fit-content; max-width: 100%; min-height: 28px;
+  width: fit-content; max-width: 100%; min-height: var(--reply-step-height);
   font-size: 12px; line-height: 20px; cursor: pointer; list-style: none;
 }
 .process-group > summary::-webkit-details-marker { display: none; }
 .process-group > summary > svg { flex-shrink: 0; }
 .process-group:not([open]) > summary > svg:last-child { transform: rotate(-90deg); }
 .process-count { color: var(--ui-muted); font-size: 11px; }
-.process-steps { padding-top: 4px; }
-.assistant-reply .tool-execution {
-  min-width: 0; margin: 2px calc(var(--transcript-output-pad, 1) * .5rem);
+.process-steps {
+  display: flex; flex-direction: column; gap: var(--reply-step-gap);
+  padding-top: var(--reply-step-gap);
 }
-.process-steps > .tool-execution { margin-inline: 0; }
-.assistant-reply .tool-desktop-controls { gap: 8px; padding: 0; min-height: 28px; }
+.assistant-reply .tool-execution {
+  min-width: 0; margin: 0 calc(var(--transcript-output-pad, 1) * .5rem);
+}
+.assistant-reply .process-steps > :is(.tool-execution, .thinking-block) { margin: 0; }
+.assistant-reply .tool-desktop-controls { gap: 8px; padding: 0; min-height: var(--reply-step-height); }
 .assistant-reply .tool-desktop-controls > button {
-  flex: 1; min-width: 0; gap: 8px; padding: 2px 0;
-  color: var(--ui-secondary); font-size: 12px; line-height: 24px;
+  flex: 1; min-width: 0; gap: 8px; padding: 4px 0;
+  color: var(--ui-secondary); font-size: 12px; line-height: 20px;
 }
 .assistant-reply .tool-desktop-controls > button:hover { color: var(--ui-ink); }
 .assistant-reply .tool-desktop-controls > button > svg { flex-shrink: 0; }
@@ -241,7 +259,7 @@
 .assistant-reply .tool-state-label.success { display: none; }
 .assistant-reply .tool-result.tool-execution > .tool-body {
   max-height: 280px; overflow: auto;
-  margin: 4px 0 8px; padding: 10px 12px;
+  margin: var(--reply-step-gap) 0 0; padding: 10px 12px;
   border: 1px solid var(--ui-line); border-radius: 8px;
   background: color-mix(in srgb, var(--ui-sidebar) 50%, var(--ui-canvas)); font-size: 12px; line-height: 20px;
 }
@@ -249,8 +267,10 @@
 .assistant-reply .tool-result[data-tool-interactive="false"] .tool-body :is(pre, .desktop-text) { font-size: 12px; line-height: 20px; }
 .assistant-reply .tool-result[data-tool-interactive="false"] .tool-body pre { margin: 0; }
 .assistant-reply .tool-result[data-tool-interactive="false"] .tool-body .markdown :is(p, ul, ol) { margin-block: 4px; }
-.assistant-reply .process-steps > .thinking-block { margin-block: 2px 6px; }
-.assistant-reply .process-steps > .thinking-block > summary { padding-block: 2px; }
+.assistant-reply .thinking-block > summary {
+  min-height: var(--reply-step-height); margin: 0; padding-block: 4px;
+}
+.assistant-reply .thinking-block[open] > .transcript-markdown-body { margin-top: var(--reply-step-gap); }
 .assistant-reply .process-steps > .thinking-block :is(summary, .transcript-markdown-body) { padding-inline: 0; }
 .run-indicator { padding-left: 8px; }
 .pi-loading { display: block; flex: 0 0 20px; overflow: hidden; }
