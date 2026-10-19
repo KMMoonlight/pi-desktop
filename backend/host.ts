@@ -12,6 +12,7 @@ import {
   forgetDesktopSession,
 } from "./session-history.ts";
 import { GlobalSettings, globalSettingsActions } from "./global-settings.ts";
+import { discoverProviderModels } from "./provider-models.ts";
 import { migratePi120Config, migratePi120ProjectSettings } from "./pi-config-migration.ts";
 import { readMcpSettings, changeMcpSettings } from "./mcp-settings.ts";
 import { restoreToolPreferences, saveToolPreferences } from "./tool-preferences.ts";
@@ -2617,6 +2618,8 @@ export class DesktopHost extends EventEmitter {
   private async perform(request: ActionRequest, deferSnapshot = false): Promise<unknown> {
     const a = request.args ?? {};
     if (request.action === "fonts.list") return listSystemFonts(a.refresh === true);
+    if (request.action === "models.discover")
+      return discoverProviderModels(a, this.hostLifetime.signal);
     if (request.action === "settings.snapshot" && this.runtime) return this.snapshot();
     if (!this.runtime && globalSettingsActions.has(request.action)) {
       this.globalSettings ??= new GlobalSettings(this.agentDir, this.hostLifetime.signal,

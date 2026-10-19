@@ -1,4 +1,8 @@
 export type RecordValue = Record<string, unknown>;
+export interface DiscoveredProviderModel {
+  id: string;
+  name?: string;
+}
 export interface McpSettingsSnapshot {
   servers: { name: string; config: RecordValue; inherited: boolean; overridden: boolean }[];
   errors: string[];

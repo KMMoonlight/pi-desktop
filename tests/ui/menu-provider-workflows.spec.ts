@@ -82,7 +82,7 @@ test("structured provider editor saves actual SDK models, preserves advanced fie
         const css = getComputedStyle(button);
         return [button.getBoundingClientRect().height, css.fontSize, css.borderRadius];
       }));
-    expect(actions.every(([height, font, radius]) => height === 36 && font === "13px" && radius === "8px")).toBe(true);
+    expect(actions.every(([height, font, radius]) => height === 32 && font === "13px" && radius === "8px")).toBe(true);
     await expect(settings.getByRole("button", { name: "保存设置", exact: true })).toBeHidden();
     const inheritedRows = await form.locator(".field").evaluateAll(fields => fields
       .filter(field => parseFloat(getComputedStyle(field).borderBottomWidth) > 0

@@ -1,7 +1,8 @@
 import { t, useLocale } from "./i18n";
+import { useState } from "react";
 import { Switch } from "./primitives";
 import { SettingsButton as Button } from "./SettingsButton";
-import { Plus, Trash2 } from "lucide-react";
+import { Download, Plus, Trash2 } from "lucide-react";
 import { Field, SelectField } from "./ui";
 import type { RecordValue } from "../shared/types";
 
@@ -9,12 +10,17 @@ export function ProviderModels({
   models,
   change,
   disabled,
+  discover,
+  discovering = false,
 }: {
   models: RecordValue[];
   change: (models: RecordValue[]) => void;
   disabled: boolean;
+  discover?: () => void;
+  discovering?: boolean;
 }) {
   useLocale();
+  const [expanded, setExpanded] = useState(false);
   const set = (index: number, key: string, value: unknown) =>
     change(
       models.map((model, current) => {
@@ -35,16 +41,49 @@ export function ProviderModels({
     <div className="provider-model-editor">
       <div className="provider-model-heading">
         <h3>{t("模型")}</h3>
-        <Button
-          icon={Plus}
-          variant="outline"
-          disabled={disabled}
-          onClick={() => change([...models, { id: "" }])}
-        >
-          {t("添加模型")}
-        </Button>
+        <div className="row-actions">
+          {discover && (
+            <Button
+              icon={Download}
+              variant="outline"
+              disabled={disabled}
+              loading={discovering}
+              onClick={discover}
+            >
+              {t(discovering ? "正在获取模型…" : "从 API 获取模型")}
+            </Button>
+          )}
+          <Button
+            icon={Plus}
+            variant="outline"
+            disabled={disabled}
+            onClick={() => {
+              setExpanded(true);
+              change([...models, { id: "" }]);
+            }}
+          >
+            {t("添加模型")}
+          </Button>
+        </div>
       </div>
-      {models.map((model, index) => (
+      {discover && (
+        <p className="muted">
+          {t("从 API 地址下的 /models 批量导入模型，保留已有配置；能力和 token 限制可按需调整。")}
+        </p>
+      )}
+      {models.length > 3 && (
+        <Button
+          variant="ghost"
+          disabled={disabled}
+          attributes={{ "aria-expanded": expanded }}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded
+            ? t("收起模型配置")
+            : t("展开 {value1} 个模型的配置", { value1: models.length })}
+        </Button>
+      )}
+      {(models.length <= 3 || expanded) && models.map((model, index) => (
         <fieldset
           key={index}
           disabled={disabled}

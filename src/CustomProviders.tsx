@@ -4,7 +4,7 @@ import { SettingsButton as Button } from "./SettingsButton";
 import { Plus, PencilLine, Trash2 } from "lucide-react";
 import { Field, SelectField } from "./ui";
 import { ProviderModels } from "./ProviderModels";
-import type { RecordValue } from "../shared/types";
+import type { DiscoveredProviderModel, RecordValue } from "../shared/types";
 import type { Run } from "./Workspace";
 const object = (value: unknown): RecordValue =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -35,6 +35,9 @@ export function CustomProviders({
   const [remove, setRemove] = useState<string>();
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discovered, setDiscovered] = useState<number>();
+  const busy = pending || discovering;
   const root = useRef<HTMLDivElement>(null);
   const read = async () => {
     const text = await run<string>(
@@ -73,6 +76,7 @@ export function CustomProviders({
   const edit = (id?: string) => {
     setRemove(undefined);
     setError("");
+    setDiscovered(undefined);
     setEditor({
       id: id ?? "",
       existing: id,
@@ -83,13 +87,50 @@ export function CustomProviders({
   };
   const update = (key: string, value: unknown) => {
     setError("");
+    setDiscovered(undefined);
     setEditor(
       (current) =>
         current && { ...current, value: { ...current.value, [key]: value } },
     );
   };
+  const discover = async () => {
+    if (!editor || busy) return;
+    setError("");
+    setDiscovered(undefined);
+    setDiscovering(true);
+    try {
+      const result = await run<DiscoveredProviderModel[]>(
+        "models.discover",
+        {
+          baseUrl: editor.value.baseUrl,
+          apiKey: editor.value.apiKey,
+          headers: editor.value.headers,
+        },
+        setError,
+      );
+      if (!result) return;
+      setEditor(current => {
+        if (!current) return current;
+        const existing = Array.isArray(current.value.models)
+          ? current.value.models.map(object).filter(model =>
+              String(model.id ?? "").trim() || Object.keys(model).some(key => key !== "id"))
+          : [];
+        const ids = new Set(existing.map(model => String(model.id ?? "").trim()));
+        return {
+          ...current,
+          value: {
+            ...current.value,
+            models: [...existing, ...result.filter(model => !ids.has(model.id))],
+          },
+        };
+      });
+      setDiscovered(result.length);
+    } finally {
+      setDiscovering(false);
+    }
+  };
   const persist = async (deleteId?: string) => {
-    if (pending) return;
+    if (busy) return;
     setError("");
     if (!deleteId && editor) {
       if (!/^[a-zA-Z0-9_.-]+$/.test(editor.id)) {
@@ -190,7 +231,7 @@ export function CustomProviders({
         <Button
           icon={Plus}
           variant="outline"
-          disabled={disabled || pending || !loaded}
+          disabled={disabled || busy || !loaded}
           onClick={() => edit()}
         >
           {t("添加自定义端点")}
@@ -210,7 +251,7 @@ export function CustomProviders({
           <Button
             icon={PencilLine}
             variant="ghost"
-            disabled={disabled || pending}
+            disabled={disabled || busy}
             attributes={{ "aria-label": t("编辑端点 {value1}", { value1: id }) }}
             onClick={() => edit(id)}
           >
@@ -220,12 +261,13 @@ export function CustomProviders({
             icon={Trash2}
             variant="ghost"
             color="critical"
-            disabled={disabled || pending}
+            disabled={disabled || busy}
             attributes={{ "aria-label": t("移除端点 {value1}", { value1: id }) }}
             onClick={() => {
               setRemove(id);
               setEditor(undefined);
               setError("");
+              setDiscovered(undefined);
             }}
           >
             {t("移除")}
@@ -255,7 +297,7 @@ export function CustomProviders({
       {editor && (
         <fieldset
           className="custom-provider-form integration-form"
-          disabled={disabled || pending}
+          disabled={disabled || busy}
         >
           <Field
             label={t("提供商 ID")}
@@ -300,9 +342,16 @@ export function CustomProviders({
           />
           <ProviderModels
             models={models}
-            disabled={disabled || pending}
+            disabled={disabled || busy}
+            discover={() => { void discover(); }}
+            discovering={discovering}
             change={(value) => update("models", value)}
           />
+          {discovered !== undefined && (
+            <p className="muted" role="status">
+              {t("已获取 {value1} 个模型，保存端点后生效。", { value1: discovered })}
+            </p>
+          )}
           <div className="row-actions">
             <Button
               variant="ghost"
@@ -316,7 +365,7 @@ export function CustomProviders({
             </Button>
             <Button
               color="primary"
-              disabled={disabled || pending}
+              disabled={disabled || busy}
               loading={pending}
               onClick={() => {
                 void persist();

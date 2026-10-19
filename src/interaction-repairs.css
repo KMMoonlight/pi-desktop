@@ -163,10 +163,12 @@
 
 .provider-model-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
+.provider-model-heading > .row-actions { flex-wrap: wrap; }
 .custom-provider-row {
   display: flex;
   gap: 6px;
