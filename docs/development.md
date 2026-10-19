@@ -10,7 +10,7 @@ Native cache-warming/cache-miss, summary billing and dropped-thinking notices us
 Original builtin header, resource grouping/diagnostics, pending queue hints and bounded string widgets now populate the shared native tree; mixed factory/string widgets retain Pi order. See [native application content](application-content.md).
 
 The desktop interface follows [Design.md](../Design.md): warm cream surfaces, coral
-primary actions, serif display headings, and dark code/terminal surfaces. Native
+primary actions, serif display headings, and theme-aware code surfaces. Native
 React controls in `src/primitives.tsx` provide buttons, switches, tooltips, and
 focus-managed dialogs without a component framework. `src/tailwind.css` owns the
 Tailwind entry point and shared tokens; feature styles are in the components layer

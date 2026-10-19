@@ -374,32 +374,32 @@
   @apply border-line bg-card text-ink;
 }
 .code-block {
-  @apply overflow-hidden rounded-xl border-0 bg-code text-on-code;
+  @apply overflow-hidden rounded-xl border border-line bg-soft text-ink;
 }
 .code-toolbar {
-  @apply border-b border-white/10 bg-code-raised text-code-muted;
+  @apply border-b border-line bg-card text-muted;
 }
 .code-toolbar button {
-  @apply text-code-muted;
+  @apply text-muted;
 }
 .code-block pre,
 .code-block code {
-  @apply bg-transparent text-on-code;
+  @apply bg-transparent text-ink;
   font-family: var(--font-mono);
 }
 .code-block .token.keyword,
 .code-block .token.tag {
-  color: #e8a55a;
+  color: var(--pi-syntaxKeyword, var(--ui-ink));
 }
 .code-block .token.string,
 .code-block .token.attr-value {
-  color: #5db8a6;
+  color: var(--pi-syntaxString, var(--ui-ink));
 }
 .code-block .token.comment {
-  color: #a09d96;
+  color: var(--pi-syntaxComment, var(--ui-muted));
 }
 .code-block .token.function {
-  color: #cc785c;
+  color: var(--pi-syntaxFunction, var(--ui-ink));
 }
 .files-view .file-list {
   @apply bg-soft;

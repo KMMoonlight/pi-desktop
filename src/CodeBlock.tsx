@@ -18,8 +18,8 @@ export function CodeBlock({
   const [copied, setCopied] = useState(false);
   const content = useRef<HTMLPreElement>(null);
   return (
-    <div data-theme="dark" className="code-block overflow-hidden rounded-xl bg-code text-on-code">
-      <div className="code-toolbar flex min-h-9 items-center justify-end border-b border-white/10 bg-code-raised px-2 text-code-muted">
+    <div className="code-block overflow-hidden rounded-xl bg-soft text-ink">
+      <div className="code-toolbar flex min-h-9 items-center justify-end border-b border-line bg-card px-2 text-muted">
         <IconButton
           icon={copied ? Check : Copy}
           label={language ? t("复制 {value1} 代码", { value1: language }) : t("复制代码")}
