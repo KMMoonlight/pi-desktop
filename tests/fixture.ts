@@ -559,6 +559,7 @@ export async function createFixture(
     "startup-probe",
     "startup-policy-probe",
     "invocation-options-probe",
+    "notice-events",
   ])
     await cp(
       new URL(`./fixtures/${name}.mjs`, import.meta.url),

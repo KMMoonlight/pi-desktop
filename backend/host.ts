@@ -517,7 +517,12 @@ export class DesktopHost extends EventEmitter {
       await clipboard.setText(effect.text);
     }
   }
-  notice(message: string, level: "info" | "warning" | "error" = "info", desktopCopy = false) {
+  notice(
+    message: string,
+    level: "info" | "warning" | "error" = "info",
+    desktopCopy = false,
+    retry?: Extract<DesktopEvent, { type: "notice" }>["retry"],
+  ) {
     this.desktopUI.terminalRuntime
       .capture()
       .application?.notice(message, level);
@@ -526,6 +531,7 @@ export class DesktopHost extends EventEmitter {
       message,
       level,
       desktopCopy,
+      ...(retry ? { retry } : {}),
       ...(this.componentTextApi
         ? { presentation: componentText(message, this.componentTextApi) }
         : {}),
@@ -1628,6 +1634,11 @@ export class DesktopHost extends EventEmitter {
         `重试 ${event.attempt}/${event.maxAttempts}：${event.errorMessage}`,
         "warning",
         true,
+        {
+          attempt: event.attempt,
+          maxAttempts: event.maxAttempts,
+          errorMessage: event.errorMessage,
+        },
       );
     this.emitEvent({
       type: "activity",

@@ -100,6 +100,66 @@ test("late snapshots and background events cannot overwrite the selected convers
   } finally { await host.dispose(); }
 });
 
+test("background retries replay only their latest live notice and retire on completion", async () => {
+  const { host, workers } = fixture();
+  try {
+    await host.action({ action: "initialize", args: { cwd: "/project" } });
+    await host.action({ action: "session.new" });
+    const notices: Extract<DesktopEvent, { type: "notice" }>[] = [];
+    host.on("event", (event: DesktopEvent) => {
+      if (event.type === "notice") notices.push(event);
+    });
+    const retry = (attempt: number): DesktopEvent => ({
+      type: "notice", message: `Retry ${attempt}/3`, level: "warning",
+      retry: { attempt, maxAttempts: 3, errorMessage: "503 unavailable" },
+    });
+    workers[0].emit("event", retry(1));
+    workers[0].emit("event", retry(2));
+    assert.equal(notices.length, 0);
+    await host.action({ action: "session.switch", args: { path: "/sessions/0.jsonl" } });
+    assert.deepEqual(notices, [retry(2)]);
+    await host.action({ action: "session.switch", args: { path: "/sessions/1.jsonl" } });
+    notices.length = 0;
+    for (const success of [true, false]) {
+      workers[0].emit("event", retry(3));
+      workers[0].emit("event", { type: "activity", name: "auto_retry_end", data: { success } });
+      workers[0].emit("event", { type: "notice", message: "Keep this ordinary notice", level: "info" });
+      await host.action({ action: "session.switch", args: { path: "/sessions/0.jsonl" } });
+      assert.deepEqual(notices, [{ type: "notice", message: "Keep this ordinary notice", level: "info" }]);
+      notices.length = 0;
+      await host.action({ action: "session.switch", args: { path: "/sessions/1.jsonl" } });
+    }
+  } finally { await host.dispose(); }
+});
+
+test("background warnings replay as separate cards with each request's diagnostics", async () => {
+  const { host, workers } = fixture();
+  try {
+    await host.action({ action: "initialize", args: { cwd: "/project" } });
+    await host.action({ action: "session.new" });
+    const notices: Extract<DesktopEvent, { type: "notice" }>[] = [];
+    host.on("event", (event: DesktopEvent) => {
+      if (event.type === "notice") notices.push(event);
+    });
+    const warning = (request: string): DesktopEvent => ({
+      type: "notice", level: "warning", message: `503 ${JSON.stringify({
+        status: 503, title: "Worker exceeded resource limits", error_code: 1102,
+        ray_id: request, instance: request, timestamp: request,
+      })}`,
+    });
+    workers[0].emit("event", warning("first request"));
+    workers[0].emit("event", warning("second request"));
+    workers[0].emit("event", { type: "notice", message: "Unrelated warning", level: "warning" });
+    assert.equal(notices.length, 0);
+    await host.action({ action: "session.switch", args: { path: "/sessions/0.jsonl" } });
+    assert.deepEqual(notices, [
+      warning("first request"),
+      warning("second request"),
+      { type: "notice", message: "Unrelated warning", level: "warning" },
+    ]);
+  } finally { await host.dispose(); }
+});
+
 test("background dialogs are retained and replayed only on selecting their owner", async () => {
   const { host, workers } = fixture();
   try {

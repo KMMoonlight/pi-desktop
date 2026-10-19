@@ -464,10 +464,6 @@ body {
   background: var(--ui-input);
   border-radius: 20px;
 }
-.notice {
-  border-color: var(--ui-line);
-  font-size: 12px;
-}
 .inspector {
   background: var(--ui-canvas);
   border-color: var(--ui-line);

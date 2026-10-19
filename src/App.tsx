@@ -106,6 +106,9 @@ import { WorkspacePicker } from "./WorkspacePicker";
 import { FolderPicker } from "./FolderPicker";
 import { menuKeyboard } from "./menuKeyboard";
 import { ContextUsage } from "./ContextUsage";
+import type { Notice } from "./NoticeCard";
+import { NoticeStack } from "./NoticeStack";
+import { enqueueNotice } from "../shared/notices";
 import { FileNavigation, FileWorkspace, type FileTarget } from "./FileNavigation";
 
 type LocalDialog = {
@@ -115,13 +118,6 @@ type LocalDialog = {
   path?: string;
   format?: string;
   error?: string;
-};
-type Notice = {
-  id: number;
-  message: string;
-  level: string;
-  desktopCopy?: boolean;
-  presentation?: Extract<DesktopEvent, { type: "notice" }>["presentation"];
 };
 export function App() {
   useLocale();
@@ -214,6 +210,7 @@ const labels: Record<string, string> = {
   const [answer, setAnswer] = useState("");
   const [authLink, setAuthLink] = useState<Extract<import("../shared/types").DesktopEvent, { type: "auth_url" }>>();
   const [notices, setNotices] = useState<Notice[]>([]);
+  const noticeSequence = useRef(0);
   const [localSubmitting, setSubmitting] = useState(false);
   const [promotingMessages, setPromotingMessages] = useState<Set<string>>(() => new Set());
   const [sendingSessions, setSendingSessions] = useState<Set<string>>(() => new Set());
@@ -269,17 +266,23 @@ const labels: Record<string, string> = {
   const notify = useCallback(
     (
       message: string,
-      level = "info",
+      level: Notice["level"] = "info",
       presentation?: Notice["presentation"],
       desktopCopy = true,
+      retry?: Notice["retry"],
     ) => {
-      setNotices((previous) => [
-        ...previous.slice(-2),
-        { id: Date.now() + Math.random(), message, level, presentation, desktopCopy },
-      ]);
+      const id = String(++noticeSequence.current);
+      setNotices((previous) => {
+        const currentRetry = retry && previous.find(notice => notice.retry);
+        const next = { message, level, presentation, desktopCopy, retry, id: currentRetry ? currentRetry.id : id };
+        return enqueueNotice(previous, next, 20);
+      });
     },
     [],
   );
+  const dismissNotice = useCallback((id: string) => {
+    setNotices(previous => previous.filter(notice => notice.id !== id));
+  }, []);
   const run: Run = useCallback(
     async <T,>(
       name: string,
@@ -410,6 +413,7 @@ const labels: Record<string, string> = {
           setDialogs([]);
           setAuthLink(undefined);
         } else if (event.type === "workspace_closed") {
+          setNotices((previous) => previous.filter((notice) => !notice.retry));
           storeSnapshot(undefined);
           setWorkspaces(event.workspaces);
           localStorage.setItem("pi.workspace.userSelection", "");
@@ -428,7 +432,7 @@ const labels: Record<string, string> = {
         else if (event.type === "dialog_closed")
           setDialogs((previous) => previous.filter((d) => d.id !== event.id));
         else if (event.type === "notice")
-          notify(event.message, event.level, event.presentation, event.desktopCopy === true);
+          notify(event.message, event.level, event.presentation, event.desktopCopy === true, event.retry);
         else if (event.type === "editor") {
           setPendingSelection(event.selection);
           setText((previous) =>
@@ -438,9 +442,12 @@ const labels: Record<string, string> = {
         } else if (event.type === "auth_url")
           setAuthLink(event);
         else if (event.type === "activity") {
+          if (event.name === "auto_retry_end")
+            setNotices((previous) => previous.filter((notice) => !notice.retry));
           if (event.name === "transcript_scroll")
             window.dispatchEvent(new CustomEvent("pi:transcript-scroll", { detail: event.data }));
           if (event.name === "desktop_session_selected") {
+            setNotices((previous) => previous.filter((notice) => !notice.retry));
             setAuthLink(undefined);
             setPendingSelection(undefined);
           }
@@ -997,34 +1004,7 @@ const labels: Record<string, string> = {
     );
   const feedback =
     notices.length > 0 ? (
-      <div className="notice-list" aria-label={t("通知")}>
-        {notices.map((notice) => (
-          <div
-            className={`notice notice-${notice.level}`}
-            key={notice.id}
-            role={notice.level === "error" ? "alert" : "status"}
-          >
-            <CircleAlert size={15} />
-            <span>
-              <StyledText
-                {...(notice.presentation ?? { text: notice.message })}
-                desktopCopy={notice.desktopCopy}
-              />
-            </span>
-            <button
-              type="button"
-              aria-label={t("关闭通知")}
-              onClick={() =>
-                setNotices((previous) =>
-                  previous.filter((item) => item.id !== notice.id),
-                )
-              }
-            >
-              <X size={14} />
-            </button>
-          </div>
-        ))}
-      </div>
+      <NoticeStack notices={notices} onDismiss={dismissNotice} />
     ) : undefined;
   return (
     <FileNavigation.Provider value={openFile}>

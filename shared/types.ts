@@ -301,6 +301,7 @@ export type DesktopEvent =
       message: string;
       level: "info" | "warning" | "error";
       presentation?: import("./desktop-ui.ts").DesktopMarkdownText;
+      retry?: { attempt: number; maxAttempts: number; errorMessage: string };
     }
   | {
       type: "editor";

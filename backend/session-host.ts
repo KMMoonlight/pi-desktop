@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { unlink } from "node:fs/promises";
 import { forgetDesktopSession, rememberDesktopSessionFile } from "./session-history.ts";
 import { TerminalHost } from "./terminal-host.ts";
+import { enqueueNotice } from "../shared/notices.ts";
 import type { ActionRequest, DesktopEvent, DesktopSnapshot, DialogRequest, SessionItem } from "../shared/types.ts";
 
 export interface SessionWorker extends EventEmitter {
@@ -97,12 +98,13 @@ export class SessionHost extends EventEmitter {
         return;
       }
       if (event.type === "auth_url") entry.auth = event;
+      if (event.type === "activity" && event.name === "auto_retry_end")
+        entry.notices = entry.notices.filter(notice => !notice.retry);
       if (event.type === "workspace_closed") entry.snapshot = undefined;
       if (event.type === "dialog" || event.type === "dialog_closed" || event.type === "auth_url") this.publish();
       if (entry === this.active) this.emit("event", event);
       else if (event.type === "notice") {
-        entry.notices.push(event);
-        if (entry.notices.length > 20) entry.notices.shift();
+        entry.notices = enqueueNotice(entry.notices, event, 20);
       }
     });
     return entry;
