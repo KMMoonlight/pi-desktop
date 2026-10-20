@@ -1,5 +1,5 @@
 import { t, useLocale, getLocale } from "./i18n";
-import { Folder, Pin, Plus, ChevronRight, Trash2, LoaderCircle } from "lucide-react";
+import { Folder, Pin, Plus, ChevronRight, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { SessionItem, DesktopSnapshot } from "../shared/types";
 import { Hint, IconButton, baseName } from "./ui";
@@ -88,7 +88,7 @@ export function SessionRail({
     <span className="session-activity" role="status" aria-label={t("需要处理")} title={t("需要处理")}>!</span>
   ) : running(id) ? (
     <span className="session-activity" role="status" aria-label={t("执行中")} title={t("执行中")}>
-      <LoaderCircle size={13} className="spin" aria-hidden="true" />
+      <span className="session-spinner" aria-hidden="true" />
     </span>
   ) : unreadSessions.includes(id) ? (
     <span className="session-activity" role="status" aria-label={t("任务完成，未读")} title={t("任务完成，未读")}>

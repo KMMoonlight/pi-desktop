@@ -42,6 +42,20 @@
 .sidebar .session-row > button:not([class]) > svg, .sidebar button.session-row > svg { display: none; }
 .session-row strong { font-size: 14px; font-weight: 400; line-height: 20px; }
 .sidebar .session-row .session-activity { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 14px; width: 14px; height: 20px; margin-right: 3px; color: var(--ui-muted); }
+/* Rotate a square HTML border box, independent of SVG transform coordinates. */
+.session-spinner {
+  display: block;
+  flex: 0 0 13px;
+  box-sizing: border-box;
+  width: 13px;
+  height: 13px;
+  border: 1.25px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  transform-box: border-box;
+  transform-origin: 50% 50%;
+  animation: spin 1.1s linear infinite;
+}
 .session-unread-dot { width: 7px; height: 7px; border-radius: 50%; background: #3478f6; }
 [data-theme="dark"] .session-unread-dot { background: #6aa5ff; }
 .sidebar button.session-row > span { display: flex; align-items: center; min-width: 0; }
@@ -271,8 +285,9 @@
 .assistant-reply .tool-result[data-tool-interactive="false"] .tool-body pre { margin: 0; }
 .assistant-reply .tool-result[data-tool-interactive="false"] .tool-body .markdown :is(p, ul, ol) { margin-block: 4px; }
 .assistant-reply .thinking-block > summary {
-  min-height: var(--reply-step-height); margin: 0; padding-block: 4px;
+  min-width: 0; max-width: 100%; min-height: var(--reply-step-height); margin: 0; padding-block: 4px;
 }
+.thinking-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .assistant-reply .thinking-block[open] > .transcript-markdown-body { margin-top: var(--reply-step-gap); }
 .assistant-reply .process-steps > .thinking-block :is(summary, .transcript-markdown-body) { padding-inline: 0; }
 .run-indicator { flex-wrap: wrap; padding-left: calc(var(--transcript-output-pad, 1) * .5rem); }

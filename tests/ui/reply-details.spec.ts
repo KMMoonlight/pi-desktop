@@ -17,7 +17,8 @@ test("reply details align without a side border, reveal footer timestamps on hov
   await editor.fill("reply-polish-probe 请调整界面");
   await page.getByRole("button", { name: "发送消息", exact: true }).click();
   const streamingThinking = page.locator(".message-assistant .thinking-block").last();
-  await expect(streamingThinking).toHaveAttribute("open", "");
+  await expect(streamingThinking).toBeVisible();
+  await expect(streamingThinking).not.toHaveAttribute("open");
   await expect
     .poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).busy)
     .toBe(false);

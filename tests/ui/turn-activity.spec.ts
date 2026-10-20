@@ -183,7 +183,10 @@ test("multiple reasoning records and tool results form one compact reply and sur
   await expect(group).toHaveAttribute("open", "");
   await expect(group.locator(":scope > summary")).toBeHidden();
   await expect(reply.locator(".thinking-block:visible")).toHaveCount(1);
-  await expect(reply.locator(".thinking-block:visible")).toContainText("继续检查路径");
+  await expect(reply.locator(".thinking-block:visible > summary")).toHaveText("思考过程");
+  await expect(reply.locator(".thinking-block:visible")).not.toHaveAttribute("open");
+  await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).streaming?.content
+    .find(block => block.type === "thinking")?.thinking ?? "").toContain("继续检查路径");
   await expect(reply.locator(".tool-execution:visible")).toHaveCount(0);
   await expect(page.locator(".run-indicator .generation-status")).toContainText("用时");
   await page.screenshot({ path: ".local/turn-activity/running-current-only.png" });

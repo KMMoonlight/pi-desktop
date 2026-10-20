@@ -180,6 +180,15 @@ export async function createFixture(
           resolve();
         });
       });
+    if (prompt.includes("thinking-line-probe")) {
+      emit({ reasoning_content: "第一段思考内容。\n\n第二段包含多行说明。\n\n第三段会继续随流式更新。" });
+      for (let index = 1; !res.destroyed; index++) {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        if (!res.destroyed)
+          emit({ reasoning_content: `\n\n第 ${index} 次思考内容更新，检查一行摘要和手动展开状态。` });
+      }
+      return;
+    }
     if (prompt.includes("activity-loop-probe")) {
       const completedTools = messages.slice(lastUser + 1).filter(m => m.role === "tool").length;
       emit({ reasoning_content: completedTools === 0 ? "先读取项目中的说明，检查已有内容。" : completedTools < 3 ? "继续检查路径，并确认异常情况。" : "检查完成，整理结果并说明缺失的文件。" });

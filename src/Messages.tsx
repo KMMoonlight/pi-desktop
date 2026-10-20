@@ -180,6 +180,7 @@ function ThinkingBlock({
   presentation,
   onVisibility,
   hidden,
+  compact = false,
 }: {
   text: string;
   expanded: boolean;
@@ -188,40 +189,45 @@ function ThinkingBlock({
   presentation?: TranscriptMarkdown;
   onVisibility: (visible: boolean) => void;
   hidden?: boolean;
+  compact?: boolean;
 }) {
   useLocale();
   const [open, setOpen] = useState(
-    presentation?.visible ?? (streaming && expanded),
+    !compact && (presentation?.visible ?? (streaming && expanded)),
   );
-  useEffect(
-    () => setOpen(presentation?.visible ?? (streaming && expanded)),
-    [expanded, streaming, presentation?.visible],
-  );
+  const wasCompact = useRef(compact);
+  useLayoutEffect(() => {
+    // Live activity starts as one summary line. SDK visibility and subsequent
+    // stream chunks must not override the reader's explicit expand/collapse.
+    if (!compact) setOpen(presentation?.visible ?? (streaming && expanded));
+    else if (!wasCompact.current) setOpen(false);
+    wasCompact.current = compact;
+  }, [compact, expanded, streaming, presentation?.visible]);
   return (
     <details
       className="thinking-block desktop-markdown"
       hidden={hidden}
       open={open}
-      onToggle={(event) => {
-        const visible = event.currentTarget.open;
+    >
+      <summary onClick={(event) => {
+        event.preventDefault();
+        const visible = !open;
         setOpen(visible);
         if (presentation && visible !== presentation.visible)
           onVisibility(visible);
-      }}
-    >
-      <summary>
+      }}>
         <Brain size={14} />
-        {open ? t("思考过程") : <StyledText {...label} />}
+        <span className="thinking-label">{open ? t("思考过程") : <StyledText {...label} />}</span>
         <ChevronDown size={14} />
       </summary>
-      <div className="transcript-markdown-body">
+      {open && <div className="transcript-markdown-body">
         <span className="transcript-content-width" aria-hidden="true" />
         {presentation ? (
           <ComponentMarkdown blocks={presentation.blocks} />
         ) : (
           <Markdown text={text} />
         )}
-      </div>
+      </div>}
     </details>
   );
 }
@@ -500,6 +506,7 @@ function MessageView({
           <ThinkingBlock
             key={index}
             hidden={activity && (activity.hidden || index !== activity.thinkingBlockIndex)}
+            compact={activity !== undefined}
             expanded={showThinking}
             streaming={streaming}
             label={
