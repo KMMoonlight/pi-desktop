@@ -15,6 +15,9 @@ export async function verifyThinkingLabel(page: Page) {
       message: "/text-surface-probe thinking",
     });
     await sdkAction(page, "prompt", { message: "thinking-label-probe" });
+    // Completion collapses live reasoning. Test manual expansion only after
+    // that transition, rather than racing the fixture's final stream chunks.
+    await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).busy).toBe(false);
     const thinking = page.locator(".transcript .thinking-block");
     const summary = thinking.locator("summary");
     await expect(thinking).toHaveCount(1);

@@ -2378,6 +2378,7 @@ export class DesktopHost extends EventEmitter {
       startup: this.startup.snapshot(),
       startupPolicies: this.startupPolicies.snapshot(),
       cwd: this.runtime!.cwd,
+      gitBranch: application?.footerData.getGitBranch() ?? undefined,
       agentDir: this.agentDir,
       sessionId: session.sessionId,
       sessionFile:
@@ -3485,7 +3486,7 @@ export class DesktopHost extends EventEmitter {
           : session.exportToHtml(text(a.path) || undefined);
       case "prompt": {
         this.inflightPrompts++;
-        this.publish();
+        const promptId = randomUUID();
         let accepted = false;
         try {
           const editorMessage =
@@ -3508,6 +3509,19 @@ export class DesktopHost extends EventEmitter {
             : [];
           const files = Array.isArray(a.files) ? a.files : [];
           if (files.length > 20) throw new Error("一次最多添加 20 个文件");
+          const command = /^\/([^\s]+)/.exec(editorMessage)?.[1];
+          if (!command || !session.extensionRunner.getRegisteredCommands().some(item => item.invocationName === command)) {
+            this.pendingPrompts.set(promptId, {
+              started: false,
+              message: {
+                id: `pending-${promptId}`, role: "user", timestamp: Date.now(), preparing: true,
+                content: [{ type: "text", text: editorMessage }, ...images],
+              },
+            });
+          }
+          // Publish the new turn together with its running state. Attachment
+          // reads must never leave the preceding reply as the apparent owner.
+          this.publish();
           for (const file of files) {
             const preview = await previewFile(
               this.runtime!.cwd,
@@ -3527,17 +3541,9 @@ export class DesktopHost extends EventEmitter {
           }
           const streamingBehavior =
             a.mode === "followUp" ? ("followUp" as const) : ("steer" as const);
-          const promptId = randomUUID();
-          const command = /^\/([^\s]+)/.exec(editorMessage)?.[1];
-          if (!command || !session.extensionRunner.getRegisteredCommands().some(item => item.invocationName === command)) {
-            this.pendingPrompts.set(promptId, {
-              started: false,
-              message: {
-                id: `pending-${promptId}`, role: "user", timestamp: Date.now(), preparing: true,
-                content: [{ type: "text", text: message }, ...images],
-              },
-            });
-          }
+          const pending = this.pendingPrompts.get(promptId);
+          if (pending)
+            pending.message.content = [{ type: "text", text: message }, ...images];
           this.desktopUI.addEditorHistory(editorMessage);
           if (a.clearEditor === true)
             session.extensionRunner.getUIContext().setEditorText("");
@@ -3565,6 +3571,7 @@ export class DesktopHost extends EventEmitter {
           accepted = true;
         } finally {
           if (!accepted) {
+            this.pendingPrompts.delete(promptId);
             this.inflightPrompts--;
             this.publish();
           }

@@ -14,6 +14,8 @@ await writeFile(
       private: true,
       type: "module",
       dependencies: {
+        // The SDK uses a range; align its AI package with the version we test.
+        "@earendil-works/pi-ai": manifest.dependencies["@earendil-works/pi-ai"],
         "@earendil-works/pi-coding-agent":
           manifest.dependencies["@earendil-works/pi-coding-agent"],
         "string-argv": manifest.dependencies["string-argv"],

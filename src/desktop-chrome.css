@@ -238,6 +238,9 @@
 .process-group > summary::-webkit-details-marker { display: none; }
 .process-group > summary > svg { flex-shrink: 0; }
 .process-group:not([open]) > summary > svg:last-child { transform: rotate(-90deg); }
+.assistant-reply :is(.process-group, .thinking-block, .tool-execution)[hidden] { display: none; }
+.process-group[data-running="true"] > summary { display: none; }
+.process-group[data-running="true"] > .process-steps { padding-top: 0; }
 .process-count { color: var(--ui-muted); font-size: 11px; }
 .process-steps {
   display: flex; flex-direction: column; gap: var(--reply-step-gap);
@@ -272,7 +275,8 @@
 }
 .assistant-reply .thinking-block[open] > .transcript-markdown-body { margin-top: var(--reply-step-gap); }
 .assistant-reply .process-steps > .thinking-block :is(summary, .transcript-markdown-body) { padding-inline: 0; }
-.run-indicator { padding-left: 8px; }
+.run-indicator { flex-wrap: wrap; padding-left: calc(var(--transcript-output-pad, 1) * .5rem); }
+.run-indicator .generation-status { margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pi-loading { display: block; flex: 0 0 20px; overflow: hidden; }
 .pi-loading > path { animation-duration: 2.4s; animation-iteration-count: infinite; animation-timing-function: steps(5, end); }
 .pi-loading-left { animation-name: pi-block-left; }

@@ -176,6 +176,10 @@ export function FolderPicker({
               value={path}
               disabled={pending}
               onChange={(event) => {
+                // A directory response must not overwrite a newer typed path
+                // or restore an error belonging to the previous path.
+                request.current++;
+                setLoading(false);
                 setPath(event.target.value);
                 setError("");
               }}

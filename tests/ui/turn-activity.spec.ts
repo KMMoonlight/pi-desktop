@@ -4,6 +4,91 @@ import { sdkAction } from "../editor-workflows.ts";
 import { selectField } from "../select-field.ts";
 import type { DesktopSnapshot } from "../../shared/types.ts";
 
+for (const width of [1440, 390]) {
+  test(`live tool activity and its elapsed footer remain visible at ${width}px`, async ({ page }) => {
+    await mkdir(".local/turn-activity", { recursive: true });
+    await page.setViewportSize({ width, height: 940 });
+    await page.goto("/");
+    await page.getByRole("textbox", { name: "消息", exact: true }).waitFor();
+    const backdrop = page.getByRole("button", { name: "关闭侧边栏遮罩", exact: true });
+    if (await backdrop.isVisible()) await backdrop.click({ position: { x: width - 5, y: 500 } });
+    await sdkAction(page, "session.new");
+    try {
+      await sdkAction(page, "prompt", { message: "tool-timer-abort-probe" });
+      await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).activeTools.length).toBe(1);
+      const activity = page.locator(".assistant-reply .tool-execution:visible");
+      const footer = page.locator(".run-indicator");
+      await expect(activity).toHaveCount(1);
+      for (const theme of ["light", "dark"]) {
+        await sdkAction(page, "theme.set", { theme });
+        await expect(footer.locator(".pi-loading")).toBeVisible();
+        await expect(footer.locator(".generation-status")).toContainText("用时");
+        await expect(footer).toBeInViewport();
+        const activityBox = (await activity.boundingBox())!;
+        expect((await footer.boundingBox())!.y).toBeGreaterThanOrEqual(activityBox.y + activityBox.height);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await page.screenshot({ path: `.local/turn-activity/running-tool-${width}-${theme}.png` });
+      }
+    } finally {
+      await sdkAction(page, "abort");
+      await sdkAction(page, "theme.set", { theme: "light" });
+    }
+  });
+}
+
+test("reply elapsed time advances during silent commands and freezes on completion or abort", async ({ page }) => {
+  await page.goto("/");
+  const editor = page.getByRole("textbox", { name: "消息", exact: true });
+  await editor.waitFor();
+  await sdkAction(page, "session.new");
+  const elapsed = page.locator(".transcript .generation-status").last().locator(":scope > span").first();
+  const seconds = async () => Number((await elapsed.textContent())?.match(/用时 ([\d.]+) 秒/)?.[1]);
+  for (const mode of ["complete", "abort"]) {
+    const previous = await page.locator(".assistant-reply .message-heading").allTextContents();
+    await editor.fill(`tool-timer-${mode}-probe`);
+    await page.getByRole("button", { name: "发送消息", exact: true }).click();
+    await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).activeTools.some(tool => tool.name === "bash")).toBe(true);
+    await expect(elapsed).toContainText(/用时 [\d.]+ 秒/);
+    const started = await seconds();
+    await expect(page.locator(".assistant-reply").last().locator(".message-heading")).toHaveCount(0);
+    await expect(page.locator(".run-indicator .pi-loading")).toBeVisible();
+    await expect(page.locator(".run-indicator .generation-status > span")).toHaveCount(1);
+    const activityBox = await page.locator(".tool-execution:visible").last().boundingBox();
+    const elapsedBox = await elapsed.boundingBox();
+    expect(elapsedBox!.y).toBeGreaterThanOrEqual(activityBox!.y + activityBox!.height);
+    await expect.poll(seconds, { intervals: [100] }).toBeGreaterThan(started + 0.4);
+    const duringTool = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    expect(duringTool.streaming).toBeUndefined();
+    expect(duringTool.activeTools.some(tool => tool.name === "bash")).toBe(true);
+    expect((await page.locator(".assistant-reply .message-heading").allTextContents()).slice(0, previous.length)).toEqual(previous);
+    if (mode === "abort") {
+      const beforeQueue = await seconds();
+      await sdkAction(page, "prompt", {
+        message: "queued message must not stop the current reply clock",
+        files: ["test-note.txt"], mode: "followUp",
+      });
+      await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).queue.followUp.length).toBe(1);
+      await expect.poll(seconds, { intervals: [100] }).toBeGreaterThan(beforeQueue + 0.4);
+      await expect(page.locator(".assistant-reply").last().locator(".message-heading")).toHaveCount(0);
+      await sdkAction(page, "queue.clear");
+    }
+    if (mode === "abort") await page.getByRole("button", { name: "停止任务", exact: true }).click();
+    await expect.poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).busy).toBe(false);
+    await expect(page.locator(".run-indicator")).toHaveCount(0);
+    await expect(page.locator(".assistant-reply").last().locator(".message-heading")).toHaveCount(1);
+    const stopped = await seconds();
+    expect(stopped).toBeGreaterThanOrEqual(started + 0.4);
+    const frozen = await elapsed.textContent();
+    // Wait through several local timer ticks to ensure the completed metric stops.
+    await page.waitForTimeout(400);
+    await expect(elapsed).toHaveText(frozen!);
+    await page.reload();
+    await editor.waitFor();
+    await expect(elapsed).toContainText(/用时 [\d.]+ 秒/);
+    expect(Math.abs(await seconds() - stopped)).toBeLessThanOrEqual(0.3);
+  }
+});
+
 test("one composer action switches between submit and stop, and running delivery is a saved setting", async ({
   page,
 }) => {
@@ -82,17 +167,31 @@ test("multiple reasoning records and tool results form one compact reply and sur
   await sdkAction(page, "display.thinking", { visible: true });
   await editor.fill("activity-loop-probe 检查项目文件");
   await page.getByRole("button", { name: "发送消息", exact: true }).click();
+  await page.locator(".transcript").evaluate(node => {
+    const transcript = node as HTMLElement;
+    transcript.dataset.maxLiveActivities = "0";
+    new MutationObserver(() => {
+      if (!transcript.querySelector(".run-indicator")) return;
+      const visible = [...transcript.querySelectorAll(".assistant-reply .thinking-block, .assistant-reply .tool-execution")]
+        .filter(item => item.getBoundingClientRect().height > 0).length;
+      transcript.dataset.maxLiveActivities = String(Math.max(visible, Number(transcript.dataset.maxLiveActivities)));
+    }).observe(transcript, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "open", "class"] });
+  });
   const reply = page.locator(".assistant-reply");
   await expect(reply).toHaveCount(1);
   const group = reply.locator(".process-group");
   await expect(group).toHaveAttribute("open", "");
-  const firstTool = reply.locator('.tool-execution[data-tool-state="success"]').first();
-  await firstTool.getByRole("button", { name: "展开 read 输出", exact: true }).click();
-  await expect(firstTool.locator(".tool-body")).toBeVisible();
+  await expect(group.locator(":scope > summary")).toBeHidden();
+  await expect(reply.locator(".thinking-block:visible")).toHaveCount(1);
+  await expect(reply.locator(".thinking-block:visible")).toContainText("继续检查路径");
+  await expect(reply.locator(".tool-execution:visible")).toHaveCount(0);
+  await expect(page.locator(".run-indicator .generation-status")).toContainText("用时");
+  await page.screenshot({ path: ".local/turn-activity/running-current-only.png" });
   await expect(reply).toContainText("已完成检查。");
   await expect
     .poll(async () => (await sdkAction<DesktopSnapshot>(page, "snapshot")).busy)
     .toBe(false);
+  await expect(page.locator(".transcript")).toHaveAttribute("data-max-live-activities", "1");
   const snapshot = await sdkAction<DesktopSnapshot>(page, "snapshot");
   expect(
     snapshot.messages.filter((message) => message.role === "assistant"),

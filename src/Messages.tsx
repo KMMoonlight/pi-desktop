@@ -7,19 +7,24 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { GenerationStatus } from "./GenerationStatus";
+import { GenerationStatus, ReplyGenerationStatus } from "./GenerationStatus";
 import {
   groupTranscriptRows,
+  currentReplyActivity,
+  currentReplyTurn,
+  replyHasLiveWork,
   replySummary,
   isProcessRow,
   type TranscriptRow,
   type ReplyRow,
   type ReplyGroup,
+  type ReplyClock,
   type TranscriptTurn,
 } from "./transcript-turns";
 import { TranscriptNavigation } from "./TranscriptNavigation";
@@ -174,6 +179,7 @@ function ThinkingBlock({
   label,
   presentation,
   onVisibility,
+  hidden,
 }: {
   text: string;
   expanded: boolean;
@@ -181,6 +187,7 @@ function ThinkingBlock({
   label: DesktopMarkdownText;
   presentation?: TranscriptMarkdown;
   onVisibility: (visible: boolean) => void;
+  hidden?: boolean;
 }) {
   useLocale();
   const [open, setOpen] = useState(
@@ -193,6 +200,7 @@ function ThinkingBlock({
   return (
     <details
       className="thinking-block desktop-markdown"
+      hidden={hidden}
       open={open}
       onToggle={(event) => {
         const visible = event.currentTarget.open;
@@ -259,6 +267,7 @@ function ToolExecutionView({
   run,
   showImages,
   imageWidth,
+  activity,
 }: {
   sessionId: string;
   call: ContentBlock;
@@ -269,6 +278,7 @@ function ToolExecutionView({
   run: Run;
   showImages: boolean;
   imageWidth: number;
+  activity?: ReplyActivityVisibility;
 }) {
   useLocale();
   const callSurface = surfaces.find(
@@ -311,6 +321,7 @@ function ToolExecutionView({
         surface={callSurface}
         state={state}
         expanded={toolExpanded}
+        hidden={activity?.hidden}
       />
     );
   return (
@@ -321,6 +332,7 @@ function ToolExecutionView({
       data-tool-expanded={presentation?.expanded ?? expanded}
       data-tool-details-visible={detailsVisible}
       data-tool-interactive={interactive}
+      hidden={activity?.hidden}
     >
       {!self && (
         <div className="tool-desktop-controls">
@@ -430,6 +442,7 @@ function MessageView({
   run,
   showImages,
   imageWidth,
+  activity,
 }: {
   message: ChatMessage;
   embedded?: boolean;
@@ -444,6 +457,7 @@ function MessageView({
   run: Run;
   showImages: boolean;
   imageWidth: number;
+  activity?: ReplyActivityVisibility;
 }) {
   useLocale();
   const [copied, setCopied] = useState(false);
@@ -485,6 +499,7 @@ function MessageView({
         return block.type === "thinking" ? (
           <ThinkingBlock
             key={index}
+            hidden={activity && (activity.hidden || index !== activity.thinkingBlockIndex)}
             expanded={showThinking}
             streaming={streaming}
             label={
@@ -622,24 +637,30 @@ const Message = memo(MessageView, (previous, next) => {
     );
 });
 
+type ReplyActivityVisibility = { hidden: boolean; thinkingBlockIndex?: number };
+
 function AssistantReply({
   group,
   renderRow,
   running,
   interactiveTools,
+  clock,
 }: {
   group: ReplyGroup;
   renderRow: (
     row: TranscriptRow,
     embedded?: boolean,
     part?: "thinking" | "content",
+    activity?: ReplyActivityVisibility,
   ) => ReactNode;
   running: boolean;
   interactiveTools: ReadonlySet<string>;
+  clock: ReplyClock;
 }) {
   useLocale();
   const [copied, setCopied] = useState(false);
   const summary = replySummary(group.rows);
+  const activity = running ? currentReplyActivity(group.rows) : undefined;
   const text = group.rows
     .flatMap((row) =>
       row.kind === "message"
@@ -680,9 +701,9 @@ function AssistantReply({
       data-message-id={group.id}
       aria-label={t("Pi 回复")}
     >
-      {summary && (
+      {summary && !running && (
         <div className="message-heading flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted tabular-nums">
-          <GenerationStatus message={summary} />
+          <ReplyGenerationStatus rows={group.rows} running={running} clock={clock} />
         </div>
       )}
       <div className="message-body">
@@ -696,7 +717,10 @@ function AssistantReply({
                 row.kind === "message" ? row.message.id : `tool:${row.call.id}`
               }
             >
-              {renderRow(row, true, part)}
+              {renderRow(row, true, part, running ? {
+                hidden: row !== activity?.row,
+                thinkingBlockIndex: row === activity?.row ? activity.thinkingBlockIndex : undefined,
+              } : undefined)}
             </Fragment>
           ));
           return segment.process && tools.length > 0 ? (
@@ -704,6 +728,7 @@ function AssistantReply({
               key={segment.id}
               count={tools.length}
               running={running}
+              hidden={running && !segment.rows.some(({ row }) => row === activity?.row)}
               keepMounted={tools.some(tool => !tool.call.toolPresentation?.builtin || interactiveTools.has(tool.call.id ?? ""))}
             >
               {contents}
@@ -753,11 +778,13 @@ function ProcessSteps({
   running,
   children,
   keepMounted,
+  hidden,
 }: {
   count: number;
   running: boolean;
   children: ReactNode;
   keepMounted: boolean;
+  hidden: boolean;
 }) {
   const [open, setOpen] = useState(running);
   useEffect(() => {
@@ -766,7 +793,9 @@ function ProcessSteps({
   return (
     <details
       className="process-group"
-      open={open}
+      data-running={running}
+      hidden={hidden}
+      open={running || open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary>
@@ -821,6 +850,20 @@ function MessagesView({
 }) {
   useLocale();
   const scroller = useRef<HTMLDivElement>(null);
+  // Retain the last displayed live time when the footer moves into a completed
+  // reply header, even if termination produced no final tool-result record.
+  const replyClocks = useMemo(() => new Map<string, ReplyClock>(), [sessionId]);
+  const replyClock = (group: ReplyGroup) => {
+    // History branches can reuse positional message IDs in the same session.
+    const first = group.rows.find((row) => row.kind === "message");
+    const id = `${group.id}:${first?.message.timestamp ?? ""}`;
+    let clock = replyClocks.get(id);
+    if (!clock) {
+      clock = {};
+      replyClocks.set(id, clock);
+    }
+    return clock;
+  };
   const follow = useRef(true);
   const scrollSize = useRef({ height: 0, viewport: 0, top: 0 });
   const [away, setAway] = useState(false);
@@ -928,6 +971,15 @@ function MessagesView({
     turns[turns.length - 1].rows.push(row);
   }
   const firstTurnId = turns[0]?.id;
+  const runningTurn = currentReplyTurn(turns);
+  const latestReply = groupTranscriptRows(runningTurn?.rows ?? [])
+    .filter(group => group.kind === "reply").at(-1);
+  const latestHasLiveWork = latestReply
+    ? replyHasLiveWork(latestReply.rows, streaming?.id)
+    : false;
+  const currentReply = latestReply && (latestHasLiveWork || busy && !replyClock(latestReply).finished)
+    ? latestReply
+    : undefined;
   useEffect(() => {
     const scroll = (event: Event) => {
       const request = (event as CustomEvent<{ sessionId: string; position: string }>).detail;
@@ -1002,6 +1054,7 @@ function MessagesView({
     row: TranscriptRow,
     embedded = false,
     part?: "thinking" | "content",
+    activity?: ReplyActivityVisibility,
   ): ReactNode =>
     row.kind === "notice" ? (
       <div
@@ -1022,6 +1075,7 @@ function MessagesView({
         run={run}
         showImages={showImages}
         imageWidth={imageWidth}
+        activity={activity}
       />
     ) : (
       <Message
@@ -1040,6 +1094,7 @@ function MessagesView({
         run={run}
         showImages={showImages}
         imageWidth={imageWidth}
+        activity={activity}
       />
     );
   return (
@@ -1104,42 +1159,49 @@ function MessagesView({
                   : row.kind === "message" && [row.message.desktopSurfaceId,
                     ...row.message.content.map(block => block.desktopSurfaceId)]
                     .some(id => id !== undefined && interactiveSurfaces.has(id)))}
-              render={() => groupTranscriptRows(turn.rows).map((row) =>
-                row.kind === "reply" ? (
-                  <AssistantReply
-                    key={row.id}
-                    group={row}
-                    renderRow={renderRow}
-                    running={busy && turn.id === turns.at(-1)?.id}
-                    interactiveTools={interactiveTools}
-                  />
-                ) : (
-                  <Fragment
-                    key={
-                      row.kind === "notice"
-                        ? row.notice.id
-                        : row.kind === "tool"
-                          ? `tool:${row.call.id}`
-                          : row.message.id
-                    }
-                  >
-                    {renderRow(row)}
-                  </Fragment>
-                ),
-              )}
+              render={() => {
+                const groups = groupTranscriptRows(turn.rows);
+                return groups.map((row) =>
+                  row.kind === "reply" ? (
+                    <AssistantReply
+                      key={row.id}
+                      group={row}
+                      renderRow={renderRow}
+                      running={turn.id === runningTurn?.id && row.id === currentReply?.id}
+                      interactiveTools={interactiveTools}
+                      clock={replyClock(row)}
+                    />
+                  ) : (
+                    <Fragment
+                      key={
+                        row.kind === "notice"
+                          ? row.notice.id
+                          : row.kind === "tool"
+                            ? `tool:${row.call.id}`
+                            : row.message.id
+                      }
+                    >
+                      {renderRow(row)}
+                    </Fragment>
+                  ),
+                );
+              }}
             />
           ))}
-          {busy && extensionUI.workingVisible && (
+          {(busy || currentReply) && (extensionUI.workingVisible || currentReply) && (
             <div className="run-indicator">
-              <WorkingIndicator
-                options={extensionUI.workingIndicator}
-                presentation={extensionUI.textPresentation?.workingFrames}
-              />
-              <StyledText
-                {...(extensionUI.textPresentation?.statuses.working?.text
-                  ? extensionUI.textPresentation.statuses.working
-                  : { text: extensionUI.workingMessage || t("Pi 正在处理") })}
-              />
+              {extensionUI.workingVisible && <>
+                <WorkingIndicator
+                  options={extensionUI.workingIndicator}
+                  presentation={extensionUI.textPresentation?.workingFrames}
+                />
+                <StyledText
+                  {...(extensionUI.textPresentation?.statuses.working?.text
+                    ? extensionUI.textPresentation.statuses.working
+                    : { text: extensionUI.workingMessage || t("Pi 正在处理") })}
+                />
+              </>}
+              {currentReply && <ReplyGenerationStatus rows={currentReply.rows} running activeWork={latestHasLiveWork} showTokens={false} clock={replyClock(currentReply)} />}
             </div>
           )}
         </div>

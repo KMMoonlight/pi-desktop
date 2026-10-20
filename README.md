@@ -6,7 +6,7 @@ Pi Desktop 是 [Pi](https://github.com/earendil-works/pi) 的图形化桌面应�
 
 支持 **Windows 和 macOS**，提供 **简体中文 / English** 界面。
 
-[下载安装](https://github.com/KMMoonlight/pi-desktop/releases/tag/v0.1.18) · [反馈问题](https://github.com/KMMoonlight/pi-desktop/issues)
+[下载安装](https://github.com/KMMoonlight/pi-desktop/releases/tag/v0.1.19) · [反馈问题](https://github.com/KMMoonlight/pi-desktop/issues)
 
 ![Pi Desktop 对话界面：项目会话、Markdown 回复与消息输入框](docs/images/conversation.png)
 
@@ -39,12 +39,12 @@ Pi Desktop 是 [Pi](https://github.com/earendil-works/pi) 的图形化桌面应�
 
 | 设备 | 下载 |
 | --- | --- |
-| Windows x64 | [Windows 安装器（.exe）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.18/Pi-Desktop_0.1.18_windows-x64-setup.exe) |
-| Mac Apple Silicon（M 系列芯片） | [Apple Silicon 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.18/Pi-Desktop_0.1.18_macos-arm64.dmg) |
+| Windows x64 | [Windows 安装器（.exe）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.19/Pi-Desktop_0.1.19_windows-x64-setup.exe) |
+| Mac Apple Silicon（M 系列芯片） | [Apple Silicon 安装包（.dmg）](https://github.com/KMMoonlight/pi-desktop/releases/download/v0.1.19/Pi-Desktop_0.1.19_macos-arm64.dmg) |
 
 Windows 按安装器提示完成安装；macOS 打开 `.dmg`，将 Pi Desktop 拖入「应用程序」。无需另外安装 Node.js 或 Pi。
 
-当前为 **v0.1.18**，尚未配置正式代码签名和 Apple 公证，系统可能显示安全提示。
+当前为 **v0.1.19**，尚未配置正式代码签名和 Apple 公证，系统可能显示安全提示。
 
 ## 开始使用
 
@@ -53,7 +53,7 @@ Windows 按安装器提示完成安装；macOS 打开 `.dmg`，将 Pi Desktop �
 3. 新建会话，描述你想完成的任务；需要时附加文件或图片。
 4. 查看回复、执行结果和文件更改，继续补充要求。
 
-自定义提供商支持 OpenAI 兼容的 `/v1/models` 时，在「添加自定义端点」中填写 API 地址（如 `https://example.com/v1`）和 API Key，点击「从 API 获取模型」即可批量导入，再点击「保存端点」。已有模型的配置会保留；端点未提供的模型能力和 token 限制可按需调整。密钥支持 `$NAME` 或 `${NAME}` 环境变量引用。
+自定义提供商支持 OpenAI 兼容的 `/v1/models` 时，在「添加自定义端点」中填写 API 地址（如 `https://example.com/v1`）和 API Key，点击「从 API 获取模型」即可批量导入名称、上下文长度、最大输出、思考档位、工具和视觉能力，再点击「保存端点」。重新获取会补齐已有模型缺少的信息，保留已填写的配置。支持 SDK 原生字段和常见 OpenRouter 字段；token 限制及思考、视觉能力可手动补充，工具能力按接口声明展示。详见[模型导入字段](docs/provider-models.md)。密钥支持 `$NAME` 或 `${NAME}` 环境变量引用。
 
 例如：
 

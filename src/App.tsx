@@ -977,6 +977,9 @@ const labels: Record<string, string> = {
         selection: { start: value.length, end: value.length },
       });
   };
+  const gitBranchLabel = snapshot?.gitBranch === "detached"
+    ? t("分离 HEAD")
+    : snapshot?.gitBranch;
   const emptyConversation =
     !!snapshot &&
     snapshot.messages.length === 0 &&
@@ -1799,6 +1802,18 @@ const labels: Record<string, string> = {
                             />
                           )}
                           <SessionTokenUsage tokens={snapshot.stats.tokens} />
+                          {snapshot.gitBranch && (
+                            <span
+                              className="composer-git-branch ml-auto flex min-w-0 max-w-[45%] items-center gap-1.5"
+                              title={gitBranchLabel}
+                              aria-label={t("当前 Git 分支：{value1}", {
+                                value1: gitBranchLabel ?? "",
+                              })}
+                            >
+                              <GitBranch size={12} className="shrink-0" aria-hidden="true" />
+                              <span className="truncate">{gitBranchLabel}</span>
+                            </span>
+                          )}
                         </div>
                         <div className="composer-footnote">
                           <span>

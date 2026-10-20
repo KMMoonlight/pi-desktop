@@ -5,6 +5,10 @@ import { Plus, PencilLine, Trash2 } from "lucide-react";
 import { Field, SelectField } from "./ui";
 import { ProviderModels } from "./ProviderModels";
 import type { DiscoveredProviderModel, RecordValue } from "../shared/types";
+import {
+  mergeDiscoveredProviderModels,
+  providerThinkingLevels,
+} from "../shared/provider-models";
 import type { Run } from "./Workspace";
 const object = (value: unknown): RecordValue =>
   value && typeof value === "object" && !Array.isArray(value)
@@ -109,18 +113,13 @@ export function CustomProviders({
         setError,
       );
       if (!result) return;
-      setEditor(current => {
+      setEditor((current) => {
         if (!current) return current;
-        const existing = Array.isArray(current.value.models)
-          ? current.value.models.map(object).filter(model =>
-              String(model.id ?? "").trim() || Object.keys(model).some(key => key !== "id"))
-          : [];
-        const ids = new Set(existing.map(model => String(model.id ?? "").trim()));
         return {
           ...current,
           value: {
             ...current.value,
-            models: [...existing, ...result.filter(model => !ids.has(model.id))],
+            models: mergeDiscoveredProviderModels(current.value.models, result),
           },
         };
       });
@@ -163,6 +162,13 @@ export function CustomProviders({
           return;
         }
         ids.add(id);
+        if (
+          model.reasoning === true &&
+          providerThinkingLevels(model).length === 0
+        ) {
+          setError(t("支持思考的模型至少需要一个可用档位"));
+          return;
+        }
         for (const key of ["contextWindow", "maxTokens"])
           if (
             model[key] !== undefined &&

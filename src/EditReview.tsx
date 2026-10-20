@@ -85,12 +85,14 @@ export function EditReview({
   surface,
   state,
   expanded,
+  hidden,
 }: {
   call: ContentBlock;
   result?: ChatMessage;
   surface?: DesktopSurface;
   state: ToolPresentation["state"];
   expanded: boolean;
+  hidden?: boolean;
 }) {
   useLocale();
   const workspace = useContext(FileWorkspace)
@@ -146,6 +148,7 @@ export function EditReview({
   return (
     <div
       className="tool-self tool-execution tool-edit-review"
+      hidden={hidden}
       data-tool-call-id={call.id}
       data-tool-state={state}
       data-tool-expanded={expanded}

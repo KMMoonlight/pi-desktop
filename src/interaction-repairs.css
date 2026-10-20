@@ -207,6 +207,53 @@
   align-self: end;
   min-height: 36px;
 }
+.provider-model-grid > .provider-model-tools {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 6px;
+}
+.provider-model-tools > span:first-child {
+  font-size: 13px;
+  font-weight: 500;
+}
+.provider-model-tool-status {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+.provider-model-tools small {
+  color: var(--ui-muted);
+  font-size: 11px;
+}
+.provider-thinking-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.provider-thinking-levels legend {
+  margin-bottom: 8px;
+}
+.provider-thinking-levels label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.provider-thinking-levels input {
+  accent-color: var(--ui-action);
+}
+.provider-thinking-note {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-muted);
+}
 .provider-model-editor {
   min-width: 0;
 }

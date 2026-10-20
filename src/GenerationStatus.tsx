@@ -2,6 +2,53 @@ import { t, useLocale } from "./i18n";
 import type { ChatMessage } from "../shared/types";
 import { number } from "./ui";
 import { formatDuration } from "./format-duration";
+import { useEffect, useLayoutEffect, useMemo, useReducer } from "react";
+import {
+  prepareReplySummary,
+  observeReplyClock,
+  replySummaryAt,
+  type ReplyClock,
+  type ReplyRow,
+} from "./transcript-turns";
+
+/** Tick only the current reply's metric, including silent tool execution. */
+export function ReplyGenerationStatus({
+  rows,
+  running,
+  activeWork = false,
+  showTokens = true,
+  clock,
+}: {
+  rows: ReplyRow[];
+  running: boolean;
+  activeWork?: boolean;
+  showTokens?: boolean;
+  clock: ReplyClock;
+}) {
+  const prepared = useMemo(() => prepareReplySummary(rows), [rows]);
+  const [, tick] = useReducer((value) => value + 1, 0);
+  const live = (running || activeWork) && (!clock.finished || activeWork);
+  // Read the current time on the first running render as well as every tick.
+  const now = live ? Date.now() : undefined;
+  useEffect(() => {
+    if (!live) return;
+    const timer = setInterval(tick, 100);
+    return () => clearInterval(timer);
+  }, [live]);
+  useLayoutEffect(() => {
+    observeReplyClock(clock, {
+      running,
+      activeWork,
+      now: prepared?.endedAt === undefined ? undefined : now,
+    });
+  }, [clock, running, activeWork, now, prepared]);
+  const summary = prepared
+    ? replySummaryAt(prepared, now, clock.lastObservedAt)
+    : undefined;
+  return summary ? (
+    <GenerationStatus message={summary} showTokens={showTokens} />
+  ) : null;
+}
 
 const tokenNumber = new Intl.NumberFormat("en-US", {
   notation: "compact",
@@ -37,9 +84,11 @@ export function SessionTokenUsage({
 export function GenerationStatus({
   message,
   compact = false,
+  showTokens = true,
 }: {
   message: ChatMessage;
   compact?: boolean;
+  showTokens?: boolean;
 }) {
   useLocale();
   const output = message.generation?.outputTokens ?? message.outputTokens;
@@ -51,7 +100,7 @@ export function GenerationStatus({
     message.generation?.elapsedMs ?? message.generation?.durationMs,
   );
   const hasOutput =
-    output !== undefined && output > 0 && Number.isFinite(output);
+    showTokens && output !== undefined && output > 0 && Number.isFinite(output);
   const hasElapsed = elapsed !== undefined;
   if (
     compact
@@ -69,11 +118,12 @@ export function GenerationStatus({
       }
     >
       {compact && (
-        <span>{estimated ? "≈ " : ""}{number(rate)} tok/s</span>
+        <span>
+          {estimated ? "≈ " : ""}
+          {number(rate)} tok/s
+        </span>
       )}
-      {!compact && hasElapsed && (
-        <span>{elapsed}</span>
-      )}
+      {!compact && hasElapsed && <span>{elapsed}</span>}
       {!compact && hasOutput && <span>{number(output)} tokens</span>}
     </span>
   );

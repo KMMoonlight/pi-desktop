@@ -1,6 +1,6 @@
 import { t, useLocale, getLocale } from "./i18n";
 import { Folder, Pin, Plus, ChevronRight, Trash2, LoaderCircle } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SessionItem, DesktopSnapshot } from "../shared/types";
 import { Hint, IconButton, baseName } from "./ui";
 
@@ -58,6 +58,18 @@ export function SessionRail({
     try { return JSON.parse(localStorage.getItem("pi.workspaceDisclosures") ?? "{}"); }
     catch { return {}; }
   });
+  const currentProject = cwd ? projectKey(cwd) : undefined;
+  useEffect(() => {
+    if (!currentProject) return;
+    // Remember the initial automatic expansion, so leaving this workspace
+    // cannot collapse it. An explicit user choice, including false, wins.
+    setDisclosures(previous => previous[currentProject] === undefined
+      ? { ...previous, [currentProject]: true }
+      : previous);
+  }, [currentProject]);
+  useEffect(() => {
+    localStorage.setItem("pi.workspaceDisclosures", JSON.stringify(disclosures));
+  }, [disclosures]);
   const groups = new Map<string, { cwd: string; sessions: SessionItem[] }>();
   for (const workspace of workspaces)
     groups.set(projectKey(workspace), { cwd: workspace, sessions: [] });
@@ -125,73 +137,70 @@ export function SessionRail({
           (group) =>
             !search || group.sessions.length,
         )
-        .map((group) => (
-          <details
-            className="session-project"
-            key={projectKey(group.cwd)}
-            open={!!search || (disclosures[projectKey(group.cwd)] ?? projectKey(group.cwd) === projectKey(cwd ?? ""))}
-            onToggle={(event) => {
-              if (search) return;
-              const open = event.currentTarget.open;
-              const key = projectKey(group.cwd);
-              const expected = disclosures[key] ?? key === projectKey(cwd ?? "");
-              if (open === expected) return;
-              setDisclosures((previous) => {
-                const next = { ...previous, [key]: open };
-                localStorage.setItem("pi.workspaceDisclosures", JSON.stringify(next));
-                return next;
-              });
-            }}
-          >
-            <summary title={group.cwd} aria-label={`${baseName(group.cwd)} workspace`}>
-              <span className="workspace-group-glyph" aria-hidden="true">
-                <Folder size={16} /><ChevronRight size={16} />
-              </span>
-              <span
-                className="workspace-group-name"
-              >{baseName(group.cwd)}</span>
-              {names.filter(name => name === baseName(group.cwd).toLowerCase()).length > 1 && (
-                <small className="workspace-parent">{parentName(group.cwd)}</small>
-              )}
-              <button
-                type="button" className="workspace-remove workspace-new-session"
-                aria-label={t("移除工作区 {value1}", { value1: baseName(group.cwd) })}
-                disabled={group.sessions.some(session => running(session.id)) || (busy && projectKey(group.cwd) === projectKey(cwd ?? ""))} aria-disabled={pending || undefined}
+        .map((group) => {
+          const key = projectKey(group.cwd);
+          const expanded = disclosures[key] ?? key === currentProject;
+          return (
+            <details
+              className="session-project"
+              key={key}
+              open={!!search || expanded}
+            >
+              <summary title={group.cwd} aria-label={`${baseName(group.cwd)} workspace`}
                 onClick={(event) => {
+                  // Native toggle events also fire for programmatic changes,
+                  // including search. Only direct activation changes the choice.
                   event.preventDefault();
-                  event.stopPropagation();
-                  if (!pending) removeWorkspace(group.cwd);
-                }}
-              ><Trash2 size={14} /></button>
-              <button
-                type="button" className="workspace-new-session"
-                aria-label={t("在 {value1} 中新建会话", { value1: baseName(group.cwd) })}
-                aria-disabled={pending || undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  if (pending) return;
-                  const next = { ...disclosures, [projectKey(group.cwd)]: true };
-                  setDisclosures(next);
-                  localStorage.setItem("pi.workspaceDisclosures", JSON.stringify(next));
-                  newSession(group.cwd);
-                }}
-              ><Plus size={14} /></button>
-            </summary>
-            {fresh && projectKey(group.cwd) === projectKey(cwd!) && (
-              <button className="session-row active" data-session-id={currentId} aria-current="page" aria-disabled={pending || undefined} onClick={() => { if (!pending) select(); }}>
-                <span>
-                  {activity(currentId)}
-                  <strong>{currentName ?? t("新会话")}</strong>
+                  if (!search)
+                    setDisclosures(previous => ({ ...previous, [key]: !expanded }));
+                }}>
+                <span className="workspace-group-glyph" aria-hidden="true">
+                  <Folder size={16} /><ChevronRight size={16} />
                 </span>
-              </button>
-            )}
-            {group.sessions.map(row)}
-            {!group.sessions.length && !(fresh && projectKey(group.cwd) === projectKey(cwd ?? "")) && (
-              <div className="workspace-empty">{t("暂无会话")}</div>
-            )}
-          </details>
-        ))}
+                <span
+                  className="workspace-group-name"
+                >{baseName(group.cwd)}</span>
+                {names.filter(name => name === baseName(group.cwd).toLowerCase()).length > 1 && (
+                  <small className="workspace-parent">{parentName(group.cwd)}</small>
+                )}
+                <button
+                  type="button" className="workspace-remove workspace-new-session"
+                  aria-label={t("移除工作区 {value1}", { value1: baseName(group.cwd) })}
+                  disabled={group.sessions.some(session => running(session.id)) || (busy && projectKey(group.cwd) === projectKey(cwd ?? ""))} aria-disabled={pending || undefined}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (!pending) removeWorkspace(group.cwd);
+                  }}
+                ><Trash2 size={14} /></button>
+                <button
+                  type="button" className="workspace-new-session"
+                  aria-label={t("在 {value1} 中新建会话", { value1: baseName(group.cwd) })}
+                  aria-disabled={pending || undefined}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (pending) return;
+                    setDisclosures(previous => ({ ...previous, [key]: true }));
+                    newSession(group.cwd);
+                  }}
+                ><Plus size={14} /></button>
+              </summary>
+              {fresh && projectKey(group.cwd) === projectKey(cwd!) && (
+                <button className="session-row active" data-session-id={currentId} aria-current="page" aria-disabled={pending || undefined} onClick={() => { if (!pending) select(); }}>
+                  <span>
+                    {activity(currentId)}
+                    <strong>{currentName ?? t("新会话")}</strong>
+                  </span>
+                </button>
+              )}
+              {group.sessions.map(row)}
+              {!group.sessions.length && !(fresh && projectKey(group.cwd) === projectKey(cwd ?? "")) && (
+                <div className="workspace-empty">{t("暂无会话")}</div>
+              )}
+            </details>
+          );
+        })}
       {search && sessions.length === 0 && (
         <div className="muted small-pad">{t("没有匹配的会话")}</div>
       )}

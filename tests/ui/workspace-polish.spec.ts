@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { mkdir, realpath } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { sdkAction } from "../editor-workflows.ts";
 import { selectField } from "../select-field.ts";
 import type { DesktopSnapshot } from "../../shared/types.ts";
@@ -8,6 +8,53 @@ import type { DesktopSnapshot } from "../../shared/types.ts";
 test.beforeAll(() =>
   mkdir(".local/workspace-polish-evidence", { recursive: true }),
 );
+test("editing a folder path supersedes a pending directory listing", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("textbox", { name: "消息", exact: true }).waitFor();
+  const snapshot = await sdkAction<DesktopSnapshot>(page, "snapshot");
+  const missing = join(snapshot.cwd, "missing-folder-while-loading");
+  let release!: () => void;
+  let started!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const listingStarted = new Promise<void>((resolve) => { started = resolve; });
+  let initial = true;
+  await page.route("**/api/action", async (route) => {
+    if (route.request().postDataJSON()?.action !== "folders.list" || !initial) {
+      await route.continue();
+      return;
+    }
+    initial = false;
+    const response = await route.fetch();
+    started();
+    await pending;
+    await route.fulfill({ response });
+  });
+  try {
+    await page.getByRole("button", { name: "添加工作区", exact: true }).click();
+    await listingStarted;
+    const dialog = page.getByRole("dialog", { name: "添加工作区", exact: true });
+    const path = dialog.getByRole("textbox", { name: "文件夹路径", exact: true });
+    await path.fill(missing);
+    await dialog.getByRole("button", { name: "转到文件夹", exact: true }).click();
+    await expect(dialog.getByRole("alert")).toContainText("missing-folder-while-loading");
+    const response = page.waitForResponse((response) =>
+      response.url().endsWith("/api/action") &&
+      response.request().postDataJSON()?.action === "folders.list" &&
+      response.request().postDataJSON()?.args.path === snapshot.cwd,
+    );
+    release();
+    await response;
+    // Let the released response reach React before checking stale UI writes.
+    await page.evaluate(() => new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    }));
+    await expect(path).toHaveValue(missing);
+    await expect(dialog.getByRole("alert")).toContainText("missing-folder-while-loading");
+  } finally {
+    release();
+  }
+});
+
 test("workspace disclosure, cancel, invalid path, registration and project new-session are distinct", async ({
   page,
 }) => {
@@ -19,98 +66,104 @@ test("workspace disclosure, cancel, invalid path, registration and project new-s
   await sdkAction(page, "session.name", { name: "Workspace origin" });
   await editor.fill("保留原项目草稿");
   const before = await sdkAction<DesktopSnapshot>(page, "snapshot");
-  const group = page
-    .locator(".session-project")
-    .filter({ has: page.getByText("Workspace origin", { exact: true }) });
-  await group.locator("summary").click();
-  await group.locator("summary").click();
-  expect((await sdkAction<DesktopSnapshot>(page, "snapshot")).sessionId).toBe(
-    before.sessionId,
-  );
-  await page
-    .getByRole("button", { name: "添加工作区", exact: true })
-    .click();
-  let dialog = page.getByRole("dialog", {
-    name: "添加工作区",
-    exact: true,
-  });
-  await expect(
-    dialog.getByRole("button", { name: "打开", exact: true }),
-  ).toBeEnabled();
-  await expect(dialog.getByRole("list", { name: "文件夹", exact: true })).toBeVisible();
-  await expect(dialog.getByRole("textbox")).toHaveCount(1);
-  await expect(dialog.locator(".recent-workspace, .dialog-help")).toHaveCount(0);
-  for (const width of [1440, 1024, 768, 390, 375]) {
-    await page.setViewportSize({ width, height: width > 700 ? 940 : 740 });
-    await expect(dialog).toBeInViewport();
-    await expect(dialog.getByRole("textbox", { name: "文件夹路径", exact: true })).toBeFocused();
-    await expect(dialog.getByRole("button", { name: "打开", exact: true })).toBeInViewport();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: `.local/workspace-polish-evidence/add-workspace-${width}.png` });
-  }
-  await page.setViewportSize({ width: 1440, height: 940 });
-  await dialog.getByRole("button", { name: "取消", exact: true }).click();
-  await expect(editor).toHaveValue("保留原项目草稿");
-  await page
-    .getByRole("button", { name: "添加工作区", exact: true })
-    .click();
-  await dialog
-    .getByRole("textbox", { name: "文件夹路径", exact: true })
-    .fill(join(before.cwd, "missing-folder"));
-  await dialog.getByRole("button", { name: "转到文件夹", exact: true }).click();
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("alert")).toContainText("missing-folder");
-  const failed = await sdkAction<DesktopSnapshot>(page, "snapshot");
-  expect(failed.sessionId).toBe(before.sessionId);
-  expect(failed.recentWorkspaces).toEqual(before.recentWorkspaces);
-  await dialog.getByRole("textbox", { name: "文件夹路径", exact: true }).fill("修正路径");
-  await expect(dialog.getByRole("alert")).toHaveCount(0);
-  await dialog.getByRole("button", { name: "取消", exact: true }).click();
-  const secondPath = join(dirname(before.cwd), "桌面项目 pi-agent");
-  await mkdir(secondPath, { recursive: true });
-  const second = await realpath(secondPath);
-  const add = async (path = second) => {
+  try {
+    const group = page
+      .locator(".session-project")
+      .filter({ has: page.locator(`[data-session-id="${before.sessionId}"]`) });
+    await group.locator("summary").click();
+    await group.locator("summary").click();
+    expect((await sdkAction<DesktopSnapshot>(page, "snapshot")).sessionId).toBe(
+      before.sessionId,
+    );
+    await page
+      .getByRole("button", { name: "添加工作区", exact: true })
+      .click();
+    let dialog = page.getByRole("dialog", {
+      name: "添加工作区",
+      exact: true,
+    });
+    await expect(
+      dialog.getByRole("button", { name: "打开", exact: true }),
+    ).toBeEnabled();
+    await expect(dialog.getByRole("list", { name: "文件夹", exact: true })).toBeVisible();
+    await expect(dialog.getByRole("textbox")).toHaveCount(1);
+    await expect(dialog.locator(".recent-workspace, .dialog-help")).toHaveCount(0);
+    for (const width of [1440, 1024, 768, 390, 375]) {
+      await page.setViewportSize({ width, height: width > 700 ? 940 : 740 });
+      await expect(dialog).toBeInViewport();
+      await expect(dialog.getByRole("textbox", { name: "文件夹路径", exact: true })).toBeFocused();
+      await expect(dialog.getByRole("button", { name: "打开", exact: true })).toBeInViewport();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: `.local/workspace-polish-evidence/add-workspace-${width}.png` });
+    }
+    await page.setViewportSize({ width: 1440, height: 940 });
+    await dialog.getByRole("button", { name: "取消", exact: true }).click();
+    await expect(editor).toHaveValue("保留原项目草稿");
     await page
       .getByRole("button", { name: "添加工作区", exact: true })
       .click();
     await dialog
       .getByRole("textbox", { name: "文件夹路径", exact: true })
-      .fill(path);
+      .fill(join(before.cwd, "missing-folder"));
     await dialog.getByRole("button", { name: "转到文件夹", exact: true }).click();
-    await expect(dialog.getByRole("button", { name: "打开", exact: true })).toBeEnabled();
-    await dialog.getByRole("button", { name: "打开", exact: true }).click();
-    await expect(dialog).toBeHidden();
-  };
-  await add();
-  let current = await sdkAction<DesktopSnapshot>(page, "snapshot");
-  expect(current.cwd).toBe(second);
-  expect(current.sessionId).not.toBe(before.sessionId);
-  await expect(page.locator(".workspace-group-name").filter({ hasText: /^桌面项目 pi-agent$/ })).toBeVisible();
-  const firstNew = current.sessionId;
-  await page
-    .getByRole("button", {
-      name: "在 桌面项目 pi-agent 中新建会话",
-      exact: true,
-    })
-    .click();
-  await expect
-    .poll(
-      async () =>
-        (await sdkAction<DesktopSnapshot>(page, "snapshot")).sessionId,
-    )
-    .not.toBe(firstNew);
-  await add(`${second}\\`);
-  current = await sdkAction<DesktopSnapshot>(page, "snapshot");
-  expect(
-    current.recentWorkspaces.filter((path) => path === second),
-  ).toHaveLength(1);
-  if (!(await group.evaluate((node) => (node as HTMLDetailsElement).open)))
-    await group.locator("summary").click();
-  await group.getByRole("button", { name: /Workspace origin/ }).click();
-  await expect(editor).toHaveValue("保留原项目草稿");
-  await page.screenshot({
-    path: ".local/workspace-polish-evidence/sidebar-projects.png",
-  });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("alert")).toContainText("missing-folder");
+    const failed = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    expect(failed.sessionId).toBe(before.sessionId);
+    expect(failed.recentWorkspaces).toEqual(before.recentWorkspaces);
+    await dialog.getByRole("textbox", { name: "文件夹路径", exact: true }).fill("修正路径");
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+    await dialog.getByRole("button", { name: "取消", exact: true }).click();
+    const secondPath = join(dirname(before.cwd), "桌面项目 pi-agent");
+    await mkdir(secondPath, { recursive: true });
+    const second = await realpath(secondPath);
+    const add = async (path = second) => {
+      await page
+        .getByRole("button", { name: "添加工作区", exact: true })
+        .click();
+      await dialog
+        .getByRole("textbox", { name: "文件夹路径", exact: true })
+        .fill(path);
+      await dialog.getByRole("button", { name: "转到文件夹", exact: true }).click();
+      await expect(dialog.getByRole("button", { name: "打开", exact: true })).toBeEnabled();
+      await dialog.getByRole("button", { name: "打开", exact: true }).click();
+      await expect(dialog).toBeHidden();
+    };
+    await add();
+    let current = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    expect(current.cwd).toBe(second);
+    expect(current.sessionId).not.toBe(before.sessionId);
+    await expect(page.locator(".workspace-group-name").filter({ hasText: /^桌面项目 pi-agent$/ })).toBeVisible();
+    const firstNew = current.sessionId;
+    await page
+      .getByRole("button", {
+        name: "在 桌面项目 pi-agent 中新建会话",
+        exact: true,
+      })
+      .click();
+    await expect
+      .poll(
+        async () =>
+          (await sdkAction<DesktopSnapshot>(page, "snapshot")).sessionId,
+      )
+      .not.toBe(firstNew);
+    await add(`${second}${sep}`);
+    current = await sdkAction<DesktopSnapshot>(page, "snapshot");
+    expect(
+      current.recentWorkspaces.filter((path) => path === second),
+    ).toHaveLength(1);
+    if (!(await group.evaluate((node) => (node as HTMLDetailsElement).open)))
+      await group.locator("summary").click();
+    await group.locator(`[data-session-id="${before.sessionId}"]`)
+      .getByRole("button", { name: /Workspace origin/ }).click();
+    await expect(editor).toHaveValue("保留原项目草稿");
+    await page.screenshot({
+      path: ".local/workspace-polish-evidence/sidebar-projects.png",
+    });
+  } finally {
+    // Other tests share the preview host and rely on its fixture workspace.
+    await sdkAction(page, "session.new", { cwd: before.cwd });
+  }
 });
 
 test("dropdowns, output metrics and content-sized bubbles work across the agreed widths", async ({

@@ -14,6 +14,8 @@ const fixture = await createFixture({
   toolDisplay: true,
   transcriptRenderers: true,
   modelTools: {
+    "tool-timer-complete-probe": { name: "bash", args: { command: "sleep 3" } },
+    "tool-timer-abort-probe": { name: "bash", args: { command: "sleep 30" } },
     "pi-120-image": {
       name: "codemode",
       args: { code: "const result = await tools.read({path: 'pi-120-image.png'}); image(result);" },

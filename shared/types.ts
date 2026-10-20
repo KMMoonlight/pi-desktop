@@ -1,7 +1,23 @@
+import type { ModelThinkingLevel as SdkModelThinkingLevel } from "@earendil-works/pi-ai";
+
 export type RecordValue = Record<string, unknown>;
+// Keep the renderer independent of the SDK's executable TypeBox schemas.
+// A regression test checks this browser-safe list against the SDK catalog.
+export const modelThinkingLevels = [
+  "off", "minimal", "low", "medium", "high", "xhigh", "max",
+] as const satisfies readonly SdkModelThinkingLevel[];
+export type ModelThinkingLevel = (typeof modelThinkingLevels)[number];
 export interface DiscoveredProviderModel {
   id: string;
   name?: string;
+  contextWindow?: number;
+  maxTokens?: number;
+  reasoning?: boolean;
+  thinkingLevelMap?: Partial<Record<ModelThinkingLevel, string | null>>;
+  input?: ("text" | "image")[];
+  /** Endpoint-declared metadata; the SDK has no generic tool enable/disable flag. */
+  supportsTools?: boolean;
+  compat?: Record<string, boolean>;
 }
 export interface McpSettingsSnapshot {
   servers: { name: string; config: RecordValue; inherited: boolean; overridden: boolean }[];
@@ -190,6 +206,8 @@ export interface DesktopSnapshot {
   widgetOrder?: string[];
   version: string;
   cwd: string;
+  /** Cached SDK Git branch; absent outside a repository. */
+  gitBranch?: string;
   agentDir: string;
   sessionId: string;
   sessionFile?: string;

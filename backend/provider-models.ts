@@ -1,5 +1,6 @@
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { DiscoveredProviderModel, RecordValue } from "../shared/types.ts";
+import { providerModelMetadata } from "./provider-model-metadata.ts";
 
 /** Read an OpenAI-compatible model list without saving the provider draft. */
 export async function discoverProviderModels(
@@ -88,7 +89,11 @@ export async function discoverProviderModels(
     const id = item.id.trim();
     if (!id || models.has(id)) continue;
     const name = typeof item.name === "string" ? item.name.trim() : "";
-    models.set(id, name ? { id, name } : { id });
+    models.set(id, {
+      id,
+      ...(name ? { name } : {}),
+      ...providerModelMetadata(item),
+    });
   }
   if (!models.size) throw new Error("端点未返回可用模型");
   return [...models.values()];
